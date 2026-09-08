@@ -90,3 +90,23 @@ accounts and a new database; [server evidence](emulator-readiness-20260908.md)
 records pinned images and actual runtime revision. Its read-only movement maps
 are generator v19 while the server expects v20. Login and character checks can
 proceed, but full pathfinding/gameplay validation remains blocked by that mismatch.
+
+## Latest current-client contract verification
+
+The client built with the later input/animation repairs reports
+`77923e92b900110858e667c1be71dc3835e7e84d-dirty` at startup. Its SHA256 is
+`c53b1f07d334883b95b00e02a16f5cf28a9ab5191698e2574a1ecb190c111ff9`.
+That exact executable passes a read-only recursive import check using only
+its directory and current System32: four non-system DLLs resolve locally,
+with individual hashes recorded in [DLL closure evidence](current-client-dll-closure-20260908.json).
+The same binary passes a fresh 120-update offline run with required Vulkan
+validation, zero logged errors and normal SDL_QUIT shutdown. Its capture fully
+decodes as 1280x720 RGBA. [Runtime identity and result](current-client-contract-smoke-20260908.json).
+
+Commands and successful build output are retained in
+`logs/fork-baseline/build-mouse-animation-callbacks.log`; read-only DLL audit
+and runtime artifacts are under the same baseline directory. The local Debug
+build retains `/W4`, disables `/WX`, and sets
+`CMAKE_EXE_LINKER_FLAGS_DEBUG=/debug /INCREMENTAL:NO` after an incremental link
+failed for lack of disk space. This proves the current local build/runtime
+contract, not clean-machine dependency bootstrap or gameplay.

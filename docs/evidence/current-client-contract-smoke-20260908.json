@@ -1,0 +1,29 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "quit_dispatched": true,
+  "shutdown_completed": true,
+  "errors": [],
+  "screenshot": {
+    "extent": [
+      1280,
+      720
+    ],
+    "bytes": 90965,
+    "sha256": "90d5a4335ebb9517c4c4a74c2c7d0fc39f4f745b08c434db367892d518c08202",
+    "completion_logged": true
+  },
+  "binary_sha256": "c53b1f07d334883b95b00e02a16f5cf28a9ab5191698e2574a1ecb190c111ff9",
+  "input": {
+    "asset_root": "G:\\WoW Projects\\wowee\\logs\\fork-baseline\\current-client-contract-smoke\\runtime\\Data",
+    "manifest_sha256": "2a42c12bf244bfb6b23d97324f7d9cfa51f36281506922860636c812af6d8e91",
+    "manifest_base_path": "../../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 120,
+  "timeout_seconds": 90.0,
+  "layer_path": "G:\\Dev\\VulkanSDK\\1.4.357.0\\Bin",
+  "source_revision": "77923e92b900110858e667c1be71dc3835e7e84d-dirty",
+  "log_sha256": "4c19ba6b8ef7c6bcf2cb2a7a4547eb8f522029579071bf39aaa887383d344ec6",
+  "scope": "offline startup and normal shutdown; no visual/presented-frame/gameplay certification"
+}
