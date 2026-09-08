@@ -1,0 +1,20 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "quit_dispatched": true,
+  "shutdown_completed": true,
+  "errors": [],
+  "input_trace_completed": true,
+  "binary_sha256": "e7eb5c40a309d683c5aee0aab55890f83e216b910f473830cbf7dc0c644bcb7e",
+  "input": {
+    "manifest_sha256": "2a42c12bf244bfb6b23d97324f7d9cfa51f36281506922860636c812af6d8e91",
+    "manifest_base_path": "../../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 12,
+  "timeout_seconds": 90.0,
+  "layer_path": "VulkanSDK 1.4.357.0/Bin",
+  "source_revision": "779c216fb51493bb6cbb330b7538ad3ba6e8f18a-dirty",
+  "log_sha256": "d8e57983a9ba203771e261ebfd415da7b9ec8c9dcdae01de00c127c985d1f05f",
+  "scope": "Seven events dispatched through the normal SDL event loop; clean 12-update shutdown with validation active. No asserted UI outcome or OS-polled input equivalence."
+}
