@@ -454,3 +454,19 @@ was produced. Ordinary pending-command-buffer reset validation errors followed
 the loss. Lack of a synchronization diagnostic does not establish correctness
 of upload/draw dependencies or rule out the independently inspected barrier
 gap. No additional replay or character creation occurred.
+
+## Buffer-dependency correction replay: live-login-12
+
+The rebuild containing narrow buffer upload/draw dependencies
+(commit `347dab9ef`), Debug binary SHA-256
+`eda45028294806f9b1a46c134e8a83db660b383b707eb5ecefef98af2e4ff752`,
+was tested with the same synchronization-validation request as run 11,
+normal shaders/model/backdrop and GPU-AV off. Auth/world/named-list receipt
+succeeded, but frame 55 again failed submission with device loss and an
+invalid write at zero. No synchronization-hazard diagnostic or delayed
+capture appeared. The driver reported **fail** and the process stopped.
+
+The buffer-dependency correction did not resolve this observed preview fault.
+Its correctness as an independent dependency fix is separate from the still
+unproven cause of the GPU failure. No character creation, world entry or
+additional replay occurred in this run.
