@@ -482,6 +482,41 @@ Its correctness as an independent dependency fix is separate from the still
 unproven cause of the GPU failure. No character creation, world entry or
 additional replay occurred in this run.
 
+## Procedural-index vertex plus constant fragment: live-login-13
+
+One diagnostic replay used Debug executable SHA-256
+`c53b1f07d334883b95b00e02a16f5cf28a9ab5191698e2574a1ecb190c111ff9`
+with core validation enabled and GPU-assisted and synchronization validation
+not requested. The fixture-only vertex SHA-256
+`5c7c0578893be500c1e10e1fd839e03108225a4155ef1e6b4d69c0f37f4a4d7c`
+derives its small clip-space position only from `gl_VertexIndex`; the constant
+fragment SHA-256 is
+`2698110bcbab8004a4038b55c5df87ddfde98b7a7655a612759d6fce9b805c84`.
+The driver verified both overrides, and post-run hashes confirm that the
+production vertex and fragment shaders remained unchanged.
+
+Auth/world/named-list receipt succeeded. Frame 58 then failed submission with
+device loss and an invalid write at zero; graphics checkpoints reported frame
+start and post-process, while the upload queue reported no checkpoint. The
+driver reported **fail**, no update-600 capture was produced, and the process
+stopped. Removing shader reads from vertex attributes and transform/descriptor
+data did not prevent the observed fault. The indexed draw, index-buffer read,
+pipeline state, bound descriptors, render pass and submission remain active,
+so this run does not identify which remaining path caused the fault. No
+character creation, world entry, retry or normal control occurred.
+
+Runs 05, 07 and 10 through 12 each logged two
+`VUID-vkResetCommandBuffer-commandBuffer-00045` pending-reset errors after
+device loss. Run 13, using the recovery correction from commit `9f7a869b5`,
+logged zero instances of that VUID and zero `vkResetCommandBuffer ... is in
+use` messages while retaining the initiating submit failure and device-fault
+report. This verifies the narrow recovery-diagnostic behavior for this replay;
+it is not evidence of a preview rendering fix.
+
+The retained `result.json` and `stdout.log` SHA-256 values are respectively
+`d116ed379bf63013673bad3bc4680cefee5e544e4dcf6f731346aef8b1b017bb` and
+`e51f6e969284f9f580c245d9d1baca4c1e075fac77a74cf1a08481aaa3951bb`.
+
 ## Offline scenario-contract regression review
 
 After run 12, three failing-before unit regressions demonstrated that the

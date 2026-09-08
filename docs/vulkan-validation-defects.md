@@ -339,9 +339,14 @@ and refuses synchronization reset after any unsuccessful idle wait. Healthy
 non-device-loss submission recovery retains its existing reset path. Resources
 remain owned for shutdown, and beginFrame already refuses work on a lost device.
 This preserves the initiating fault and removes an invalid recovery attempt;
-it is not a preview rendering fix. A subsequent fault replay is needed to
-verify the secondary reset diagnostics disappear while the original error
-remains reported.
+it is not a preview rendering fix. In the subsequent `live-login-13` fault
+replay, the original frame-58 submit failure, device loss and invalid write at
+zero remained reported, while the two pending-reset errors seen in each of
+runs 05, 07 and 10 through 12 were absent: zero
+`VUID-vkResetCommandBuffer-commandBuffer-00045` and zero
+`vkResetCommandBuffer ... is in use` messages. This narrowly verifies the
+recovery-diagnostic correction from commit `9f7a869b5`; the preview fault
+remains unresolved.
 
 The rebuilt client passed an independent 120-update offline startup/shutdown
 regression with mandatory validation enabled. Its screenshot fully decoded as
