@@ -13,8 +13,39 @@ Regenerate from the repository root using the locally extracted interface:
 python tools/capability_ledger.py --framexml Data/extracted/interface/FrameXML
 python tools/capability_ledger.py --framexml Data/extracted/interface/FrameXML --check
 python tools/test_capability_scanners.py
+python tools/test_capability_inventory.py
 python tools/validate_opcode_maps.py --expansion wotlk --strict-required --required-opcodes docs/wotlk-required-opcodes.json
 ```
+
+Optionally include a specific build's configured CTest manifest:
+
+```powershell
+ctest --test-dir build-headless-20260908 -C Debug --show-only=json-v1 > logs/ctest-manifest.json
+python tools/capability_ledger.py --ctest-json logs/ctest-manifest.json
+python tools/capability_ledger.py --ctest-json logs/ctest-manifest.json --check
+```
+
+Use PowerShell 7 or another UTF-8-preserving redirect. The manifest bytes enter
+the input digest, and `--check` requires the same manifest selection. The
+generator does not run its commands. Every configured test remains `not-run`
+in this inventory, even if an extraneous input field says `passed`; CTest's
+show-only JSON is registration evidence, not a result report. Preserve actual
+CTest output separately before recording pass/fail evidence. A missing
+manifest is explicitly `not supplied`, rather than an empty successful suite.
+
+Schema version 2 additionally records:
+
+- Literal `kClientCVars` bindings and scale expressions, named default
+  candidates, prefix/blanket default dispatch candidates and
+  `storedCVarValue` fallback reads with source locations. Dynamic expressions
+  remain unresolved; dispatch precedence and settings side effects are not
+  inferred from registration.
+- Widget method registration routes, implementation symbols where detected,
+  and separate no-op/provided candidate dispositions using the existing shared
+  provider. A name with no literal route can be dynamically generated; an
+  allowlist occurrence does not override a detected real implementation.
+- Optional configured test names, commands, labels and disabled properties,
+  all explicitly separated from execution evidence.
 
 The extraction is deliberately not committed. A machine without that input
 can run the synthetic scanner regressions and opcode checks; it cannot
@@ -59,8 +90,8 @@ the input is stock or that a service exists.
 
 ## Remaining acceptance gates
 
-BASE-02 remains open: CVar behavior, dispatch-versus-skip dispositions,
-configured test results, runtime missing-global reports and per-system live
+BASE-02 remains open: CVar runtime behavior, dispatch-versus-skip dispositions,
+test execution results, runtime missing-global reports and per-system live
 scenarios still need to be merged into this ledger. EVAL-05 remains open for
 other profiles and unresolved behavior evidence. API-01 remains open for
 pinned stock/LoD input, dynamic-registration review, fallback-off runtime
