@@ -39,7 +39,45 @@ and configure diagnostics on failure. `ctest -L headless` selects this subset
 in a full build as well. GPU/FrameXML runtime and local-emulator CI gates are
 still separate, unverified work under TEST-10.
 
-## Input-trace validation, 2026-09-08
+## Current frozen baseline, 2026-09-08
+
+The updated ready-check completion/packet-serializer regression, screenshot
+request outcomes and capture schedule, and input parser/SDL fixture were
+validated together from committed source
+`347dab9efb3319282100e71eeb19db60be695458` in fresh isolated builds.
+At snapshot time `docs/fork-roadmap.md` and `tools/live_login_check.py` had tracked
+local changes; both were excluded by `git archive`. They are not claimed as
+covered by this run. Original transcripts from earlier runs remain preserved.
+
+| Executed suite | Windows MSVC Debug | Ubuntu 24.04 GNU Debug ASan + UBSan |
+|---|---|---|
+| Pure headless | **23/23 pass** | **23/23 pass** |
+| With optional SDL events | **24/24 pass** | **24/24 pass** |
+
+Both subprocess sequences exited 0 and no tests were skipped. Linux applied
+`UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`, with sanitizer instrumentation
+through the existing test configuration. It asserted Vulkan headers and glslc
+absent before both pure and SDL stages. SDL dependencies were installed only
+after the pure build/test. Windows used the isolated VS2022 x64 build and pinned
+local GLM installation; its SDL stage used the existing vcpkg SDL2 package.
+
+Saved evidence under `build-current-baseline/`:
+
+- `identity.json`: source SHA and excluded tracked status.
+- `windows-pure-ctest.txt` and `windows-sdl-ctest.txt`: executed Windows results.
+- `linux-output.txt`, `linux-pure-last-test.log` and `linux-sdl-last-test.log`:
+  Linux configure/build/test transcripts.
+- `windows-configured-ctest.json` and `linux-configured-ctest.json`: CTest's
+  configured inventories, with matching sets of 24 test names.
+- `windows-portable-configured-ctest.json`: the same configured Windows inventory
+  with source/build roots replaced by placeholders; commands are not executable
+  until those placeholders are resolved. This inventory does not encode run status.
+
+This rerun covers CTests only. Earlier Python/OpenSSL SRP evidence remains
+separately scoped to its own snapshots; no hosted GitHub Actions, live ready-check
+flow, presented-frame capture or gameplay success follows from these results.
+
+## Earlier input-trace validation, 2026-09-08
 
 The optional `-DWOWEE_TEST_SDL_EVENTS=ON` adds the real SDL queue fixture and
 requires an SDL2 CMake package. It initializes SDL events only, with no video,
