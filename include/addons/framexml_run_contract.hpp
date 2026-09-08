@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <cstddef>
 #include <fstream>
 #include <iterator>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace wowee::addons {
 
@@ -14,6 +16,50 @@ struct RunnerViewport {
     int width = 1920;
     int height = 1080;
 };
+
+struct RunnerPoint {
+    float x = 0.0f;
+    float y = 0.0f;
+};
+
+struct RunnerMouse {
+    RunnerPoint point;
+    std::string buttons;
+};
+
+inline bool parseRunnerCoordinate(std::string_view text, float& output) {
+    if (text.empty()) return false;
+    float parsed = 0.0f;
+    const auto result = std::from_chars(text.data(), text.data() + text.size(),
+                                        parsed, std::chars_format::general);
+    if (result.ec != std::errc{} || result.ptr != text.data() + text.size()
+        || !std::isfinite(parsed)) return false;
+    output = parsed;
+    return true;
+}
+
+inline bool parseRunnerPoint(std::string_view text, RunnerPoint& output) {
+    const auto separator = text.find(',');
+    if (separator == std::string_view::npos
+        || text.find(',', separator + 1) != std::string_view::npos) return false;
+    RunnerPoint parsed;
+    if (!parseRunnerCoordinate(text.substr(0, separator), parsed.x)
+        || !parseRunnerCoordinate(text.substr(separator + 1), parsed.y)) return false;
+    output = parsed;
+    return true;
+}
+
+inline bool parseRunnerMouse(std::string_view text, RunnerMouse& output) {
+    const auto buttonsSeparator = text.rfind(',');
+    if (buttonsSeparator == std::string_view::npos) return false;
+    RunnerMouse parsed;
+    if (!parseRunnerPoint(text.substr(0, buttonsSeparator), parsed.point)) return false;
+    const auto buttons = text.substr(buttonsSeparator + 1);
+    if (buttons.find_first_not_of("LRM") != std::string_view::npos) return false;
+    parsed.buttons.assign(buttons);
+    output = std::move(parsed);
+    return true;
+}
 
 // Reject malformed and impractically large viewports before loading addons.
 // Keep the destination unchanged if either dimension is invalid.

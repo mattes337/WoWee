@@ -145,6 +145,23 @@ int main(int argc, char** argv) {
     bool viewportSpecified = false;
     for (int i = 2; i < argc; ++i) {
         const std::string argument = argv[i];
+        if (argument.rfind("--hit:", 0) == 0) {
+            wowee::addons::RunnerPoint point;
+            if (!wowee::addons::parseRunnerPoint(argument.substr(6), point)) {
+                std::fprintf(stderr, "framexml_run: --hit: requires finite X,Y coordinates\n");
+                return 2;
+            }
+            continue;
+        }
+        if (argument.rfind("--mouse:", 0) == 0) {
+            wowee::addons::RunnerMouse mouse;
+            if (!wowee::addons::parseRunnerMouse(argument.substr(8), mouse)) {
+                std::fprintf(stderr,
+                    "framexml_run: --mouse: requires finite X,Y and only L, R, M buttons\n");
+                return 2;
+            }
+            continue;
+        }
         if (argument.rfind("--viewport:", 0) == 0) {
             if (viewportSpecified || !wowee::addons::parseRunnerViewport(argument.substr(11), viewport)) {
                 std::fprintf(stderr, "framexml_run: --viewport: requires one WIDTHxHEIGHT, each dimension 1..16384\n");
@@ -621,8 +638,9 @@ int main(int argc, char** argv) {
         // insets, and a Lua walk over IsVisible() sees none of that. The two
         // disagreeing is itself the finding.
         if (std::strncmp(argv[i], "--hit:", 6) == 0) {
-            float hx = 0.0f, hy = 0.0f;
-            std::sscanf(argv[i] + 6, "%f,%f", &hx, &hy);
+            wowee::addons::RunnerPoint point;
+            wowee::addons::parseRunnerPoint(argv[i] + 6, point);
+            const float hx = point.x, hy = point.y;
             relayout();
             if (auto* engine = mgr.getLuaEngine()) {
                 // Through the client's own conversion, scale and all. A raw
@@ -652,19 +670,19 @@ int main(int argc, char** argv) {
         // lives - which frame owns a drag, which frame is offered the drop,
         // and whether either walks up its parents.
         if (std::strncmp(argv[i], "--mouse:", 8) == 0) {
-            float mx = 0.0f, my = 0.0f;
-            char held[8] = {0};
-            std::sscanf(argv[i] + 8, "%f,%f,%7s", &mx, &my, held);
+            wowee::addons::RunnerMouse mouse;
+            wowee::addons::parseRunnerMouse(argv[i] + 8, mouse);
+            const float mx = mouse.point.x, my = mouse.point.y;
             wowee::addons::LuaEngine::MouseButtons buttons;
-            buttons.left   = std::strchr(held, 'L') != nullptr;
-            buttons.right  = std::strchr(held, 'R') != nullptr;
-            buttons.middle = std::strchr(held, 'M') != nullptr;
+            buttons.left   = mouse.buttons.find('L') != std::string::npos;
+            buttons.right  = mouse.buttons.find('R') != std::string::npos;
+            buttons.middle = mouse.buttons.find('M') != std::string::npos;
             relayout();
             if (auto* engine = mgr.getLuaEngine()) {
                 engine->dispatchMouse(mx, my, viewportHeight, buttons);
             }
             std::printf("   mouse at %.0f,%.0f holding '%s'\n", mx, my,
-                        held[0] ? held : "nothing");
+                        mouse.buttons.empty() ? "nothing" : mouse.buttons.c_str());
             if (errors.size() != before) {
                 ++raised;
                 for (size_t k = before; k < errors.size(); ++k) {

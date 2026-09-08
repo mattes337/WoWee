@@ -24,6 +24,43 @@ TEST_CASE("runner viewport validates both dimensions before changing setup", "[f
     CHECK(viewport.height == 16384);
 }
 
+TEST_CASE("runner hit coordinates require two complete finite numbers", "[framexml-contract]") {
+    RunnerPoint point{7.0f, 8.0f};
+    CHECK(parseRunnerPoint("-12.5,34", point));
+    CHECK(point.x == -12.5f);
+    CHECK(point.y == 34.0f);
+    for (const auto invalid : {"", "1", ",2", "1,", "1,2,3", "1,2junk",
+                               " 1,2", "1, 2", "nan,2", "1,NaN", "inf,2",
+                               "1,-inf", "1e999,2"}) {
+        CAPTURE(invalid);
+        CHECK_FALSE(parseRunnerPoint(invalid, point));
+        CHECK(point.x == -12.5f);
+        CHECK(point.y == 34.0f);
+    }
+}
+
+TEST_CASE("runner mouse requires complete coordinates and recognized buttons",
+          "[framexml-contract]") {
+    RunnerMouse mouse{{7.0f, 8.0f}, "L"};
+    CHECK(parseRunnerMouse("-3.25,4.5,", mouse));
+    CHECK(mouse.point.x == -3.25f);
+    CHECK(mouse.point.y == 4.5f);
+    CHECK(mouse.buttons.empty());
+    for (const auto valid : {"1,2,L", "1,2,R", "1,2,M", "1,2,LRM", "1,2,MR"}) {
+        CAPTURE(valid);
+        CHECK(parseRunnerMouse(valid, mouse));
+    }
+    const RunnerMouse retained = mouse;
+    for (const auto invalid : {"", "1,2", "1,2,X", "1,2,left", "1,2,Ljunk",
+                               "1,2,L,", "nan,2,L", "1,inf,R", "1x,2,L"}) {
+        CAPTURE(invalid);
+        CHECK_FALSE(parseRunnerMouse(invalid, mouse));
+        CHECK(mouse.point.x == retained.point.x);
+        CHECK(mouse.point.y == retained.point.y);
+        CHECK(mouse.buttons == retained.buttons);
+    }
+}
+
 TEST_CASE("FrameXML runner failures in setup and callbacks cannot produce green", "[framexml-contract]") {
     CHECK(frameXmlRunExitCode(true, true, 0, 0, 0) == 0);
     CHECK(frameXmlRunExitCode(false, true, 0, 0, 0) != 0);
