@@ -302,3 +302,22 @@ This establishes an identified real client's login and world authentication
 to the isolated real emulator. It does not establish character creation,
 world entry, multiplayer scenarios or gameplay/pathfinding correctness. The
 server's v19/v20 movement-map mismatch remains unchanged and open.
+
+## Delayed character-list capture: live-login-04
+
+Exact Debug executable SHA-256
+`4b4c8c78559e3aab51015652a9db2015de704cf48cc5f60c00a4d1e9dd355005`
+repeated the unchanged account A trace and passed the same clean auth, realm,
+world-auth and character-list checks. The log acknowledges screenshot queueing
+after **600 completed update/render iterations** and subsequent save completion.
+The delay is an update-count condition, not a server-state wait.
+
+The PNG at the ignored project's `live-login-04/screenshot.png` was fully
+decoded with Pillow as 1280x720 RGBA and visually inspected. It shows the
+`Nobody here` notice, the statement that the account has no characters, and
+Back, Refresh and New Hero buttons. The observed New Hero button occupies
+approximately x711..856, y404..447; (780,425) is an interior point for a
+subsequent actual UI trace. No creation was attempted in this run. The driver
+exited 0 after all eight events and normal 1800-update shutdown, with no
+ERROR/FATAL messages. This capture establishes the visible empty-list state;
+character creation, world entry and gameplay gates remain open.

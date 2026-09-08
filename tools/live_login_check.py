@@ -155,12 +155,15 @@ def run(args):
         if args.screenshot:
             capture = args.output / "screenshot.png"
             captured = capture.is_file() and f"Screenshot saved: {capture}" in log
+            scheduled = (args.screenshot_after_updates is None or
+                f"Unattended screenshot queued after {args.screenshot_after_updates} completed update/render iterations" in log)
             report["screenshot"] = {"completion_logged": captured,
+                                    "schedule_verified": scheduled,
                                     "sha256": sha256(capture) if captured else None,
                                     "pixels_decoded": False,
                                     "after_updates": args.screenshot_after_updates,
                                     "timing": "completed-update count; not a server-state condition" if args.screenshot_after_updates is not None else "startup capture, not final state"}
-            if not captured:
+            if not captured or not scheduled:
                 report["result"] = "fail"
     report.update(binary_sha256=binary_hash, expected_binary_sha256=args.expected_binary_sha256, input=identity,
                   updates=args.updates, timeout_seconds=args.timeout,
