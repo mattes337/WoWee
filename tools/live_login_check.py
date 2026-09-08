@@ -208,11 +208,17 @@ def require_private_output(output, private_output_root=None):
         parent = output.parent
         while not parent.exists():
             parent = parent.parent
+        for candidate in (parent, *parent.parents):
+            if (candidate / ".git").exists():
+                raise ValueError("external private output must be outside any Git worktree")
         worktree = subprocess.run(
             ["git", "-C", str(parent), "rev-parse", "--show-toplevel"],
             capture_output=True, text=True)
         if worktree.returncode == 0:
             raise ValueError("external private output must be outside any Git worktree")
+        if (worktree.returncode != 128 or
+                "not a git repository" not in worktree.stderr.lower()):
+            raise ValueError("could not verify that external private output is outside Git worktrees")
         if output.exists():
             raise ValueError("output must be a fresh path that does not exist")
         return

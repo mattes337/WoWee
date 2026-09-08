@@ -1,6 +1,7 @@
 import unittest
 import tempfile
 import subprocess
+from unittest.mock import patch
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -47,6 +48,15 @@ class LiveLoginTest(unittest.TestCase):
             subprocess.run(["git", "init", "--quiet", str(root)], check=True)
             with self.assertRaisesRegex(ValueError, "Git worktree"):
                 require_private_output(root / "run-19", root)
+
+    def test_external_private_output_fails_closed_on_git_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "private"
+            root.mkdir()
+            failed = subprocess.CompletedProcess([], 128, "", "fatal: detected dubious ownership")
+            with patch("live_login_check.subprocess.run", return_value=failed):
+                with self.assertRaisesRegex(ValueError, "could not verify"):
+                    require_private_output(root / "run-19", root)
 
     def test_missing_fragment_mutates_only_fresh_runtime_copy(self):
         with tempfile.TemporaryDirectory() as directory:
