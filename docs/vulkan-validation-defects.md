@@ -306,22 +306,29 @@ replay was run during this audit.
 
 ## DEF-006 - P1 - Replacing a model ID invalidates surviving instance pointers
 
-Status: source-confirmed lifetime defect corrected; full-client rebuild pending.
+Status: source-confirmed lifetime defect corrected; focused sanitizer regression passed.
 Related task: PORT-11. This is separate from DEF-004: no same-ID replacement was
 observed before the first-preview device loss.
 
 CharacterRenderer::loadModel erased an existing unordered_map node and inserted
 a new model for the same ID. Live CharacterInstance::cachedModel pointers still
 named the erased object. Deferred GPU-handle destruction did not preserve the
-CPU model object's lifetime. Replacement now retains the existing map node via
-the production replaceModelInPlace helper. Surviving instances keep that stable
-address and reset their sequence index/time and CPU bone palette, preventing
-old model sequence indices from indexing a smaller replacement's animation data.
-Old GPU handles retain their existing deferred destruction policy.
+CPU model object's lifetime. Replacement is now prepared completely before the
+old model is touched. `installPreparedModel` then transfers the old GPU payload
+to the existing all-frame-fence cleanup path and performs a compile-time-checked
+no-throw move assignment into the same map node. Surviving instances retain that
+stable address and reset their sequence index/time and CPU bone palette,
+preventing old model sequence indices from indexing a smaller replacement's
+animation data. Invalid input and preparation failures leave the installed old
+model untouched.
 
-The headless regression keeps a live cached pointer across replacement and a
-forced map rehash, verifies new payload and unrelated-instance stability, and
-asserts the old mapped object's destructor never ran. The destructor check
-catches erase/reinsert even when an allocator happens to reuse its address.
-Windows model_replacement passes seven assertions in one case. This validates
-CPU address preservation, not GPU model-swap rendering or the preview fault.
+The headless regressions keep a live cached pointer across replacement and a
+forced map rehash, verify new payload and unrelated-instance stability, verify
+only matching animation state is reset, and model two frame cleanup queues to
+show that the retired handle is released once and only after both fences run.
+The new-model path also verifies it does not retire an unrelated payload.
+Windows Debug passes 26 assertions in four cases. An isolated Ubuntu 24.04
+snapshot built and passed the same target with AddressSanitizer and
+UndefinedBehaviorSanitizer enabled (`detect_leaks=1`, both sanitizers configured
+to halt on error). This validates CPU address and deferred-ownership semantics,
+not GPU model-swap rendering or the preview fault.

@@ -1757,8 +1757,7 @@ bool CharacterRenderer::loadModel(const pipeline::M2Model& model, uint32_t id) {
     const bool replacing = existingIt != models.end();
     if (replacing) {
         core::Logger::getInstance().warning("Model ID ", id, " already loaded, replacing");
-        destroyModelGPU(existingIt->second, /*defer=*/true);
-        // Keep the map node alive: existing instances cache its address.
+        // Keep the old model usable until replacement preparation completes.
     }
 
     M2ModelGPU gpuModel;
@@ -1821,20 +1820,10 @@ bool CharacterRenderer::loadModel(const pipeline::M2Model& model, uint32_t id) {
              (lowerName.find("mine") != std::string::npos));
     }
 
-    auto& installed = replaceModelInPlace(models, id, std::move(gpuModel));
-    if (replacing) {
-        // A replacement may have fewer sequences/bones. Retain instance
-        // identity and placement, but discard animation indices into old data.
-        for (auto& [instanceId, instance] : instances) {
-            (void)instanceId;
-            if (instance.modelId != id) continue;
-            instance.cachedModel = &installed;
-            instance.currentSequenceIndex = -1;
-            instance.animationTime = 0.0f;
-            instance.boneMatrices.assign(std::max(size_t{1}, installed.data.bones.size()),
-                                         glm::mat4(1.0f));
-        }
-    }
+    auto& installed = installPreparedModel(
+        models, existingIt, id, std::move(gpuModel),
+        [this](M2ModelGPU& oldModel) { destroyModelGPU(oldModel, /*defer=*/true); });
+    if (replacing) rebindReplacedModelInstances(instances, id, installed, glm::mat4(1.0f));
 
     core::Logger::getInstance().debug("Loaded M2 model ", id, " (", model.vertices.size(),
                        " verts, ", model.bones.size(), " bones, ", model.sequences.size(),
