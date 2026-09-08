@@ -30,5 +30,18 @@ created handles and that `CharacterRenderer` installs its `VkContext` before the
 first checked allocation. No allocator or Vulkan creation failure was injected:
 these calls currently reach VMA and Vulkan directly, and adding a mockable API
 layer was outside this bounded correction. `git diff --check` passed for each
-change. Compilation and healthy-path runtime results, if any, must be recorded
-with the build or run that actually executes them; this note claims neither.
+change.
+
+The fixture-local missing-shader run recorded in
+`live-login-15-missing-character-fragment-20260908.json` exercised a real
+failure after material resources were initialized. With the copied character
+fragment shader intentionally absent, each preview retry reported the same
+three expected error kinds and the process completed its ordered authentication,
+character-list, input-trace, and shutdown lifecycle with Vulkan validation
+enabled. Shutdown reported zero live VMA allocations in three allocator blocks;
+no other ERROR or FATAL kind occurred. This validates final cleanup for the
+shader-load failure and repeated preview retry path on the executable identified
+by its SHA-256. It does not cover injected allocator/Vulkan creation failures,
+the world-renderer owner branch, or successful preview rendering. The persisted
+client result did not emit a source revision, so the run is not claimed as a
+source-revision binding.

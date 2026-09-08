@@ -1,0 +1,43 @@
+{
+  "schema": "wowee.expected-failure-evidence.v1",
+  "result": "expected-failure-pass",
+  "scope": "fixture-local missing character fragment shader after authentication and character-list receipt",
+  "binary_sha256": "83a2e425dd6031ad2c3af882590642d00837408b984e061d03d01916013fe867",
+  "source_revision": null,
+  "source_revision_note": "The persisted client result did not emit a source revision; this evidence binds the run to the executable hash only.",
+  "artifacts": {
+    "base": "logs/fork-baseline/emulator/wowee-eval-20260908-af5200/live-login-15",
+    "result_json_sha256": "2f78d58fe4bf1fdb9703d9e844ceca45e833325ee6e83170b3acd7062422a61",
+    "stdout_log_sha256": "1e39b5e6306bb776d979320f41dc897aacb92801c6f70553f95fd9c9108ce4cf",
+    "runtime_log_sha256": "f0edd4c7c3d7c00c0d88d86b034ea00cf601109e8bf98f494d53d9b09ad44c58"
+  },
+  "fixture": {
+    "manifest_sha256": "58e341e61011ef21d7faa5caaba4d2e4fee9eb6b4b17651592332a7d2fc74f90",
+    "manifest_base_path": "../../../../../../../Data/extracted",
+    "removed_file": "runtime/assets/shaders/character.frag.spv",
+    "removed_file_original_sha256": "4744080e51d0067e5efb1ae746d33681b3b9342cf3d0379f59b6f304992cf0d3"
+  },
+  "observed": {
+    "exit_code": 0,
+    "asset_manager_initialized": true,
+    "vulkan_validation_enabled": true,
+    "auth_endpoint": "127.0.0.1:3724",
+    "protocol_order_verified": true,
+    "character_list_received": true,
+    "lifecycle_order_verified": true,
+    "intentional_error_kinds": [
+      "Failed to open shader file: assets/shaders/character.frag.spv",
+      "CharacterRenderer: failed to create character fragment shader (vk=-3)",
+      "CharacterPreview: failed to initialize CharacterRenderer"
+    ],
+    "occurrences_per_intentional_error_kind": 1747,
+    "unexpected_error_or_fatal_lines": 0,
+    "shutdown_vma_allocations": 0,
+    "shutdown_vma_blocks": 3
+  },
+  "limits": [
+    "The run exercises shader-load failure after material resources were initialized and repeated preview retry cleanup.",
+    "It does not inject VMA or Vulkan allocation failures and does not exercise the world-renderer owner rollback branch.",
+    "Zero live VMA allocations at shutdown establishes final cleanup, not absence of transient allocations during each attempt."
+  ]
+}
