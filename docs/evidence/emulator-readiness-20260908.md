@@ -470,3 +470,24 @@ The buffer-dependency correction did not resolve this observed preview fault.
 Its correctness as an independent dependency fix is separate from the still
 unproven cause of the GPU failure. No character creation, world entry or
 additional replay occurred in this run.
+
+## Offline scenario-contract regression review
+
+After run 12, three failing-before unit regressions demonstrated that the
+previous classifier could accept an account-name prefix, an account request
+logged after authentication success, or protocol success logged after process
+shutdown. The classifier now parses complete production INFO messages and
+requires the intended endpoint/account, auth/realm/world success, parsed
+character-list marker and ready marker in order. Normal completion must
+follow the actual production order: quit dispatch, trace-completion marker,
+then process exit acknowledgement. Creation additionally requires the named
+CMSG request before code 47 and a fresh named list before quit. Failure
+reasons identify missing phases without recording input payloads.
+
+Eleven focused regressions pass. Read-only reclassification of saved runs
+02 through 12 preserves every previous result: 03/04 pass their login scope,
+08 passes its explicitly isolated rendering/creation scope, and the other
+runs fail. No GPU or server replay was performed for this change. Input
+dispatch remains the existing completed-update trace; these stricter observed
+log-state assertions do not pretend that fixed scheduling has become a
+server-conditioned input wait.

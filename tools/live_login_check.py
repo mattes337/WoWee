@@ -54,31 +54,54 @@ def add_creation_trace(trace, name, x, y, after_updates):
 
 def classify(returncode, log, updates, event_count=8, created_name=None):
     report = classify_smoke(returncode, log, updates)
+    # Match complete production INFO messages, not arbitrary substrings or a
+    # username prefix. Preserve log order; update counts alone prove no state.
+    messages = [match.group(1).strip() for line in log.splitlines()
+                if (match := re.fullmatch(r"(?:\[[^\]]+\]\s*)?\[INFO\s*\]\s*(.*)", line))]
     markers = {
-        "intended_account": "Starting authentication for user: WOWEE_EVAL_A",
         "intended_auth_endpoint": "Connecting to auth server: 127.0.0.1:3724",
-        "auth_success": "   AUTHENTICATION SUCCESSFUL!",
+        "intended_account": "Starting authentication for user: WOWEE_EVAL_A",
+        "auth_success": "AUTHENTICATION SUCCESSFUL!",
         "realm_list": "REALM LIST RECEIVED!",
         "world_auth_success": "AUTH_RESPONSE OK - world authentication successful",
+        "character_list_received": "CHARACTER LIST RECEIVED",
         "character_list": "Ready to select character",
-        "trace_completed": f"SDL input trace completed: {event_count} events, {updates} completed update/render iterations",
+        "quit_dispatched": f"Unattended smoke SDL_QUIT dispatched after {updates} completed update/render iterations",
+        "trace_completed": f"SDL input trace completed: {event_count} events, {updates} completed update/render iterations; not presented-frame assertions",
+        "shutdown_completed": "Application exited successfully",
     }
-    positions = [log.find(markers[key]) for key in
-                 ("auth_success", "realm_list", "world_auth_success", "character_list")]
-    report.update({key: marker in log for key, marker in markers.items()})
-    report["protocol_order_verified"] = all(p >= 0 for p in positions) and positions == sorted(positions)
-    report["result"] = "pass" if (report["result"] == "pass"
-        and all(report[key] for key in markers) and report["protocol_order_verified"]) else "fail"
+    def position(message, start=0):
+        return next((i for i in range(start, len(messages)) if messages[i] == message), -1)
+    positions = {key: position(marker) for key, marker in markers.items()}
+    report.update({key: index >= 0 for key, index in positions.items()})
+    protocol_keys = list(markers)[:7]
+    protocol_positions = [positions[key] for key in protocol_keys]
+    report["protocol_order_verified"] = (all(i >= 0 for i in protocol_positions)
+        and protocol_positions == sorted(protocol_positions))
+    lifecycle = [positions[key] for key in
+                 ("character_list", "quit_dispatched", "trace_completed", "shutdown_completed")]
+    report["lifecycle_order_verified"] = all(i >= 0 for i in lifecycle) and lifecycle == sorted(lifecycle)
+    failures = ["missing_" + key for key, index in positions.items() if index < 0]
+    if not report["protocol_order_verified"]:
+        failures.append("protocol_events_out_of_order")
+    if not report["lifecycle_order_verified"]:
+        failures.append("shutdown_events_out_of_order")
+    if report["result"] != "pass":
+        failures.append("process_or_validation_failure")
     if created_name:
-        created = log.find("Character created successfully (code=47)")
-        refreshed = log.find("CHARACTER LIST RECEIVED", created) if created >= 0 else -1
-        listed = re.search(r"\[\d+\] " + re.escape(created_name) + r"(?:\r?\n|$)", log[refreshed:]) if refreshed >= 0 else None
-        ready = log.find("Ready to select character", refreshed + listed.end()) if listed else -1
+        sent = position("CMSG_CHAR_CREATE sent for: " + created_name, positions["character_list"] + 1)
+        created = position("Character created successfully (code=47)", sent + 1) if sent >= 0 else -1
+        refreshed = position("CHARACTER LIST RECEIVED", created + 1) if created >= 0 else -1
+        listed = next((i for i in range(refreshed + 1, len(messages))
+                       if re.fullmatch(r"\[\d+\] " + re.escape(created_name), messages[i])), -1) if refreshed >= 0 else -1
+        ready = position("Ready to select character", listed + 1) if listed >= 0 else -1
         report["creation_response_and_refreshed_list"] = (
-            created > positions[-1] and refreshed > created and listed is not None
-            and ready > refreshed and ready < log.find(markers["trace_completed"]))
+            sent > positions["character_list"] >= 0 and created > sent and refreshed > created
+            and listed > refreshed and ready > listed and ready < positions["quit_dispatched"])
         if not report["creation_response_and_refreshed_list"]:
-            report["result"] = "fail"
+            failures.append("creation_not_confirmed_by_fresh_list")
+    report["failure_reasons"] = failures
+    report["result"] = "fail" if failures else "pass"
     return report
 
 
