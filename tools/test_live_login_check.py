@@ -34,6 +34,18 @@ class LiveLoginTest(unittest.TestCase):
                          "preview isolation: non-indexed-draw; shader override; "
                          "not normal-mode certification")
 
+    def test_non_indexed_preview_isolation_requires_production_marker(self):
+        missing = classify(0, GOOD, 1800, preview_isolation="non-indexed-draw")
+        self.assertEqual(missing["result"], "fail")
+        self.assertIn("missing_preview_isolation_marker", missing["failure_reasons"])
+        marked = GOOD.replace(
+            "[INFO ] Ready to select character",
+            "[INFO ] CharacterRenderer: preview non-indexed draw diagnostic enabled\n"
+            "[INFO ] Ready to select character")
+        result = classify(0, marked, 1800, preview_isolation="non-indexed-draw")
+        self.assertEqual(result["result"], "pass")
+        self.assertTrue(result["preview_isolation_marker"])
+
     def test_account_prefix_is_not_exact_test_account(self):
         self.assertEqual(classify(0, GOOD.replace("WOWEE_EVAL_A", "WOWEE_EVAL_A_OTHER"), 1800)["result"], "fail")
 

@@ -70,7 +70,8 @@ def add_creation_trace(trace, name, x, y, after_updates):
     ])
 
 
-def classify(returncode, log, updates, event_count=8, created_name=None):
+def classify(returncode, log, updates, event_count=8, created_name=None,
+             preview_isolation=None):
     report = classify_smoke(returncode, log, updates)
     # Match complete production INFO messages, not arbitrary substrings or a
     # username prefix. Preserve log order; update counts alone prove no state.
@@ -106,6 +107,11 @@ def classify(returncode, log, updates, event_count=8, created_name=None):
         failures.append("shutdown_events_out_of_order")
     if report["result"] != "pass":
         failures.append("process_or_validation_failure")
+    if preview_isolation == "non-indexed-draw":
+        marker = "CharacterRenderer: preview non-indexed draw diagnostic enabled"
+        report["preview_isolation_marker"] = position(marker) >= 0
+        if not report["preview_isolation_marker"]:
+            failures.append("missing_preview_isolation_marker")
     if created_name:
         sent = position("CMSG_CHAR_CREATE sent for: " + created_name, positions["character_list"] + 1)
         created = position("Character created successfully (code=47)", sent + 1) if sent >= 0 else -1
@@ -219,7 +225,8 @@ def run(args):
         log = redact(log_path.read_text(encoding="utf-8", errors="replace")) if log_path.is_file() else ""
         if log_path.is_file():
             log_path.write_text(log, encoding="utf-8")
-        report = classify(code, log, args.updates, len(trace["events"]), args.create_name)
+        report = classify(code, log, args.updates, len(trace["events"]),
+                          args.create_name, args.preview_isolation)
         if args.screenshot:
             capture = args.output / "screenshot.png"
             captured = capture.is_file() and f"Screenshot saved: {capture}" in log
