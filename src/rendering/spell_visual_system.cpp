@@ -158,7 +158,7 @@ void SpellVisualSystem::loadSpellVisualDbc() {
         }
     }
     LOG_INFO("SpellVisual: loaded precast=", loadedPrecast, " cast=", loadedCast, " impact=", loadedImpact,
-             " visual\u2192M2 mappings (of ", svDbc->getRecordCount(), " records)");
+             " visual->M2 mappings (of ", svDbc->getRecordCount(), " records)");
 }
 
 // ---------------------------------------------------------------------------

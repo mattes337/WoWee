@@ -250,6 +250,11 @@ struct CharMaterialUBO {
     float _pad[1];
 };
 
+// Ring offsets and alignment masks use the Vulkan dynamic-offset uint32_t
+// domain. Keep sizeof from promoting the mask expression to size_t.
+static_assert(sizeof(CharMaterialUBO) <= std::numeric_limits<uint32_t>::max());
+constexpr uint32_t kCharMaterialUboSize = static_cast<uint32_t>(sizeof(CharMaterialUBO));
+
 // GPU vertex struct with tangent (expanded from M2Vertex for normal mapping)
 struct CharVertexGPU {
     glm::vec3 position;      // 12 bytes, offset 0
@@ -418,7 +423,7 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
         materialUboAlignment_ = static_cast<uint32_t>(props.limits.minUniformBufferOffsetAlignment);
         if (materialUboAlignment_ < 1) materialUboAlignment_ = 1;
         // Round up UBO size to alignment
-        uint32_t alignedUboSize = (sizeof(CharMaterialUBO) + materialUboAlignment_ - 1) & ~(materialUboAlignment_ - 1);
+        uint32_t alignedUboSize = (kCharMaterialUboSize + materialUboAlignment_ - 1) & ~(materialUboAlignment_ - 1);
         uint32_t ringSize = alignedUboSize * MATERIAL_RING_CAPACITY;
         for (int i = 0; i < 2; i++) {
             VkBufferCreateInfo bci{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -2508,7 +2513,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
     }
 
     // Pre-compute aligned UBO stride for ring buffer sub-allocation
-    const uint32_t uboStride = (sizeof(CharMaterialUBO) + materialUboAlignment_ - 1) & ~(materialUboAlignment_ - 1);
+    const uint32_t uboStride = (kCharMaterialUboSize + materialUboAlignment_ - 1) & ~(materialUboAlignment_ - 1);
     const uint32_t ringCapacityBytes = uboStride * MATERIAL_RING_CAPACITY;
     auto getMaterialDescriptorSet = [&](VkTexture* diffuse, VkTexture* normal) -> VkDescriptorSet {
         // Valid, not merely non-null. descriptorInfo() hands back whatever the

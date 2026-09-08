@@ -1344,7 +1344,7 @@ void TerrainManager::workerLoop() {
     LOG_INFO("Terrain worker thread started");
 
     while (workerRunning.load()) {
-        TileCoord coord;
+        TileCoord coord{};
         bool hasWork = false;
 
         {
