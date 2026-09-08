@@ -353,6 +353,12 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
     core::Logger::getInstance().info("Character anim threads: ", numAnimThreads_);
 
     VkDevice device = vkCtx_->getDevice();
+    auto failInitialization = [&](const char* resource, VkResult result) {
+        LOG_ERROR("CharacterRenderer: failed to create ", resource,
+                  " (vk=", static_cast<int>(result), ")");
+        shutdown();
+        return false;
+    };
 
     // --- Descriptor set layouts ---
 
@@ -375,7 +381,8 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
         VkDescriptorSetLayoutCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
         ci.bindingCount = 3;
         ci.pBindings = bindings;
-        vkCreateDescriptorSetLayout(device, &ci, nullptr, &materialSetLayout_);
+        const VkResult result = vkCreateDescriptorSetLayout(device, &ci, nullptr, &materialSetLayout_);
+        if (result != VK_SUCCESS) return failInitialization("material descriptor layout", result);
     }
 
     // Bone set layout (set 2): binding 0 = STORAGE_BUFFER (bone matrices)
@@ -389,13 +396,15 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
         VkDescriptorSetLayoutCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
         ci.bindingCount = 1;
         ci.pBindings = &binding;
-        vkCreateDescriptorSetLayout(device, &ci, nullptr, &boneSetLayout_);
+        const VkResult result = vkCreateDescriptorSetLayout(device, &ci, nullptr, &boneSetLayout_);
+        if (result != VK_SUCCESS) return failInitialization("bone descriptor layout", result);
     }
 
     // --- Descriptor pools ---
     // Material descriptors are transient and allocated every draw; keep per-frame
     // pools so we can reset safely each frame slot without exhausting descriptors.
-    for (auto& materialDescPool : materialDescPools_) {
+    for (size_t poolIndex = 0; poolIndex < materialDescPools_.size(); ++poolIndex) {
+        auto& materialDescPool = materialDescPools_[poolIndex];
         VkDescriptorPoolSize sizes[] = {
             {.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_MATERIAL_SETS * 2},  // diffuse + normal/height
             {.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = MAX_MATERIAL_SETS},
@@ -405,7 +414,13 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
         ci.poolSizeCount = 2;
         ci.pPoolSizes = sizes;
         ci.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-        vkCreateDescriptorPool(device, &ci, nullptr, &materialDescPool);
+        const VkResult result = vkCreateDescriptorPool(device, &ci, nullptr, &materialDescPool);
+        if (result != VK_SUCCESS) {
+            LOG_ERROR("CharacterRenderer: failed to create material descriptor pool ",
+                      poolIndex, " (vk=", static_cast<int>(result), ")");
+            shutdown();
+            return false;
+        }
     }
     {
         VkDescriptorPoolSize sizes[] = {
@@ -416,7 +431,8 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
         ci.poolSizeCount = 1;
         ci.pPoolSizes = sizes;
         ci.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-        vkCreateDescriptorPool(device, &ci, nullptr, &boneDescPool_);
+        const VkResult result = vkCreateDescriptorPool(device, &ci, nullptr, &boneDescPool_);
+        if (result != VK_SUCCESS) return failInitialization("bone descriptor pool", result);
     }
 
     // --- Material UBO ring buffers (one per frame slot) ---
@@ -436,9 +452,16 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
             aci.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
             aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
             VmaAllocationInfo allocInfo{};
-            vmaCreateBuffer(ctx->getAllocator(), &bci, &aci,
-                            &materialRingBuffer_[i], &materialRingAlloc_[i], &allocInfo);
+            const VkResult result = vmaCreateBuffer(ctx->getAllocator(), &bci, &aci,
+                &materialRingBuffer_[i], &materialRingAlloc_[i], &allocInfo);
             materialRingMapped_[i] = allocInfo.pMappedData;
+            if (result != VK_SUCCESS || !materialRingBuffer_[i] ||
+                !materialRingAlloc_[i] || !materialRingMapped_[i]) {
+                LOG_ERROR("CharacterRenderer: failed to create mapped material ring ", i,
+                          " (vk=", static_cast<int>(result), ")");
+                shutdown();
+                return false;
+            }
         }
     }
 
@@ -457,15 +480,18 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
         ci.pSetLayouts = setLayouts;
         ci.pushConstantRangeCount = 1;
         ci.pPushConstantRanges = &pushRange;
-        vkCreatePipelineLayout(device, &ci, nullptr, &pipelineLayout_);
+        const VkResult result = vkCreatePipelineLayout(device, &ci, nullptr, &pipelineLayout_);
+        if (result != VK_SUCCESS) return failInitialization("pipeline layout", result);
     }
 
     // --- Load shaders ---
     rendering::VkShaderModule charVert, charFrag;
-    if (!charVert.loadFromFile(device, "assets/shaders/character.vert.spv") ||
-        !charFrag.loadFromFile(device, "assets/shaders/character.frag.spv")) {
-        LOG_ERROR("Character: Missing required shaders, cannot initialize");
-        return false;
+    if (!charVert.loadFromFile(device, "assets/shaders/character.vert.spv")) {
+        return failInitialization("character vertex shader", VK_ERROR_INITIALIZATION_FAILED);
+    }
+    if (!charFrag.loadFromFile(device, "assets/shaders/character.frag.spv")) {
+        charVert.destroy();
+        return failInitialization("character fragment shader", VK_ERROR_INITIALIZATION_FAILED);
     }
 
     VkRenderPass mainPass = renderPassOverride_ ? renderPassOverride_ : vkCtx_->getImGuiRenderPass();
@@ -476,6 +502,11 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
     // Clean up shader modules
     charVert.destroy();
     charFrag.destroy();
+
+    if (!opaquePipeline_ || !alphaTestPipeline_ || !alphaPipeline_ ||
+        !additivePipeline_ || !translucentPipeline_) {
+        return failInitialization("required main pipeline", VK_ERROR_INITIALIZATION_FAILED);
+    }
 
     createFallbackTextures(device);
 
@@ -568,8 +599,8 @@ void CharacterRenderer::shutdown() {
             vmaDestroyBuffer(alloc, materialRingBuffer_[i], materialRingAlloc_[i]);
             materialRingBuffer_[i] = VK_NULL_HANDLE;
             materialRingAlloc_[i] = VK_NULL_HANDLE;
-            materialRingMapped_[i] = nullptr;
         }
+        materialRingMapped_[i] = nullptr;
         materialRingOffset_[i] = 0;
     }
 

@@ -3244,9 +3244,10 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
     }
     if (!characterRenderer) {
         characterRenderer = std::make_unique<CharacterRenderer>();
-        if (!characterRenderer->initialize(vkCtx, perFrameSetLayout, assetManager))
+        if (!characterRenderer->initialize(vkCtx, perFrameSetLayout, assetManager)) {
             LOG_ERROR("CharacterRenderer initialization failed");
-        if (shadowRenderPass != VK_NULL_HANDLE) {
+            characterRenderer.reset();
+        } else if (shadowRenderPass != VK_NULL_HANDLE) {
             if (!characterRenderer->initializeShadow(shadowRenderPass))
                 LOG_WARNING("Character shadow pipeline initialization failed");
         }
