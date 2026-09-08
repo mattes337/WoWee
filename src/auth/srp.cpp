@@ -1,5 +1,6 @@
 #include "auth/srp.hpp"
 #include "auth/crypto.hpp"
+#include "auth/srp_session_key.hpp"
 #include "core/logger.hpp"
 #include <algorithm>
 #include <cctype>
@@ -163,9 +164,10 @@ void SRP::computeSessionKey() {
     LOG_DEBUG("Computing session key");
 
     // u = H(A | B) - scrambling parameter
-    // Use natural BigNum sizes to match TrinityCore's UpdateBigNumbers behavior
-    std::vector<uint8_t> A_bytes_u = A.toArray(true);
-    std::vector<uint8_t> B_bytes_u = B.toArray(true);
+    // WoW hashes the 32-byte wire fields, including high-order zero padding.
+    // Converting to natural BigNum widths changes u for padded public values.
+    std::vector<uint8_t> A_bytes_u = A.toArray(true, 32);
+    std::vector<uint8_t> B_bytes_u = B.toArray(true, 32);
 
     std::vector<uint8_t> AB;
     AB.insert(AB.end(), A_bytes_u.begin(), A_bytes_u.end());
@@ -195,27 +197,7 @@ void SRP::computeSessionKey() {
 
     LOG_DEBUG("Session key S calculated");
 
-    // Interleave the session key to create K
-    // Split S into even and odd bytes, hash each half, then interleave
-    std::vector<uint8_t> S_bytes = S.toArray(true, 32);  // 32 bytes for WoW
-
-    std::vector<uint8_t> S1, S2;
-    for (size_t i = 0; i < 16; ++i) {
-        S1.push_back(S_bytes[i * 2]);       // Even indices
-        S2.push_back(S_bytes[i * 2 + 1]);   // Odd indices
-    }
-
-    // Hash each half
-    std::vector<uint8_t> S1_hash = Crypto::sha1(S1);  // 20 bytes
-    std::vector<uint8_t> S2_hash = Crypto::sha1(S2);  // 20 bytes
-
-    // Interleave the hashes to create K (40 bytes total)
-    K.clear();
-    K.reserve(40);
-    for (size_t i = 0; i < 20; ++i) {
-        K.push_back(S1_hash[i]);
-        K.push_back(S2_hash[i]);
-    }
+    K = deriveSrpSessionKey(S.toArray(true, 32));
 
     LOG_DEBUG("Interleaved session key K created (", K.size(), " bytes)");
 }
@@ -244,10 +226,11 @@ void SRP::computeProofs(const std::string& username) {
     // Compute H(username)
     std::vector<uint8_t> user_hash = Crypto::sha1(upperUser);
 
-    // Get A, B, and salt as byte arrays - natural sizes for hash inputs
-    std::vector<uint8_t> A_bytes = A.toArray(true);
-    std::vector<uint8_t> B_bytes = B.toArray(true);
-    std::vector<uint8_t> s_bytes = s.toArray(true);
+    // Proof inputs retain the protocol's fixed widths, as do the transmitted A
+    // and challenge fields. A zero at the high end is still part of the hash.
+    std::vector<uint8_t> A_bytes = A.toArray(true, 32);
+    std::vector<uint8_t> B_bytes = B.toArray(true, 32);
+    std::vector<uint8_t> s_bytes = s.toArray(true, 32);
 
     // M1 = H( H(N)^H(g) | H(I) | s | A | B | K )
     std::vector<uint8_t> M1_input;

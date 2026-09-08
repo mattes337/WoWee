@@ -5,6 +5,7 @@
 
 using wowee::auth::SRP;
 using wowee::auth::Crypto;
+using wowee::auth::BigNum;
 
 // WoW 3.3.5a uses well-known SRP6a parameters.
 // Generator g = 7, N = a large 32-byte safe prime.
@@ -124,4 +125,54 @@ TEST_CASE("SRP setUseHashedK changes behavior", "[srp]") {
     auto m1_hashed = runWithHashedK(true);
     // Different k derivation → different M1
     REQUIRE(m1_default != m1_hashed);
+}
+
+TEST_CASE("SRP proof agrees with server arithmetic for zero-padded challenge fields", "[srp]") {
+    // Synthetic registration only. b=147 makes B's high little-endian byte zero;
+    // the salt deliberately has the same padding edge. No private client
+    // ephemeral injection is needed: derive the server secret from emitted A.
+    const auto hashParts = [](std::initializer_list<std::vector<uint8_t>> parts) {
+        std::vector<uint8_t> joined;
+        for (const auto& part : parts) joined.insert(joined.end(), part.begin(), part.end());
+        return Crypto::sha1(joined);
+    };
+    std::vector<uint8_t> salt(32, 0xAA);
+    salt.back() = 0;
+    const BigNum modulus(kWoWPrime, true), generator(7), serverPrivate(147);
+    const BigNum exponent(hashParts({salt, Crypto::sha1(std::string("TEST:PASSWORD"))}), true);
+    const BigNum verifier = generator.modPow(exponent, modulus);
+    const BigNum serverPublic = verifier.multiply(BigNum(3))
+        .add(generator.modPow(serverPrivate, modulus)).mod(modulus);
+    REQUIRE(serverPublic.toArray(true).size() == 31);
+    const auto publicBytes = serverPublic.toArray(true, 32);
+
+    SRP client;
+    client.initialize("TEST", "PASSWORD");
+    client.feed(publicBytes, kWoWGenerator, kWoWPrime, salt);
+    const auto clientPublic = client.getA();
+    const BigNum scrambler(hashParts({clientPublic, publicBytes}), true);
+    const auto shared = BigNum(clientPublic, true).multiply(verifier.modPow(scrambler, modulus))
+        .modPow(serverPrivate, modulus).toArray(true, 32);
+    size_t start = 0;
+    while (start < shared.size() && shared[start] == 0) ++start;
+    start += start % 2;
+    std::vector<uint8_t> even, odd;
+    for (size_t i = start; i < shared.size(); i += 2) {
+        even.push_back(shared[i]);
+        odd.push_back(shared[i + 1]);
+    }
+    const auto evenHash = Crypto::sha1(even), oddHash = Crypto::sha1(odd);
+    std::vector<uint8_t> key;
+    for (size_t i = 0; i < 20; ++i) {
+        key.push_back(evenHash[i]);
+        key.push_back(oddHash[i]);
+    }
+    REQUIRE(client.getSessionKey() == key);
+    auto groupHash = Crypto::sha1(kWoWPrime);
+    const auto generatorHash = Crypto::sha1(kWoWGenerator);
+    for (size_t i = 0; i < groupHash.size(); ++i) groupHash[i] ^= generatorHash[i];
+    const auto proof = hashParts({groupHash, Crypto::sha1(std::string("TEST")), salt,
+                                 clientPublic, publicBytes, key});
+    REQUIRE(client.getM1() == proof);
+    REQUIRE(client.verifyServerProof(hashParts({clientPublic, proof, key})));
 }
