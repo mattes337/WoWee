@@ -43,6 +43,43 @@ still separate, unverified work under TEST-10.
 
 ## Latest combined frozen baseline, 2026-09-08
 
+Committed source `2b1c97914ae4b16f910a3f3c48a63411469f7f11` was captured
+with `git archive` and extracted read-only for all four runs. The 137,943,040
+byte archive contains 2,500 files and has SHA-256
+`69d1365b381401a243d3969cd3852117207820cd752eed12a7e3b388e3c548a2`.
+
+| Executed suite | Windows MSVC Debug | Ubuntu 24.04 GNU Debug ASan + UBSan |
+|---|---|---|
+| Pure headless | **28/28 pass** | **28/28 pass** |
+| With optional SDL events | **29/29 pass** | **29/29 pass** |
+
+No tests were skipped. Both SDL tiers used `SDL_VIDEODRIVER=dummy`;
+`input_trace_sdl` is the sole optional target. The full `widget_tree` target,
+including the production wheel-dispatch extraction, passed in every suite; a
+separate Windows invocation reports 449 assertions across 101 cases.
+
+Linux used Ubuntu image
+`sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517`,
+GNU 13.3.0, `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1` and
+`UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`. Vulkan headers and `glslc`
+were asserted absent before the pure configuration and both before and after
+installing `libsdl2-dev` for the SDL configuration.
+
+The portable manifest and complete CTest outputs are under
+`C:/wowee-headless-baseline-2b1c97914/`; the entry point is `manifest.json`
+(SHA-256 `babefaf00b8d73e4e00bfa346f2bff2169126fba256505ccc0cc348b9c519250`).
+The 29-test Windows SDL configured inventory is
+`windows-sdl-configured-ctest.json` (SHA-256
+`bf40ab65f92b97108800df65ec1939f7c5c961fb49aea9014589ac9ea9616696`);
+it records configuration, while the separate CTest transcript records execution.
+[Tracked identities and output hashes](evidence/headless-baseline-2b1c97914-20260908.json)
+allow the retained files to be checked independently. Native-array fix 255
+and smoothing change f041 landed later and are explicitly outside this frozen
+snapshot. These results cover headless CTest only; they do not certify a GPU,
+FrameXML runtime, server or gameplay path.
+
+## Previous combined frozen baseline, 2026-09-08
+
 Committed source `915c8752feae5c4e1cbf475983cda07d568e0616` was captured once
 with `git archive` and used for every result below. The archive SHA-256 is
 `da535eafc069df02091af2661555547565684ed24d5b31d8acb10972265cba7d`.
