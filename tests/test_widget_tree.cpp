@@ -2939,3 +2939,51 @@ TEST_CASE("A rect resolves before the first layout once the screen is known",
     CHECK(w->left == Catch::Approx(35.0f));
     CHECK(w->bottom == Catch::Approx(115.0f));
 }
+
+TEST_CASE("On-demand root anchors use current screen dimensions and UI scale",
+          "[widget][layout][scale][root-contract]") {
+    WidgetTree tree;
+    const uint32_t frame = tree.create(WidgetKind::Frame, tree.uiParentId(), "RootAnchored");
+    tree.setWidth(frame, 100.0f);
+    tree.setHeight(frame, 50.0f);
+    Anchor anchor;
+    anchor.point = "TOPRIGHT";
+    anchor.relativePoint = "TOPRIGHT";
+    tree.addPoint(frame, anchor);
+
+    float pixelW = kScreenW;
+    float pixelH = kScreenH;
+    float expectedW = kScreenW;
+    float expectedH = kScreenH;
+    SECTION("known screen before the first full pass") {
+        tree.noteScreenSize(kScreenW, kScreenH);
+    }
+    SECTION("resize before the next full pass") {
+        tree.layout(kScreenW, kScreenH);
+        pixelW = 1600.0f;
+        pixelH = 900.0f;
+        tree.noteScreenSize(pixelW, pixelH);
+        expectedW = pixelW / (pixelH / WidgetTree::kInterfaceHeight);
+    }
+    SECTION("UI scale changes before the next full pass") {
+        tree.layout(kScreenW, kScreenH);
+        tree.setUserScale(0.8f);
+        expectedW /= 0.8f;
+        expectedH /= 0.8f;
+    }
+
+    tree.resolveWidget(frame);
+    const Widget* resolved = tree.get(frame);
+    REQUIRE(resolved != nullptr);
+    CHECK(resolved->left == Catch::Approx(expectedW - 100.0f));
+    CHECK(resolved->bottom == Catch::Approx(expectedH - 50.0f));
+    CHECK(tree.get(tree.root())->rectW == Catch::Approx(expectedW));
+    CHECK(tree.get(tree.uiParentId())->rectH == Catch::Approx(expectedH));
+
+    // A later full pass must not move the frame after the getter answered.
+    const float previousLeft = resolved->left;
+    const float previousBottom = resolved->bottom;
+    tree.layout(pixelW, pixelH);
+    CHECK(resolved->left == Catch::Approx(previousLeft));
+    CHECK(resolved->bottom == Catch::Approx(previousBottom));
+}

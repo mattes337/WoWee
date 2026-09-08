@@ -676,8 +676,11 @@ void WidgetTree::resolveWidget(uint32_t id) {
     if (lastPixelW_ <= 0.0f || lastPixelH_ <= 0.0f) return;
     const Widget* w = get(id);
     if (!w || w->resolvedGen == layoutGeneration_) return;
+    // setUserScale invalidates the generation before a full pass can run.
+    uiScale_ = (lastPixelH_ / kInterfaceHeight) * userScale_;
     const float screenW = (uiScale_ > 0.0f) ? (lastPixelW_ / uiScale_) : lastPixelW_;
     const float screenH = (uiScale_ > 0.0f) ? (lastPixelH_ / uiScale_) : lastPixelH_;
+    layoutScreenRoots(screenW, screenH);
     int depth = 0;
     resolveChain(id, screenW, screenH, depth);
 }
@@ -686,10 +689,8 @@ void WidgetTree::resolveChain(uint32_t id, float screenW, float screenH, int& de
     if (id == 0) return;
     Widget* w = get(id);
     if (!w || w->resolvedGen == layoutGeneration_) return;
-    // The screen and UIParent are placed by the full pass and have no anchors
-    // of their own - running the anchor solver over them would give the screen
-    // a rect derived from nothing, and everything measured against it after
-    // that. They are already correct; the walk stops on them.
+    // The screen and UIParent are prepared by layoutScreenRoots, including
+    // before the first full pass. They have no anchors to solve here.
     if (id == rootId_ || id == uiParentId_) {
         w->resolvedGen = layoutGeneration_;
         return;
@@ -719,30 +720,7 @@ void WidgetTree::resolveChain(uint32_t id, float screenW, float screenH, int& de
     layoutWidgetSelf(id, screenW, screenH);
 }
 
-void WidgetTree::layout(float pixelW, float pixelH) {
-    // Reentry would be the layout of a layout: this is called from the rect
-    // getters now, and it moves widgets, and moving a widget is what raises
-    // the flag those getters watch.
-    if (layingOut_) return;
-    layingOut_ = true;
-    struct Done { bool& f; ~Done() { f = false; } } done{layingOut_};
-    lastPixelW_ = pixelW;
-    lastPixelH_ = pixelH;
-    // How many pixels one interface unit is worth. Everything below works in
-    // units; only the renderer and hit testing convert.
-    // The screen's height decides the base, and the player's UI Scale
-    // multiplies it. A smaller scale means a smaller interface and more units
-    // of room, which is what the slider is understood to do.
-    uiScale_ = ((pixelH > 0.0f) ? (pixelH / kInterfaceHeight) : 1.0f) * userScale_;
-    const float screenW = (uiScale_ > 0.0f) ? (pixelW / uiScale_) : pixelW;
-    // The same division as the width, and it used to be the constant instead.
-    // The two agree at a user scale of 1 and only there: the screen shows
-    // pixelH / uiScale_ units, so at any other scale the root was laid out at
-    // a height the screen does not have. Above 1 that put everything anchored
-    // to the top off the top of the screen - and it is why raising the scale
-    // ceiling made the options frame unreachable rather than merely large.
-    const float screenH = (uiScale_ > 0.0f) ? (pixelH / uiScale_) : pixelH;
-
+void WidgetTree::layoutScreenRoots(float screenW, float screenH) {
     Widget& rootW = widgets_[rootId_];
     rootW.left = 0.0f;
     rootW.bottom = 0.0f;
@@ -768,6 +746,38 @@ void WidgetTree::layout(float pixelW, float pixelH) {
         ui->effStrata = ui->strata;
         ui->effLevel = 0;
         ui->effScale = 1.0f;
+    }
+    rootW.resolvedGen = layoutGeneration_;
+    if (Widget* ui = get(uiParentId_)) ui->resolvedGen = layoutGeneration_;
+}
+
+void WidgetTree::layout(float pixelW, float pixelH) {
+    // Reentry would be the layout of a layout: this is called from the rect
+    // getters now, and it moves widgets, and moving a widget is what raises
+    // the flag those getters watch.
+    if (layingOut_) return;
+    layingOut_ = true;
+    struct Done { bool& f; ~Done() { f = false; } } done{layingOut_};
+    lastPixelW_ = pixelW;
+    lastPixelH_ = pixelH;
+    // How many pixels one interface unit is worth. Everything below works in
+    // units; only the renderer and hit testing convert.
+    // The screen's height decides the base, and the player's UI Scale
+    // multiplies it. A smaller scale means a smaller interface and more units
+    // of room, which is what the slider is understood to do.
+    uiScale_ = ((pixelH > 0.0f) ? (pixelH / kInterfaceHeight) : 1.0f) * userScale_;
+    const float screenW = (uiScale_ > 0.0f) ? (pixelW / uiScale_) : pixelW;
+    // The same division as the width, and it used to be the constant instead.
+    // The two agree at a user scale of 1 and only there: the screen shows
+    // pixelH / uiScale_ units, so at any other scale the root was laid out at
+    // a height the screen does not have. Above 1 that put everything anchored
+    // to the top off the top of the screen - and it is why raising the scale
+    // ceiling made the options frame unreachable rather than merely large.
+    const float screenH = (uiScale_ > 0.0f) ? (pixelH / uiScale_) : pixelH;
+
+    layoutScreenRoots(screenW, screenH);
+    Widget& rootW = widgets_[rootId_];
+    if (Widget* ui = get(uiParentId_); ui && ui != &rootW) {
         for (uint32_t child : ui->children) layoutWidget(child, screenW, screenH);
     }
 

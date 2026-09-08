@@ -984,6 +984,7 @@ private:
     /// wheel without taking the mouse counts as under the cursor.
     [[nodiscard]] uint32_t hitTestFor(float x, float y, bool forWheel) const;
     std::vector<LinkRect> linkRects_;
+    void layoutScreenRoots(float screenW, float screenH);
     void layoutWidget(uint32_t id, float screenW, float screenH);
     /// The same, without descending into the children. What a single-widget
     /// resolve needs, and the body of the recursive one.
