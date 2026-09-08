@@ -85,14 +85,14 @@ cases failed against the shared production literal.
 The source audit also found work beyond these repairs: endDelay is stored but
 not used by the tick; easing is exposed through GetSmoothProgress while
 interpolation uses raw progress; repeated explicit Finish calls are not guarded
-for exactly once completion. Loop carryover, callback reentrancy, paused Play
-semantics and cleanup on hide/destruction/reload also need dedicated tests
-before making broader behavior claims.
+for exactly once completion. Loop carryover, paused Play semantics and cleanup
+on hide/destruction/reload also need dedicated tests before making broader
+behavior claims.
 
 ## Proven remaining animation-clock defects
 
-Three minimal executions of the shared production Lua literal make the
-remaining clock defects concrete:
+Three minimal executions of the shared production Lua literal made additional
+clock defects concrete before the bounded repairs below:
 
 - **Animation callback reentrancy.** A one-second animation whose `OnFinished`
   calls its group's `Play()` ends the tick with `IsPlaying() == false`, animation
@@ -109,9 +109,9 @@ remaining clock defects concrete:
   exactly one `OnLoop`. The 1.5 seconds beyond the first loop boundary are
   discarded rather than advancing the next iteration.
 
-These observations describe the current implementation; they do not establish
-new callback or loop semantics. The zero-duration callback is handled by the
-bounded follow-up below. Callback reentrancy and loop carryover remain open.
+These fail-before observations do not establish new callback or loop semantics.
+The zero-duration and reentrancy cases are handled by the bounded follow-ups
+below. Loop carryover remains open.
 
 ## Zero-duration completion follow-up
 
@@ -126,6 +126,24 @@ no duplicate from a zero-length tick, the successor's half and full progress,
 one group completion, and no callbacks from ticks after completion. Before the
 repair, vendored Lua 5.1 CTest reported **34 passed, 1 failed** at the boundary
 callback assertion. After the repair, it passes **35 assertions in 7 cases**.
+
+## Animation-callback reentrancy follow-up
+
+Each `Play()` now gives the group run a new identity. The tick records the run
+it began processing and updates the parent or performs terminal group handling
+only while that same run remains active. An animation callback can therefore
+start a replacement run without the old tick immediately finishing it, or call
+`Stop()` without the old tick painting over restored properties and then
+calling the group's `OnFinished`. This uses the existing group clock and active
+registry; it does not add another scheduler or change loop carryover.
+
+Two vendored-Lua cases cover both paths. The replay callback removes itself,
+calls `Play()`, and leaves the replacement at progress 0 with no group finish;
+subsequent half and full ticks advance and finish that replacement normally.
+The stop callback uses an Alpha animation and proves the base alpha is restored,
+`OnStop` fires once, group `OnFinished` does not fire, and later ticks remain
+inert. Without the run guard, CTest reported **43 passed, 2 failed**. With it,
+the isolated MSVC Debug target passes **45 assertions in 9 cases**.
 
 This change does not certify stock cast bars, pulse/fade visuals, every loop or
 finish path, or live frame cleanup. PORT-07 remains open for those acceptance

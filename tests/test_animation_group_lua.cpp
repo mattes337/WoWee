@@ -204,6 +204,54 @@ TEST_CASE("zero-duration animation finishes once at its delayed order boundary",
     )lua");
 }
 
+TEST_CASE("animation completion callback can replace the active run", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local g = __WoweeCreateAnimationGroup(frame)
+        local a = g:CreateAnimation('Animation')
+        a:SetDuration(1)
+        local animationFinishes, groupFinishes = 0, 0
+        a:SetScript('OnFinished', function()
+            animationFinishes = animationFinishes + 1
+            a:SetScript('OnFinished', nil)
+            g:Play()
+        end)
+        g:SetScript('OnFinished', function() groupFinishes = groupFinishes + 1 end)
+
+        g:Play()
+        __WoweeTickAnimations(1)
+        assert(g:IsPlaying() and a:GetProgress() == 0)
+        assert(animationFinishes == 1 and groupFinishes == 0)
+        __WoweeTickAnimations(0.5)
+        assert(g:IsPlaying() and a:GetProgress() == 0.5)
+        __WoweeTickAnimations(0.5)
+        assert(not g:IsPlaying() and a:GetProgress() == 1)
+        assert(animationFinishes == 1 and groupFinishes == 1)
+    )lua");
+}
+
+TEST_CASE("animation completion callback can stop without the old tick finishing", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local g = __WoweeCreateAnimationGroup(frame)
+        local a = g:CreateAnimation('Alpha')
+        a:SetDuration(1)
+        a:SetFromAlpha(1)
+        a:SetToAlpha(0)
+        local stops, groupFinishes = 0, 0
+        a:SetScript('OnFinished', function() g:Stop() end)
+        g:SetScript('OnStop', function() stops = stops + 1 end)
+        g:SetScript('OnFinished', function() groupFinishes = groupFinishes + 1 end)
+
+        g:Play()
+        __WoweeTickAnimations(1)
+        assert(not g:IsPlaying() and frame.alpha == 1)
+        assert(stops == 1 and groupFinishes == 0)
+        __WoweeTickAnimations(2)
+        assert(frame.alpha == 1 and stops == 1 and groupFinishes == 0)
+    )lua");
+}
+
 TEST_CASE("duration groups sparse order values and recomputes changed spans", "[animation]") {
     AnimationFixture f;
     f.run(R"lua(

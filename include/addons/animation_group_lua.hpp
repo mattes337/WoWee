@@ -136,6 +136,7 @@ inline constexpr const char kAnimationGroupLua[] =
         // frame is then.
         "function groupMeta:Play()\n"
         "    self.isPlaying = true\n"
+        "    self.runId = (self.runId or 0) + 1\n"
         "    self.reversed = false\n"
         "    self.elapsed = 0\n"
         "    self.baseAlpha = self.parent and self.parent:GetAlpha() or 1\n"
@@ -199,6 +200,7 @@ inline constexpr const char kAnimationGroupLua[] =
         "    for g in pairs(playing) do\n"
         "        if g.paused then\n"
         "        else\n"
+        "            local runId = g.runId\n"
         "            g.elapsed = (g.elapsed or 0) + elapsed\n"
         "            local starts, duration = schedule(g)\n"
         "            local anyRunning = g.elapsed < duration\n"
@@ -245,12 +247,14 @@ inline constexpr const char kAnimationGroupLua[] =
         "                    end\n"
         "                end\n"
         "            end\n"
-        "            if g.parent then\n"
+        // An animation callback may stop this run or start a replacement. The
+        // old tick must not paint over Stop's restoration or finish the replay.
+        "            if g.isPlaying and g.runId == runId and g.parent then\n"
         "                if alpha < 0 then alpha = 0 elseif alpha > 1 then alpha = 1 end\n"
         "                g.parent:SetAlpha(alpha)\n"
         "                __WoweeSetAnimOffset(g.parent, dx, dy)\n"
         "            end\n"
-        "            if not anyRunning then\n"
+        "            if g.isPlaying and g.runId == runId and not anyRunning then\n"
         "                local mode = g.looping or 'NONE'\n"
         "                if mode == 'REPEAT' or mode == 'BOUNCE' then\n"
         // BOUNCE plays back the way it came; REPEAT starts over. Either way the
