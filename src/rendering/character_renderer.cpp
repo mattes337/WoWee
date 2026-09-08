@@ -46,6 +46,7 @@
 #include <cmath>
 #include <filesystem>
 #include <future>
+#include <iterator>
 #include <mutex>
 #include <numeric>
 #include <thread>
@@ -403,7 +404,7 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
     // --- Descriptor pools ---
     // Material descriptors are transient and allocated every draw; keep per-frame
     // pools so we can reset safely each frame slot without exhausting descriptors.
-    for (size_t poolIndex = 0; poolIndex < materialDescPools_.size(); ++poolIndex) {
+    for (size_t poolIndex = 0; poolIndex < std::size(materialDescPools_); ++poolIndex) {
         auto& materialDescPool = materialDescPools_[poolIndex];
         VkDescriptorPoolSize sizes[] = {
             {.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_MATERIAL_SETS * 2},  // diffuse + normal/height
