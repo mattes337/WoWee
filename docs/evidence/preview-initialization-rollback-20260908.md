@@ -1,26 +1,34 @@
-# Preview initialization rollback
+# Preview and character-renderer initialization rollback - 2026-09-08
 
-Commits `9276b87f4` and `ecc8821d2` repair two source-confirmed failure paths.
+This note records source-level failure handling. It is not evidence for the
+cause or resolution of DEF-004.
 
-Previously, `createFBO()` returned no status. Failures after creating the render
-target could leave its validity check true, allowing initialization to continue
-with missing UBOs or descriptor sets. It now returns success only after the
-entire resource sequence completes, rejects a null mapped UBO pointer, and
-destroys partial resources on failure. Cleanup clears mapped pointers and
-descriptor handles.
+`9276b87f4` makes `CharacterPreview::createFBO` all-or-nothing. Failure to
+create the dummy shadow image/view, descriptor pool, either mapped per-frame
+uniform buffer, either descriptor set, or the ImGui texture registration now
+destroys the resources already created and makes preview initialization fail.
+A successful VMA allocation with no mapped pointer is also rejected. Cleanup
+nulls mapped pointers and descriptor handles so destruction and retry see a
+consistent empty state.
 
-If the subsequent character-renderer initialization failed, the complete FBO
-remained owned by an incomplete preview. Retrying replaced the render target,
-whose destructor deliberately does not release Vulkan objects. The failure
-branch now resets the character renderer and explicitly destroys the FBO.
-Character creation also releases a failed preview so a later entry can retry.
+`ecc8821d2` covers the next transaction boundary. If the private
+`CharacterRenderer` fails to initialize, its destructor runs its existing
+worker/device completion and partial-resource cleanup before the completed FBO
+is destroyed. The character-creation screen drops that failed preview, allowing
+a later screen entry to retry instead of retaining an object with no camera.
 
-The renderer destructor performs its existing worker/device wait before the
-FBO is destroyed. Earlier FBO construction failures occur before any preview
-composite submission; the preceding image transitions and clear use existing
-synchronous submission helpers.
+`be0537134` checks the material and bone descriptor layouts and pools, both VMA
+mapped material rings, the pipeline layout, both shader loads, and all five
+required main pipelines. Each failure identifies the resource and Vulkan result
+and rolls partial state back through `CharacterRenderer::shutdown`. The world
+renderer owner resets a failed renderer and does not attempt shadow-pipeline
+initialization through it. Shutdown clears ring mapped pointers even when no
+buffer handle was returned.
 
-Validation at implementation time is source and cleanup-order review plus
-`git diff --check`. Allocation failure has not been injected into the real
-Vulkan/VMA workflow; no synthetic predicate test is presented as ownership
-coverage. These repairs do not establish the cause of DEF-004.
+Review established that the cleanup functions tolerate null and partially
+created handles and that `CharacterRenderer` installs its `VkContext` before the
+first checked allocation. No allocator or Vulkan creation failure was injected:
+these calls currently reach VMA and Vulkan directly, and adding a mockable API
+layer was outside this bounded correction. `git diff --check` passed for each
+change. Compilation and healthy-path runtime results, if any, must be recorded
+with the build or run that actually executes them; this note claims neither.
