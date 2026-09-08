@@ -141,13 +141,16 @@ bool AssetManifest::load(const std::string& manifestPath) {
     }
 
     expansion_ = sax.expansion;
-    basePath_ = sax.basePath.empty() ? "assets" : sax.basePath;
-    manifestDir_ = std::filesystem::path(manifestPath).parent_path().string();
-
-    // If basePath is relative, resolve against manifest directory
-    if (!basePath_.empty() && basePath_[0] != '/') {
-        basePath_ = manifestDir_ + "/" + basePath_;
-    }
+    const std::filesystem::path manifestFile(manifestPath);
+    const std::filesystem::path manifestDir = manifestFile.parent_path();
+    const std::filesystem::path declaredBase =
+        sax.basePath.empty() ? std::filesystem::path("assets")
+                             : std::filesystem::path(sax.basePath);
+    const std::filesystem::path resolvedBase = declaredBase.is_absolute()
+        ? declaredBase
+        : manifestDir / declaredBase;
+    manifestDir_ = manifestDir.string();
+    basePath_ = resolvedBase.lexically_normal().string();
 
     loaded_ = true;
 
@@ -171,7 +174,8 @@ std::string AssetManifest::resolveFilesystemPath(const std::string& normalizedWo
     if (it == entries_.end()) {
         return {};
     }
-    return basePath_ + "/" + it->second.filesystemPath;
+    return (std::filesystem::path(basePath_) / it->second.filesystemPath)
+        .lexically_normal().string();
 }
 
 bool AssetManifest::hasEntry(const std::string& normalizedWowPath) const {

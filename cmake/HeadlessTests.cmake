@@ -10,6 +10,11 @@ wowee_add_test(test_server_message SOURCES test_server_message.cpp
     ${CMAKE_SOURCE_DIR}/src/network/packet.cpp)
 set_tests_properties(server_message PROPERTIES LABELS "headless;packet")
 
+wowee_add_test(test_asset_manifest_paths SOURCES test_asset_manifest_paths.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/pipeline/asset_manifest.cpp)
+set_tests_properties(asset_manifest_paths PROPERTIES LABELS "headless;assets")
+
 if(TARGET SDL2::SDL2)
     wowee_add_test(test_input_trace_sdl SOURCES test_input_trace_sdl.cpp
         ${CMAKE_SOURCE_DIR}/src/core/test_input_trace.cpp
