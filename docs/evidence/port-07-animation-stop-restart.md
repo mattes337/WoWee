@@ -209,3 +209,34 @@ No extracted stock XML or Lua uses `endDelay`, `SetEndDelay`, or
 the runtime does not include it in scheduling, but this audit found no stock
 consumer that establishes the intended behavior. End-delay semantics therefore
 remain open rather than being inferred from another implementation.
+
+## Generic animation property isolation
+
+The Calendar flash timer is also the extracted interface's only generic
+`<Animation>` declaration. It is a clock: button `OnUpdate` scripts read its
+smooth progress and apply that value to separate flash textures. The emitter
+instead created it as kind `Alpha`. The runtime then wrote the animation
+group's captured base alpha and a zero translation offset to its parent on
+every tick, regardless of whether the group contained an Alpha or Translation
+animation; `Stop()` restored both properties unconditionally as well. Thus a
+generic timer could overwrite unrelated alpha and offset changes on its parent,
+and a Translation-only group could overwrite unrelated alpha.
+
+The emitter now preserves the generic `Animation` kind. The tick records
+whether its animations actually own alpha or translation before applying each
+property, and `Stop()` restores only properties represented by those animation
+kinds. This leaves the existing Alpha and Translation calculations and the
+callback/run guards unchanged.
+
+In the isolated fail-before run, the stock-shaped emitter assertion found
+`CreateAnimation("Alpha", "CalendarViewEventFlashTimer")` rather than the
+generic kind. The real-Lua generic timer tick/Stop and Translation-only cases
+both failed because parent state was overwritten (**8 passed, 2 failed** in
+those fixture calls). The repaired isolated suites pass **321 assertions in 92
+FrameXML cases** and **90 assertions in 18 animation cases**.
+
+For comparison only, the sibling `wow-client` implementation was inspected but
+not copied: its XML path skips generic Animation elements, while its runtime
+applies properties only for exact named animation kinds. That implementation
+does not establish the desired behavior; the stock Calendar declaration and
+consumer above provide the source contract for this repair.

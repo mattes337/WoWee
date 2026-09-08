@@ -1138,7 +1138,7 @@ TEST_CASE("stock generic animation smoothing reaches its Lua animation", "[frame
         "</AnimationGroup></Animations></Frame></Ui>");
     const EmitResult r = emitFrameXml(root);
     INFO(r.lua);
-    REQUIRE(has(r.lua, "CreateAnimation(\"Alpha\", \"CalendarViewEventFlashTimer\")"));
+    REQUIRE(has(r.lua, "CreateAnimation(\"Animation\", \"CalendarViewEventFlashTimer\")"));
     REQUIRE(has(r.lua, ":SetSmoothing(\"OUT\")"));
 }
 

@@ -465,7 +465,7 @@ struct Emitter {
                     const std::string aname = substituteParent(
                         a.attrOr("name", ""), name);
                     line(avar + " = " + gvar + ":CreateAnimation(" +
-                         quote(a.name == "Animation" ? "Alpha" : a.name) +
+                         quote(a.name) +
                          (aname.empty() ? "" : ", " + quote(aname)) + ")");
                     if (const std::string* d = a.attr("duration"))
                         line(avar + ":SetDuration(" + *d + ")");

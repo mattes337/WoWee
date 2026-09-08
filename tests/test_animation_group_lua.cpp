@@ -275,6 +275,38 @@ TEST_CASE("duration groups sparse order values and recomputes changed spans", "[
     )lua");
 }
 
+TEST_CASE("a generic timer does not mutate its parent", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local timerGroup = __WoweeCreateAnimationGroup(frame)
+        local timer = timerGroup:CreateAnimation('Animation')
+        timer:SetDuration(1)
+        timerGroup:Play()
+        frame:SetAlpha(0.4)
+        __WoweeSetAnimOffset(frame, 7, 8)
+        __WoweeTickAnimations(0.25)
+        assert(timer:GetProgress() == 0.25)
+        assert(frame.alpha == 0.4 and frame.x == 7 and frame.y == 8)
+        timerGroup:Stop()
+        assert(frame.alpha == 0.4 and frame.x == 7 and frame.y == 8)
+    )lua");
+}
+
+TEST_CASE("a translation-only group does not rewrite parent alpha", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local translationGroup = __WoweeCreateAnimationGroup(frame)
+        local translation = translationGroup:CreateAnimation('Translation')
+        translation:SetDuration(1)
+        translation:SetOffset(10, 20)
+        translationGroup:Play()
+        frame:SetAlpha(0.4)
+        __WoweeTickAnimations(0.5)
+        assert(frame.alpha == 0.4)
+        assert(frame.x == 5 and frame.y == 10)
+    )lua");
+}
+
 TEST_CASE("repeat loops consume overshoot across every crossed boundary", "[animation]") {
     AnimationFixture f;
     f.run(R"lua(
