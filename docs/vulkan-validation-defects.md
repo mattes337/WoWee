@@ -281,3 +281,17 @@ This preserves the initiating fault and removes an invalid recovery attempt;
 it is not a preview rendering fix. A subsequent fault replay is needed to
 verify the secondary reset diagnostics disappear while the original error
 remains reported.
+
+### Remaining preview resource diagnostic
+
+A further read-only lifetime audit found no observed pre-fault model replacement
+or instance removal in live-login-12. VB/IB allocations remain owned by model
+records; normal asynchronous staging retirement requires a signalled fence;
+model removal captures handles for deferred destruction after all frame fences.
+These observations do not establish that the GPU consumed the expected bytes.
+A precise next diagnostic is GPU copyback of each uploaded first-preview VB/IB
+and comparison with its CPU upload bytes before drawing, with buffer sizes and
+opaque handles recorded. A separate procedural triangle draw can isolate fixed
+vertex/index fetching from the existing render target/pipeline. Neither test
+has been performed or proposed as a production fix here; no further GPU crash
+replay was run during this audit.
