@@ -108,6 +108,7 @@ def classify(returncode, log, updates, event_count=8, created_name=None,
     report.update({key: index >= 0 for key, index in positions.items()})
     report["asset_manager_initialized"] = position("Asset manager initialized successfully") >= 0
     report["vulkan_validation_enabled"] = position("Vulkan validation layers enabled") >= 0
+    report["world_entry_started"] = position("CMSG_PLAYER_LOGIN sent, entering world...") >= 0
     protocol_keys = list(markers)[:7]
     protocol_positions = [positions[key] for key in protocol_keys]
     report["protocol_order_verified"] = (all(i >= 0 for i in protocol_positions)
@@ -122,6 +123,8 @@ def classify(returncode, log, updates, event_count=8, created_name=None,
         failures.append("shutdown_events_out_of_order")
     if report["result"] != "pass":
         failures.append("process_or_validation_failure")
+    if report["world_entry_started"]:
+        failures.append("unexpected_world_entry")
     if preview_isolation == "non-indexed-draw":
         marker = "CharacterRenderer: preview non-indexed draw diagnostic enabled"
         # The renderer emits this diagnostic as WARN. Keep protocol parsing
@@ -169,7 +172,7 @@ def classify_missing_fragment_failure(returncode, log, updates, event_count=8,
     startup = base["asset_manager_initialized"] and base["vulkan_validation_enabled"]
     passed = (returncode == 0 and all(required) and not unexpected and clean_vma
               and startup and base["protocol_order_verified"]
-              and base["lifecycle_order_verified"])
+              and base["lifecycle_order_verified"] and not base["world_entry_started"])
     return {
         **base,
         "result": "expected-failure-pass" if passed else "fail",

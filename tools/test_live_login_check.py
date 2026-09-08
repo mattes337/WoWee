@@ -136,6 +136,27 @@ class LiveLoginTest(unittest.TestCase):
         shutdown = "[INFO ] Application exited successfully\n"
         self.assertEqual(classify(0, shutdown + GOOD.replace(shutdown, ""), 1800)["result"], "fail")
 
+    def test_world_entry_is_rejected_for_login_and_expected_failure_runs(self):
+        entered = GOOD.replace(
+            "[INFO ] Ready to select character",
+            "[INFO ] Ready to select character\n"
+            "[INFO ] CMSG_PLAYER_LOGIN sent, entering world...")
+        normal = classify(0, entered, 1800)
+        self.assertEqual(normal["result"], "fail")
+        self.assertTrue(normal["world_entry_started"])
+        self.assertIn("unexpected_world_entry", normal["failure_reasons"])
+
+        failure = entered.replace(
+            "[INFO ] Ready to select character",
+            "[ERROR] Failed to open shader file: assets/shaders/character.frag.spv (missing)\n"
+            "[ERROR] CharacterRenderer: failed to create character fragment shader (vk=-3)\n"
+            "[ERROR] CharacterPreview: failed to initialize CharacterRenderer\n"
+            "[INFO ] shutdown: VMA still holds 0 allocations in 3 blocks (0 MB)\n"
+            "[INFO ] Ready to select character")
+        expected = classify_missing_fragment_failure(0, failure, 1800)
+        self.assertEqual(expected["result"], "fail")
+        self.assertTrue(expected["world_entry_started"])
+
     def test_timestamped_production_messages_and_missing_phase_reason(self):
         timestamped = "\n".join("[2026-09-08 19:00:00.000] " + line for line in GOOD.splitlines())
         self.assertEqual(classify(0, timestamped, 1800)["result"], "pass")
