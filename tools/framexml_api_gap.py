@@ -85,6 +85,14 @@ for fn in _lua:
     defined |= set(re.findall(
         r'^\s*(?:local\s+)?([A-Za-z_][\w]*)\s*=\s*[A-Za-z_][\w.]*\s*;?\s*$',
         src, re.M))
+    # Every name in a multiple local declaration is lexical too. The restricted
+    # environment binds `local environment, manager = Create...()` and calls
+    # manager later; recognizing only the first name misreports the second as a
+    # client API even though Lua can never resolve that reference globally.
+    for declaration in re.finditer(
+            r'^\s*local\s+([A-Za-z_][\w]*(?:\s*,\s*[A-Za-z_][\w]*)+)\s*=',
+            src, re.M):
+        defined.update(re.findall(r'[A-Za-z_][\w]*', declaration.group(1)))
     for m in re.finditer(r'(?<![\w.:])([A-Z][A-Za-z0-9_]{2,})\s*\(', src):
         calls[m.group(1)] += 1
 

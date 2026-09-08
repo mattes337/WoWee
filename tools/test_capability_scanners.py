@@ -77,6 +77,21 @@ class ApiReportingTests(unittest.TestCase):
         self.assertIn("UnresolvedFixtureName24", result.stdout)
         self.assertNotIn("genuinely missing", result.stdout)
 
+    def test_second_name_in_local_assignment_is_not_an_api_candidate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            (path / "sample.lua").write_text("""
+local function MakePair() return {}, function() end end
+local LOCAL_Function_Environment, LOCAL_Function_Environment_Manager = MakePair()
+LOCAL_Function_Environment_Manager(true)
+ActuallyUnresolvedApi()
+""", encoding="utf-8")
+            result = subprocess.run([sys.executable, str(TOOLS / "framexml_api_gap.py"), str(path)],
+                                    capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("LOCAL_Function_Environment_Manager", result.stdout)
+        self.assertIn("ActuallyUnresolvedApi", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

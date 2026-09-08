@@ -302,3 +302,18 @@ manifest is `C:/wowee-framexml-asan-72a2d4953/manifest.json` (SHA-256
 This is focused validation of those two current targets. It does not replace,
 extend, or restate the complete frozen headless baseline at `2b1c97914`, and it
 does not claim that every test configured at the later source identity ran.
+
+## Deferred animation OnUpdate dispatch
+
+The shared ticker stores but does not invoke animation or animation-group
+`OnUpdate` scripts. This is not currently treated as a bounded stock defect.
+The Calendar flash is driven by an ordinary RSVP button frame `OnUpdate`, which
+reads `CalendarViewEventFlashTimer:GetSmoothProgress()` after the engine has
+already advanced animations for that frame. The only animation-level OnUpdate
+declaration found in the supplied interface is
+`WorldMapQuestPOIPulser_OnUpdate`, inside an XML-commented animation block; its
+named function is absent from the supplied Lua. `AnimTimerFrame.xml` documents
+group OnUpdate as a way to run constant looping logic, but no active supplied
+consumer establishes callback timing at boundaries or during delays. Dispatch
+remains open until an active consumer or a precise target-version contract
+justifies those semantics.
