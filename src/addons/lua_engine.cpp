@@ -1,3 +1,4 @@
+#include "addons/lua_error_api.hpp"
 #include "addons/lua_engine.hpp"
 #include "ui/link_hit.hpp"
 #include "ui/text_markup.hpp"
@@ -5634,6 +5635,7 @@ bool LuaEngine::initialize() {
     luaopen_table(L_);
     luaopen_string(L_);
     luaopen_math(L_);
+    registerErrorApis(L_);
 
     // Remove unsafe globals from base library.
     //
@@ -8214,25 +8216,6 @@ void LuaEngine::registerCoreAPI() {
         // ShoppingTooltip: used by comparison tooltips
         "ShoppingTooltip1 = CreateFrame('Frame', 'ShoppingTooltip1')\n"
         "ShoppingTooltip2 = CreateFrame('Frame', 'ShoppingTooltip2')\n"
-        // Error handling stubs (used by many addons)
-        "local _errorHandler = function(err) return err end\n"
-        "function geterrorhandler() return _errorHandler end\n"
-        "function seterrorhandler(fn) if type(fn)=='function' then _errorHandler=fn end end\n"
-        "function debugstack(start, count1, count2) return '' end\n"
-        // A name is as valid as a function here, and FrameXML mostly passes a
-        // name: UIDropDownMenu_Initialize does
-        // securecall("UIDropDownMenu_InitializeHelper", frame), and the helper
-        // is what sets UIDROPDOWNMENU_INIT_MENU and zeroes every list's
-        // numButtons. Accepting only a function meant that call did nothing at
-        // all, silently, and eight files died further on indexing what it
-        // should have set.
-        //
-        // rawget, so a name this client does not have stays nil rather than
-        // becoming the missing-API object, which is not callable as a function.
-        "function securecall(fn, ...)\n"
-        "    if type(fn) == 'string' then fn = rawget(_G, fn) end\n"
-        "    if type(fn) == 'function' then return fn(...) end\n"
-        "end\n"
         // WoW's own names for indexing the global table, which predate _G being
         // exposed and are still what a good deal of 3.3.5 code is written with.
         // Blizzard_DebugTools calls getglobal at file scope and failed to load

@@ -1,0 +1,45 @@
+    // debugstack(start, count1, count2) -> "" (used for error reporting)
+    globals.set(
+        "debugstack",
+        lua.create_function(|_, _args: MultiValue| Ok(""))?,
+    )?;
+
+    // debugprofilestart() -- no-op (performance profiling)
+    // securecall(func, ...) — run func in secure context, restore previous context afterward.
+    // Accepts either a function or a string (global function name).
+    // Real WoW: if func throws an error, securecall catches it and returns nothing
+    // (no error propagation). This is critical for UIDropDownMenu_InitializeHelper
+    // which may error on missing button children but must not abort the caller.
+    globals.set(
+        "securecall",
+        lua.create_function(|lua, args: MultiValue| {
+            let args_vec: Vec<Value> = args.into_iter().collect();
+            if args_vec.is_empty() {
+                return Ok(MultiValue::new());
+            }
+            let func = match &args_vec[0] {
+                Value::Function(f) => f.clone(),
+                Value::String(s) => {
+                    let name = s.to_str()?.to_owned();
+                    match lua.globals().get::<Function>(name.as_str()) {
+                        Ok(f) => f,
+                        Err(_) => return Ok(MultiValue::new()), // silently skip missing
+                    }
+                }
+                _ => return Ok(MultiValue::new()),
+            };
+            let rest = MultiValue::from_iter(args_vec.into_iter().skip(1));
+            let prev = crate::taint::is_secure();
+            crate::taint::set_secure(true);
+            let result = func.call::<MultiValue>(rest);
+            crate::taint::set_secure(prev);
+            match result {
+                Ok(vals) => Ok(vals),
+                Err(e) => {
+                    tracing::debug!(error = %e, "securecall caught error");
+                    Ok(MultiValue::new())
+                }
+            }
+        })?,
+    )?;
+

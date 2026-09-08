@@ -1,0 +1,20 @@
+{
+  "captured_date": "2026-09-08",
+  "donor_commit": "9ee0a1610cfb83292d14e806a5a469d0870fc1d3",
+  "source": "crates/wow-lua/src/api/system.rs",
+  "source_sha256": "be9368b6fb3f026e92b8f60d9ae28058535562ea3b4eb952e6aeb35f2fc64a0b",
+  "lines": [
+    [
+      562,
+      568
+    ],
+    [
+      620,
+      657
+    ]
+  ],
+  "snapshot_sha256": "a0478e53db10fd246ff70c1d88ed5bc8ff1671b6a6e585b917c84856c6c3725f",
+  "git_status": "",
+  "license": "workspace Cargo.toml declares MIT; no separate LICENSE/NOTICE found",
+  "selection": "Adapt protected-call containment and exact MultiValue return shape. Donor debugstack is also a stub; use independent Lua C stack inspection."
+}

@@ -141,3 +141,8 @@ set_tests_properties(settings_panel_layout PROPERTIES LABELS "headless")
 # Wire-format response helper updates ready state and member payload together.
 wowee_add_test(test_ready_check_member SOURCES test_ready_check_member.cpp)
 set_tests_properties(ready_check_member PROPERTIES LABELS "headless")
+
+# Real Lua VM protected calls and error-handler routing.
+wowee_add_test(test_lua_error_api SOURCES test_lua_error_api.cpp)
+target_link_libraries(test_lua_error_api PRIVATE lua51)
+set_tests_properties(lua_error_api PROPERTIES LABELS "headless")
