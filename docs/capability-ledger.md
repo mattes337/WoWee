@@ -10,14 +10,19 @@ when a source detector calls them provided.
 Regenerate from the repository root using the locally extracted interface:
 
 ```powershell
-python tools/capability_ledger.py --framexml Data/extracted/interface/FrameXML
-python tools/capability_ledger.py --framexml Data/extracted/interface/FrameXML --check
+python tools/capability_ledger.py --framexml Data/extracted/interface/FrameXML --ctest-json docs/evidence/headless-configured-tests-20260908.json
+python tools/capability_ledger.py --framexml Data/extracted/interface/FrameXML --ctest-json docs/evidence/headless-configured-tests-20260908.json --check
 python tools/test_capability_scanners.py
 python tools/test_capability_inventory.py
 python tools/validate_opcode_maps.py --expansion wotlk --strict-required --required-opcodes docs/wotlk-required-opcodes.json
 ```
 
 Optionally include a specific build's configured CTest manifest:
+
+The committed September 8 snapshot uses the saved 23-test headless manifest
+above. It records that selected build's configuration, not every test in the
+full client build. Actual executed suites and focused additions are documented
+separately in [headless test evidence](headless-tests.md).
 
 ```powershell
 ctest --test-dir build-headless-20260908 -C Debug --show-only=json-v1 > logs/ctest-manifest.json
