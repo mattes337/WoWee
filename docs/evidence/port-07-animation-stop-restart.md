@@ -59,22 +59,38 @@ duration and order changes are reflected.
 Two additional real-Lua cases cover the stock 1.05-second shape and parallel,
 sparse, and mutated order spans. With the old maximum calculation they failed
 at the stock-duration and sparse-order assertions (**18 passed, 2 failed**).
-With the repair, the isolated MSVC Debug CTest passes **20 assertions in 4
-cases**.
+With the duration repair, the isolated MSVC Debug CTest passed **20 assertions
+in 4 cases**.
+
+## Ordered tick follow-up
+
+The same schedule now supplies each populated order's start offset to the tick
+loop. A group owns one elapsed clock; an animation receives only the portion
+after its order's offset. This lets same-order animations advance in parallel,
+holds later orders at zero, and carries a large frame delta across one or more
+stage boundaries. `Play()` resets the group clock, pause leaves it unchanged,
+and looping resets it with the existing per-animation clocks.
+
+The stock-shine case now proves the group is still playing after 0.85 seconds
+and finishes at 1.05 seconds. Two more real-Lua cases cover a two-stage tick
+that overshoots the first boundary, a final tick larger than the remaining
+duration, once-only animation and group completion callbacks, and parallel
+animations where a start delay extends the order span. All six lifecycle,
+duration, and sequencing cases pass under MSVC Debug CTest: **30 assertions in
+6 test cases**. Before the scheduling repair, each of the three sequencing
+cases failed against the shared production literal.
 
 ## Remaining PORT-07 scope
 
-The source audit also found work beyond this small repair: order is stored but
-the tick loop still advances all animations together; endDelay is stored but
+The source audit also found work beyond these repairs: endDelay is stored but
 not used by the tick; easing is exposed through GetSmoothProgress while
 interpolation uses raw progress; repeated explicit Finish calls are not guarded
-for exactly once completion. Loop overshoot, zero-duration completion callbacks,
+for exactly once completion. Loop carryover, zero-duration completion callbacks,
 callback reentrancy, paused Play semantics and cleanup on
 hide/destruction/reload also need dedicated tests before making broader behavior
 claims.
 
-This change does not certify stock cast bars, pulse/fade visuals, animation
-ordering at runtime, all finish paths or live frame cleanup. Correcting the
-duration query does not sequence the tick scheduler. PORT-07 remains open for
-those acceptance gates. Full client compilation and actual FrameXML behavior
-are separate from this real-Lua deterministic regression.
+This change does not certify stock cast bars, pulse/fade visuals, every loop or
+finish path, or live frame cleanup. PORT-07 remains open for those acceptance
+gates. Full client compilation and actual FrameXML behavior are separate from
+this real-Lua deterministic regression.

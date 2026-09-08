@@ -103,12 +103,70 @@ TEST_CASE("stock alert shine duration sums ordered stages not parallel animation
         fadeOut:SetDuration(0.5)
         fadeOut:SetOrder(2)
         assert(g:GetDuration() == 0.2 + 0.85, 'ordered stock shine span must total 1.05')
-        -- Observation only: do not lock the existing parallel tick defect
-        -- into a passing assertion. Duration correctness is the gate above.
         g:Play()
         __WoweeTickAnimations(0.85)
-        print('PORT07 ordering observation: duration=' .. g:GetDuration() ..
-              ' playing_after_0.85=' .. tostring(g:IsPlaying()))
+        assert(g:IsPlaying(), 'order-2 stage must not consume the order-1 clock')
+        assert(slide:GetProgress() > 0 and slide:GetProgress() < 1)
+        __WoweeTickAnimations(0.2)
+        assert(not g:IsPlaying())
+    )lua");
+}
+
+TEST_CASE("ordered stages carry tick overshoot and finish each animation once", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local g = __WoweeCreateAnimationGroup(frame)
+        local first = g:CreateAnimation('Animation')
+        first:SetDuration(1)
+        first:SetOrder(1)
+        local second = g:CreateAnimation('Animation')
+        second:SetDuration(2)
+        second:SetOrder(2)
+        local firstFinishes, secondFinishes, groupFinishes = 0, 0, 0
+        first:SetScript('OnFinished', function() firstFinishes = firstFinishes + 1 end)
+        second:SetScript('OnFinished', function() secondFinishes = secondFinishes + 1 end)
+        g:SetScript('OnFinished', function() groupFinishes = groupFinishes + 1 end)
+
+        g:Play()
+        __WoweeTickAnimations(2)
+        assert(first:GetProgress() == 1 and firstFinishes == 1)
+        assert(second:GetElapsed() == 1 and second:GetProgress() == 0.5)
+        assert(g:IsPlaying() and secondFinishes == 0 and groupFinishes == 0)
+        __WoweeTickAnimations(5)
+        assert(second:GetProgress() == 1 and secondFinishes == 1)
+        assert(not g:IsPlaying() and groupFinishes == 1)
+        __WoweeTickAnimations(5)
+        assert(firstFinishes == 1 and secondFinishes == 1 and groupFinishes == 1)
+    )lua");
+}
+
+TEST_CASE("parallel animations share an order span including start delay", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local g = __WoweeCreateAnimationGroup(frame)
+        local immediate = g:CreateAnimation('Animation')
+        immediate:SetDuration(1)
+        immediate:SetOrder(3)
+        local delayed = g:CreateAnimation('Animation')
+        delayed:SetStartDelay(0.5)
+        delayed:SetDuration(1)
+        delayed:SetOrder(3)
+        local nextStage = g:CreateAnimation('Animation')
+        nextStage:SetDuration(1)
+        nextStage:SetOrder(9)
+
+        g:Play()
+        __WoweeTickAnimations(1)
+        assert(immediate:GetProgress() == 1)
+        assert(delayed:GetProgress() == 0.5)
+        assert(nextStage:GetProgress() == 0 and nextStage:GetElapsed() == 0)
+        __WoweeTickAnimations(0.5)
+        assert(delayed:GetProgress() == 1)
+        assert(nextStage:GetProgress() == 0 and g:IsPlaying())
+        __WoweeTickAnimations(0.5)
+        assert(nextStage:GetElapsed() == 0.5 and nextStage:GetProgress() == 0.5)
+        __WoweeTickAnimations(0.5)
+        assert(nextStage:GetProgress() == 1 and not g:IsPlaying())
     )lua");
 }
 
