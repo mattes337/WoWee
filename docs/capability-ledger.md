@@ -19,8 +19,9 @@ python tools/validate_opcode_maps.py --expansion wotlk --strict-required --requi
 
 Optionally include a specific build's configured CTest manifest:
 
-The committed September 8 snapshot uses the saved 23-test headless manifest
-above. It records that selected build's configuration, not every test in the
+The committed September 8 snapshot uses the saved 28-test headless/SDL manifest
+from source `915c8752f`, with machine-specific source/build roots replaced by
+placeholders. It records that selected build's configuration, not every test in the
 full client build. Actual executed suites and focused additions are documented
 separately in [headless test evidence](headless-tests.md).
 
@@ -71,12 +72,12 @@ The existing obsolete aura spellings are separately registered. The level-up
 alternate shares the real mapped handler, but its unused provenance still
 needs review.
 
-One concrete behavior question remains under EVAL-05: the mapped
-`SMSG_CHAT_SERVER_MESSAGE` path discards its message type; the unmapped
-`SMSG_SERVER_MESSAGE` path interprets shutdown/restart types. Consolidating
-that behavior requires a packet/visible-message regression and original
-behavior evidence. The ledger does not classify this as a verified missing
-wire opcode.
+The mapped `SMSG_CHAT_SERVER_MESSAGE` path and legacy logical registration now
+share a typed decoder. Pinned AzerothCore source and synthetic packet fixtures
+cover shutdown/restart timers and four-byte cancellation packets; commit
+`cd4d477a7` fixes the previously discarded type. [Evidence and limits](evidence/eval-05-server-message-20260908.md).
+Live visible-message acceptance remains open. The unmapped legacy name is an
+alternate registration, not a second missing WotLK wire opcode.
 
 The scoped strict check enforces a reviewed 15-name WotLK replacement
 contract. Removing any required map entry fails it, aliases resolve, and

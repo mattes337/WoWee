@@ -1,1067 +1,1219 @@
 {
-  "backtraceGraph" : 
-  {
-    "commands" : 
-    [
+  "backtraceGraph": {
+    "commands": [
       "add_test",
       "wowee_add_test",
       "include"
     ],
-    "files" : 
-    [
-      "G:/WoW Projects/wowee/build-input-ci-validation/source/tests/CMakeLists.txt",
-      "G:/WoW Projects/wowee/build-input-ci-validation/source/cmake/HeadlessTests.cmake"
+    "files": [
+      "<source>/tests/CMakeLists.txt",
+      "<source>/cmake/HeadlessTests.cmake"
     ],
-    "nodes" : 
-    [
+    "nodes": [
       {
-        "file" : 0
+        "file": 0
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 0
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 0
       },
       {
-        "file" : 1,
-        "parent" : 1
+        "file": 1,
+        "parent": 1
       },
       {
-        "command" : 1,
-        "file" : 1,
-        "line" : 4,
-        "parent" : 2
+        "command": 1,
+        "file": 1,
+        "line": 4,
+        "parent": 2
       },
       {
-        "command" : 0,
-        "file" : 0,
-        "line" : 117,
-        "parent" : 3
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 3
       },
       {
-        "file" : 0
+        "file": 0
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 5
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 5
       },
       {
-        "file" : 1,
-        "parent" : 6
+        "file": 1,
+        "parent": 6
       },
       {
-        "command" : 1,
-        "file" : 1,
-        "line" : 10,
-        "parent" : 7
+        "command": 1,
+        "file": 1,
+        "line": 9,
+        "parent": 7
       },
       {
-        "command" : 0,
-        "file" : 0,
-        "line" : 117,
-        "parent" : 8
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 8
       },
       {
-        "file" : 0
+        "file": 0
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 10
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 10
       },
       {
-        "file" : 1,
-        "parent" : 11
+        "file": 1,
+        "parent": 11
       },
       {
-        "command" : 0,
-        "file" : 1,
-        "line" : 35,
-        "parent" : 12
+        "command": 1,
+        "file": 1,
+        "line": 13,
+        "parent": 12
       },
       {
-        "file" : 0
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 13
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 14
+        "file": 0
       },
       {
-        "file" : 1,
-        "parent" : 15
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 15
       },
       {
-        "command" : 0,
-        "file" : 1,
-        "line" : 52,
-        "parent" : 16
+        "file": 1,
+        "parent": 16
       },
       {
-        "file" : 0
+        "command": 1,
+        "file": 1,
+        "line": 19,
+        "parent": 17
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 18
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 18
       },
       {
-        "file" : 1,
-        "parent" : 19
+        "file": 0
       },
       {
-        "command" : 0,
-        "file" : 1,
-        "line" : 64,
-        "parent" : 20
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 20
       },
       {
-        "file" : 0
+        "file": 1,
+        "parent": 21
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 22
+        "command": 0,
+        "file": 1,
+        "line": 46,
+        "parent": 22
       },
       {
-        "file" : 1,
-        "parent" : 23
+        "file": 0
       },
       {
-        "command" : 1,
-        "file" : 1,
-        "line" : 68,
-        "parent" : 24
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 24
       },
       {
-        "command" : 0,
-        "file" : 0,
-        "line" : 117,
-        "parent" : 25
+        "file": 1,
+        "parent": 25
       },
       {
-        "file" : 0
+        "command": 0,
+        "file": 1,
+        "line": 63,
+        "parent": 26
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 27
+        "file": 0
       },
       {
-        "file" : 1,
-        "parent" : 28
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 28
       },
       {
-        "command" : 0,
-        "file" : 1,
-        "line" : 81,
-        "parent" : 29
+        "file": 1,
+        "parent": 29
       },
       {
-        "file" : 0
+        "command": 0,
+        "file": 1,
+        "line": 75,
+        "parent": 30
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 31
+        "file": 0
       },
       {
-        "file" : 1,
-        "parent" : 32
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 32
       },
       {
-        "command" : 1,
-        "file" : 1,
-        "line" : 88,
-        "parent" : 33
+        "file": 1,
+        "parent": 33
       },
       {
-        "command" : 0,
-        "file" : 0,
-        "line" : 117,
-        "parent" : 34
+        "command": 1,
+        "file": 1,
+        "line": 79,
+        "parent": 34
       },
       {
-        "file" : 0
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 35
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 36
+        "file": 0
       },
       {
-        "file" : 1,
-        "parent" : 37
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 37
       },
       {
-        "command" : 0,
-        "file" : 1,
-        "line" : 103,
-        "parent" : 38
+        "file": 1,
+        "parent": 38
       },
       {
-        "file" : 0
+        "command": 0,
+        "file": 1,
+        "line": 92,
+        "parent": 39
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 40
+        "file": 0
       },
       {
-        "file" : 1,
-        "parent" : 41
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 41
       },
       {
-        "command" : 0,
-        "file" : 1,
-        "line" : 115,
-        "parent" : 42
+        "file": 1,
+        "parent": 42
       },
       {
-        "file" : 0
+        "command": 1,
+        "file": 1,
+        "line": 99,
+        "parent": 43
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 44
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 44
       },
       {
-        "file" : 1,
-        "parent" : 45
+        "file": 0
       },
       {
-        "command" : 1,
-        "file" : 1,
-        "line" : 121,
-        "parent" : 46
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 46
       },
       {
-        "command" : 0,
-        "file" : 0,
-        "line" : 117,
-        "parent" : 47
+        "file": 1,
+        "parent": 47
       },
       {
-        "file" : 0
+        "command": 0,
+        "file": 1,
+        "line": 114,
+        "parent": 48
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 49
+        "file": 0
       },
       {
-        "file" : 1,
-        "parent" : 50
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 50
       },
       {
-        "command" : 1,
-        "file" : 1,
-        "line" : 128,
-        "parent" : 51
+        "file": 1,
+        "parent": 51
       },
       {
-        "command" : 0,
-        "file" : 0,
-        "line" : 117,
-        "parent" : 52
+        "command": 0,
+        "file": 1,
+        "line": 126,
+        "parent": 52
       },
       {
-        "file" : 0
+        "file": 0
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 54
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 54
       },
       {
-        "file" : 1,
-        "parent" : 55
+        "file": 1,
+        "parent": 55
       },
       {
-        "command" : 1,
-        "file" : 1,
-        "line" : 141,
-        "parent" : 56
+        "command": 1,
+        "file": 1,
+        "line": 132,
+        "parent": 56
       },
       {
-        "command" : 0,
-        "file" : 0,
-        "line" : 117,
-        "parent" : 57
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 57
       },
       {
-        "file" : 0
+        "file": 0
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 59
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 59
       },
       {
-        "file" : 1,
-        "parent" : 60
+        "file": 1,
+        "parent": 60
       },
       {
-        "command" : 0,
-        "file" : 1,
-        "line" : 156,
-        "parent" : 61
+        "command": 1,
+        "file": 1,
+        "line": 139,
+        "parent": 61
       },
       {
-        "file" : 0
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 62
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 63
+        "file": 0
       },
       {
-        "file" : 1,
-        "parent" : 64
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 64
       },
       {
-        "command" : 1,
-        "file" : 1,
-        "line" : 162,
-        "parent" : 65
+        "file": 1,
+        "parent": 65
       },
       {
-        "command" : 0,
-        "file" : 0,
-        "line" : 117,
-        "parent" : 66
+        "command": 1,
+        "file": 1,
+        "line": 152,
+        "parent": 66
       },
       {
-        "file" : 0
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 67
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 68
+        "file": 0
       },
       {
-        "file" : 1,
-        "parent" : 69
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 69
       },
       {
-        "command" : 1,
-        "file" : 1,
-        "line" : 166,
-        "parent" : 70
+        "file": 1,
+        "parent": 70
       },
       {
-        "command" : 0,
-        "file" : 0,
-        "line" : 117,
-        "parent" : 71
+        "command": 0,
+        "file": 1,
+        "line": 168,
+        "parent": 71
       },
       {
-        "file" : 0
+        "file": 0
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 73
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 73
       },
       {
-        "file" : 1,
-        "parent" : 74
+        "file": 1,
+        "parent": 74
       },
       {
-        "command" : 0,
-        "file" : 1,
-        "line" : 185,
-        "parent" : 75
+        "command": 1,
+        "file": 1,
+        "line": 174,
+        "parent": 75
       },
       {
-        "file" : 0
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 76
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 77
+        "file": 0
       },
       {
-        "file" : 1,
-        "parent" : 78
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 78
       },
       {
-        "command" : 0,
-        "file" : 1,
-        "line" : 201,
-        "parent" : 79
+        "file": 1,
+        "parent": 79
       },
       {
-        "file" : 0
+        "command": 1,
+        "file": 1,
+        "line": 178,
+        "parent": 80
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 81
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 81
       },
       {
-        "file" : 1,
-        "parent" : 82
+        "file": 0
       },
       {
-        "command" : 0,
-        "file" : 1,
-        "line" : 218,
-        "parent" : 83
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 83
       },
       {
-        "file" : 0
+        "file": 1,
+        "parent": 84
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 85
+        "command": 0,
+        "file": 1,
+        "line": 197,
+        "parent": 85
       },
       {
-        "file" : 1,
-        "parent" : 86
+        "file": 0
       },
       {
-        "command" : 0,
-        "file" : 1,
-        "line" : 234,
-        "parent" : 87
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 87
       },
       {
-        "file" : 0
+        "file": 1,
+        "parent": 88
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 89
+        "command": 0,
+        "file": 1,
+        "line": 213,
+        "parent": 89
       },
       {
-        "file" : 1,
-        "parent" : 90
+        "file": 0
       },
       {
-        "command" : 1,
-        "file" : 1,
-        "line" : 240,
-        "parent" : 91
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 91
       },
       {
-        "command" : 0,
-        "file" : 0,
-        "line" : 117,
-        "parent" : 92
+        "file": 1,
+        "parent": 92
       },
       {
-        "file" : 0
+        "command": 0,
+        "file": 1,
+        "line": 230,
+        "parent": 93
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 94
+        "file": 0
       },
       {
-        "file" : 1,
-        "parent" : 95
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 95
       },
       {
-        "command" : 1,
-        "file" : 1,
-        "line" : 244,
-        "parent" : 96
+        "file": 1,
+        "parent": 96
       },
       {
-        "command" : 0,
-        "file" : 0,
-        "line" : 117,
-        "parent" : 97
+        "command": 0,
+        "file": 1,
+        "line": 246,
+        "parent": 97
       },
       {
-        "file" : 0
+        "file": 0
       },
       {
-        "command" : 2,
-        "file" : 0,
-        "line" : 122,
-        "parent" : 99
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 99
       },
       {
-        "file" : 1,
-        "parent" : 100
+        "file": 1,
+        "parent": 100
       },
       {
-        "command" : 1,
-        "file" : 1,
-        "line" : 248,
-        "parent" : 101
+        "command": 1,
+        "file": 1,
+        "line": 252,
+        "parent": 101
       },
       {
-        "command" : 0,
-        "file" : 0,
-        "line" : 117,
-        "parent" : 102
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 102
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 104
+      },
+      {
+        "file": 1,
+        "parent": 105
+      },
+      {
+        "command": 1,
+        "file": 1,
+        "line": 256,
+        "parent": 106
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 107
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 109
+      },
+      {
+        "file": 1,
+        "parent": 110
+      },
+      {
+        "command": 1,
+        "file": 1,
+        "line": 260,
+        "parent": 111
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 112
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 114
+      },
+      {
+        "file": 1,
+        "parent": 115
+      },
+      {
+        "command": 1,
+        "file": 1,
+        "line": 263,
+        "parent": 116
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 117
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 119
+      },
+      {
+        "file": 1,
+        "parent": 120
+      },
+      {
+        "command": 1,
+        "file": 1,
+        "line": 267,
+        "parent": 121
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 122
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 124
+      },
+      {
+        "file": 1,
+        "parent": 125
+      },
+      {
+        "command": 1,
+        "file": 1,
+        "line": 271,
+        "parent": 126
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 127
       }
     ]
   },
-  "kind" : "ctestInfo",
-  "tests" : 
-  [
+  "kind": "ctestInfo",
+  "tests": [
     {
-      "backtrace" : 4,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_input_trace.exe"
+      "backtrace": 4,
+      "command": [
+        "<build>/bin/Debug/test_input_trace.exe"
       ],
-      "config" : "Debug",
-      "name" : "input_trace",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "input_trace",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 9,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_input_trace_sdl.exe"
+      "backtrace": 9,
+      "command": [
+        "<build>/bin/Debug/test_server_message.exe"
       ],
-      "config" : "Debug",
-      "name" : "input_trace_sdl",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "server_message",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
+            "headless",
+            "packet"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
+        }
+      ]
+    },
+    {
+      "backtrace": 14,
+      "command": [
+        "<build>/bin/Debug/test_asset_manifest_paths.exe"
+      ],
+      "config": "Debug",
+      "name": "asset_manifest_paths",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "assets",
+            "headless"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
+        }
+      ]
+    },
+    {
+      "backtrace": 19,
+      "command": [
+        "<build>/bin/Debug/test_input_trace_sdl.exe"
+      ],
+      "config": "Debug",
+      "name": "input_trace_sdl",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
             "headless",
             "sdl"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 13,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_framexml.exe"
+      "backtrace": 23,
+      "command": [
+        "<build>/bin/Debug/test_framexml.exe"
       ],
-      "config" : "Debug",
-      "name" : "framexml",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "framexml",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 17,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_framexml_takeover.exe"
+      "backtrace": 27,
+      "command": [
+        "<build>/bin/Debug/test_framexml_takeover.exe"
       ],
-      "config" : "Debug",
-      "name" : "framexml_takeover",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "framexml_takeover",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 21,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_widget_tree.exe"
+      "backtrace": 31,
+      "command": [
+        "<build>/bin/Debug/test_widget_tree.exe"
       ],
-      "config" : "Debug",
-      "name" : "widget_tree",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "widget_tree",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 26,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_text_edit.exe"
+      "backtrace": 36,
+      "command": [
+        "<build>/bin/Debug/test_text_edit.exe"
       ],
-      "config" : "Debug",
-      "name" : "text_edit",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "text_edit",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 30,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_escape_action.exe"
+      "backtrace": 40,
+      "command": [
+        "<build>/bin/Debug/test_escape_action.exe"
       ],
-      "config" : "Debug",
-      "name" : "escape_action",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "escape_action",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 35,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_monster_move_facing.exe"
+      "backtrace": 45,
+      "command": [
+        "<build>/bin/Debug/test_monster_move_facing.exe"
       ],
-      "config" : "Debug",
-      "name" : "monster_move_facing",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "monster_move_facing",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 39,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_packet.exe"
+      "backtrace": 49,
+      "command": [
+        "<build>/bin/Debug/test_packet.exe"
       ],
-      "config" : "Debug",
-      "name" : "packet",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "packet",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 43,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_bit_packet.exe"
+      "backtrace": 53,
+      "command": [
+        "<build>/bin/Debug/test_bit_packet.exe"
       ],
-      "config" : "Debug",
-      "name" : "bit_packet",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "bit_packet",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 48,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_spline_body.exe"
+      "backtrace": 58,
+      "command": [
+        "<build>/bin/Debug/test_spline_body.exe"
       ],
-      "config" : "Debug",
-      "name" : "spline_body",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "spline_body",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 53,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_spline.exe"
+      "backtrace": 63,
+      "command": [
+        "<build>/bin/Debug/test_spline.exe"
       ],
-      "config" : "Debug",
-      "name" : "spline",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "spline",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 58,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_ready_check_state.exe"
+      "backtrace": 68,
+      "command": [
+        "<build>/bin/Debug/test_ready_check_state.exe"
       ],
-      "config" : "Debug",
-      "name" : "ready_check_state",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "ready_check_state",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 62,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_settings_panel_layout.exe"
+      "backtrace": 72,
+      "command": [
+        "<build>/bin/Debug/test_settings_panel_layout.exe"
       ],
-      "config" : "Debug",
-      "name" : "settings_panel_layout",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "settings_panel_layout",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 67,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_ready_check_member.exe"
+      "backtrace": 77,
+      "command": [
+        "<build>/bin/Debug/test_ready_check_member.exe"
       ],
-      "config" : "Debug",
-      "name" : "ready_check_member",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "ready_check_member",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 72,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_lua_error_api.exe"
+      "backtrace": 82,
+      "command": [
+        "<build>/bin/Debug/test_lua_error_api.exe"
       ],
-      "config" : "Debug",
-      "name" : "lua_error_api",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "lua_error_api",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 76,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_lua_handler_globals.exe"
+      "backtrace": 86,
+      "command": [
+        "<build>/bin/Debug/test_lua_handler_globals.exe"
       ],
-      "config" : "Debug",
-      "name" : "lua_handler_globals",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "lua_handler_globals",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 80,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_lua_generic_for.exe"
+      "backtrace": 90,
+      "command": [
+        "<build>/bin/Debug/test_lua_generic_for.exe"
       ],
-      "config" : "Debug",
-      "name" : "lua_generic_for",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "lua_generic_for",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 84,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_lua_arg_coercion.exe"
+      "backtrace": 94,
+      "command": [
+        "<build>/bin/Debug/test_lua_arg_coercion.exe"
       ],
-      "config" : "Debug",
-      "name" : "lua_arg_coercion",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "lua_arg_coercion",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 88,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_addon_lua_snippets.exe"
+      "backtrace": 98,
+      "command": [
+        "<build>/bin/Debug/test_addon_lua_snippets.exe"
       ],
-      "config" : "Debug",
-      "name" : "addon_lua_snippets",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "addon_lua_snippets",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 93,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_framexml_run_contract.exe"
+      "backtrace": 103,
+      "command": [
+        "<build>/bin/Debug/test_framexml_run_contract.exe"
       ],
-      "config" : "Debug",
-      "name" : "framexml_run_contract",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "framexml_run_contract",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 98,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_update_limit.exe"
+      "backtrace": 108,
+      "command": [
+        "<build>/bin/Debug/test_update_limit.exe"
       ],
-      "config" : "Debug",
-      "name" : "update_limit",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "update_limit",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     },
     {
-      "backtrace" : 103,
-      "command" : 
-      [
-        "G:/WoW Projects/wowee/build-input-ci-validation/windows/bin/Debug/test_screenshot_request.exe"
+      "backtrace": 113,
+      "command": [
+        "<build>/bin/Debug/test_screenshot_request.exe"
       ],
-      "config" : "Debug",
-      "name" : "screenshot_request",
-      "properties" : 
-      [
+      "config": "Debug",
+      "name": "screenshot_request",
+      "properties": [
         {
-          "name" : "LABELS",
-          "value" : 
-          [
+          "name": "LABELS",
+          "value": [
             "headless"
           ]
         },
         {
-          "name" : "WORKING_DIRECTORY",
-          "value" : "G:/WoW Projects/wowee/build-input-ci-validation/windows/tests"
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
+        }
+      ]
+    },
+    {
+      "backtrace": 118,
+      "command": [
+        "<build>/bin/Debug/test_screenshot_schedule.exe"
+      ],
+      "config": "Debug",
+      "name": "screenshot_schedule",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "headless"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
+        }
+      ]
+    },
+    {
+      "backtrace": 123,
+      "command": [
+        "<build>/bin/Debug/test_animation_group_lua.exe"
+      ],
+      "config": "Debug",
+      "name": "animation_group_lua",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "headless"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
+        }
+      ]
+    },
+    {
+      "backtrace": 128,
+      "command": [
+        "<build>/bin/Debug/test_model_replacement.exe"
+      ],
+      "config": "Debug",
+      "name": "model_replacement",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "headless"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
         }
       ]
     }
   ],
-  "version" : 
-  {
-    "major" : 1,
-    "minor" : 0
+  "version": {
+    "major": 1,
+    "minor": 0
   }
 }
