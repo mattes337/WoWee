@@ -343,3 +343,20 @@ DB confirmed **0 characters** after the attempt. Its logs and
 character-table mutation was performed. Character creation and world-entry
 acceptance now have a concrete GPU failure blocker in addition to the
 separately recorded movement-map compatibility limitation.
+
+## GPU-assisted diagnostic replay: live-login-06
+
+One diagnostic replay used the same pinned executable/account/creation input
+with explicit `WOWEE_VULKAN_GPU_VALIDATION=1` and a 120-second timeout. The
+log confirms the request and active layer instrumentation warnings. Auth/world
+authentication succeeded, then opening the HumanMale character preview again
+failed. GPU-AV reported `INVALID_EMPTY(): Internal Error, GPU-AV is being
+disabled` with `Failed to wait for fence`. The process exited **3**, before
+trace completion or normal shutdown; it did not reach the timeout. The
+stdout log contains the same final diagnostic and no further shader-fault
+identification. The new DB still contains zero characters.
+
+This replay is **diagnostic failure**, not normal-mode certification or a
+confirmed shader bounds diagnosis. No further replay was attempted. The
+driver now exposes the opt-in `--gpu-validation` flag and identifies this
+mode in its report, while continuing to strip inherited WOWEE overrides.

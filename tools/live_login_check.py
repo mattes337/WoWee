@@ -125,6 +125,8 @@ def run(args):
                WOWEE_VULKAN_VALIDATION="1")
     if args.layer_path:
         env["VK_LAYER_PATH"] = str(args.layer_path)
+    if args.gpu_validation:
+        env["WOWEE_VULKAN_GPU_VALIDATION"] = "1"
     if args.screenshot:
         env["WOWEE_TEST_SCREENSHOT_PATH"] = str(args.output / "screenshot.png")
         if args.screenshot_after_updates is not None:
@@ -171,6 +173,7 @@ def run(args):
                   input_geometry={"account_x": args.account_x, "account_y": args.account_y,
                                   "basis": args.geometry_basis},
                   requested_character=args.create_name,
+                  diagnostic_mode="GPU-assisted validation requested; not normal-mode certification" if args.gpu_validation else "normal validation",
                   scope="real SDL input, authentication, realm and character list; optional real character creation; no world entry or gameplay certification")
     (args.output / "result.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
@@ -190,6 +193,7 @@ def main():
     parser.add_argument("--timeout", type=float, default=90)
     parser.add_argument("--execute", action="store_true", help="otherwise prepare private fixtures only")
     parser.add_argument("--screenshot", action="store_true", help="require startup capture acknowledgement; pixels need separate inspection")
+    parser.add_argument("--gpu-validation", action="store_true", help="request GPU-assisted diagnostic validation; not normal-mode certification")
     parser.add_argument("--screenshot-after-updates", type=int,
                         help="delay capture by completed updates; does not wait for a server state")
     parser.add_argument("--create-name", help="optional dedicated test character to create through the UI")
