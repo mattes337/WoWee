@@ -1,6 +1,6 @@
 import unittest
 
-from live_login_check import classify, make_trace
+from live_login_check import add_creation_trace, classify, make_trace
 
 
 GOOD = """[INFO ] Asset manager initialized successfully
@@ -41,11 +41,27 @@ class LiveLoginTest(unittest.TestCase):
         self.assertLess(times[-1], trace["stop_after_updates"])
 
     def test_password_utf8_bound_and_stop_validation(self):
-        for password in ("", "x" * 32, "\0", "Ã©" * 16):
+        for password in ("", "x" * 32, "\0", "ÃƒÂ©" * 16):
             with self.assertRaises(ValueError):
                 make_trace(password, 1, 1, 1800)
         with self.assertRaises(ValueError):
             make_trace("valid", 1, 1, 45)
+
+    def test_creation_uses_normal_name_focus_and_validates_bounds(self):
+        trace = make_trace("fixture-password", 640, 320, 1800)
+        add_creation_trace(trace, "Woweetrial", 800, 450, 300)
+        self.assertEqual(len(trace["events"]), 16)
+        self.assertEqual(trace["events"][13]["text"], "Woweetrial")
+        for name, start in (("bad1", 300), ("x" * 13, 300), ("Valid", 44), ("Valid", 1790)):
+            with self.assertRaises(ValueError):
+                add_creation_trace(trace, name, 1, 1, start)
+
+    def test_creation_requires_success_then_named_character_in_refresh(self):
+        log = GOOD.replace("8 events", "16 events")
+        self.assertEqual(classify(0, log, 1800, 16, "Woweetrial")["result"], "fail")
+        suffix = "[INFO ] Character created successfully (code=47)\n[INFO ]   [1] Woweetrial\n"
+        self.assertEqual(classify(0, log.replace("[INFO ] SDL input", suffix + "[INFO ] SDL input"), 1800, 16, "Woweetrial")["result"], "pass")
+        self.assertEqual(classify(0, log.replace("[INFO ] SDL input", suffix + "[INFO ] SDL input"), 1800, 16, "Wrongname")["result"], "fail")
 
 
 if __name__ == "__main__":

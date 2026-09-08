@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 
@@ -33,14 +34,32 @@ def make_trace(password, x, y, updates):
     return {"version": 1, "stop_after_updates": updates, "events": events}
 
 
-def classify(returncode, log, updates):
+def add_creation_trace(trace, name, x, y, after_updates):
+    """Click New Hero, focus blank name through normal validation, then submit."""
+    if not re.fullmatch(r"[A-Za-z]{2,12}", name):
+        raise ValueError("test character name must contain 2..12 ASCII letters")
+    if after_updates <= 45 or after_updates + 35 >= trace["stop_after_updates"]:
+        raise ValueError("creation input must follow login and precede shutdown")
+    trace["events"].extend([
+        {"after_updates": after_updates, "type": "mouse_move", "x": x, "y": y},
+        {"after_updates": after_updates, "type": "mouse_down", "x": x, "y": y, "button": 1},
+        {"after_updates": after_updates + 2, "type": "mouse_up", "x": x, "y": y, "button": 1},
+        {"after_updates": after_updates + 10, "type": "key_down", "keycode": 13, "scancode": 40},
+        {"after_updates": after_updates + 11, "type": "key_up", "keycode": 13, "scancode": 40},
+        {"after_updates": after_updates + 20, "type": "text", "text": name},
+        {"after_updates": after_updates + 34, "type": "key_down", "keycode": 13, "scancode": 40},
+        {"after_updates": after_updates + 35, "type": "key_up", "keycode": 13, "scancode": 40},
+    ])
+
+
+def classify(returncode, log, updates, event_count=8, created_name=None):
     report = classify_smoke(returncode, log, updates)
     markers = {
         "auth_success": "   AUTHENTICATION SUCCESSFUL!",
         "realm_list": "REALM LIST RECEIVED!",
         "world_auth_success": "AUTH_RESPONSE OK - world authentication successful",
         "character_list": "Ready to select character",
-        "trace_completed": f"SDL input trace completed: 8 events, {updates} completed update/render iterations",
+        "trace_completed": f"SDL input trace completed: {event_count} events, {updates} completed update/render iterations",
     }
     positions = [log.find(markers[key]) for key in
                  ("auth_success", "realm_list", "world_auth_success", "character_list")]
@@ -48,6 +67,12 @@ def classify(returncode, log, updates):
     report["protocol_order_verified"] = all(p >= 0 for p in positions) and positions == sorted(positions)
     report["result"] = "pass" if (report["result"] == "pass"
         and all(report[key] for key in markers) and report["protocol_order_verified"]) else "fail"
+    if created_name:
+        created = log.find("Character created successfully (code=")
+        listed = re.search(r"\[\d+\] " + re.escape(created_name) + r"(?:\r?\n|$)", log[created:]) if created >= 0 else None
+        report["creation_response_and_refreshed_list"] = created > positions[-1] and listed is not None and (created + listed.end()) < log.find(markers["trace_completed"])
+        if not report["creation_response_and_refreshed_list"]:
+            report["result"] = "fail"
     return report
 
 
@@ -63,6 +88,8 @@ def run(args):
     require_ignored(args.output)
     secret = json.loads(args.secrets.read_text(encoding="utf-8"))["account_a_password"]
     trace = make_trace(secret, args.account_x, args.account_y, args.updates)
+    if args.create_name:
+        add_creation_trace(trace, args.create_name, args.newhero_x, args.newhero_y, args.creation_after_updates)
     args.output.mkdir(parents=True, exist_ok=False)
     runtime = args.output / "runtime"
     runtime.mkdir()
@@ -111,13 +138,14 @@ def run(args):
         log = redact(log_path.read_text(encoding="utf-8", errors="replace")) if log_path.is_file() else ""
         if log_path.is_file():
             log_path.write_text(log, encoding="utf-8")
-        report = classify(code, log, args.updates)
+        report = classify(code, log, args.updates, len(trace["events"]), args.create_name)
     report.update(binary_sha256=sha256(args.binary), input=identity,
                   updates=args.updates, timeout_seconds=args.timeout,
                   account="WOWEE_EVAL_A", auth_endpoint="127.0.0.1:3724",
                   input_geometry={"account_x": args.account_x, "account_y": args.account_y,
                                   "basis": args.geometry_basis},
-                  scope="real SDL input, authentication, realm and character list; no character creation or gameplay certification")
+                  requested_character=args.create_name,
+                  scope="real SDL input, authentication, realm and character list; optional real character creation; no world entry or gameplay certification")
     (args.output / "result.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
 
@@ -133,9 +161,15 @@ def main():
     parser.add_argument("--updates", type=int, default=1800)
     parser.add_argument("--timeout", type=float, default=90)
     parser.add_argument("--execute", action="store_true", help="otherwise prepare private fixtures only")
+    parser.add_argument("--create-name", help="optional dedicated test character to create through the UI")
+    parser.add_argument("--newhero-x", type=int)
+    parser.add_argument("--newhero-y", type=int)
+    parser.add_argument("--creation-after-updates", type=int, default=300)
     args = parser.parse_args()
     if not 46 <= args.updates <= 1000000 or not 0 < args.timeout <= 3600:
         parser.error("updates must be 46..1000000 and timeout positive and at most 3600")
+    if args.create_name and (args.newhero_x is None or args.newhero_y is None):
+        parser.error("character creation requires explicit New Hero coordinates")
     report = run(args)
     print(json.dumps({key: report[key] for key in ("result", "account", "auth_endpoint")}))
     return 0 if report["result"] in ("pass", "prepared-not-run") else 1
