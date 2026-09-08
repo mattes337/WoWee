@@ -58,6 +58,22 @@ class LiveLoginTest(unittest.TestCase):
         self.assertEqual(
             classify_missing_fragment_failure(0, failure + "\n[ERROR] Device lost", 1800)["result"],
             "fail")
+        without_startup = failure.replace("[INFO ] Asset manager initialized successfully\n", "")
+        self.assertEqual(classify_missing_fragment_failure(0, without_startup, 1800)["result"], "fail")
+        without_validation = failure.replace("[INFO ] Vulkan validation layers enabled\n", "")
+        self.assertEqual(classify_missing_fragment_failure(0, without_validation, 1800)["result"], "fail")
+        without_auth = "\n".join(line for line in failure.splitlines()
+                                  if not any(marker in line for marker in
+                                             ("Connecting to auth server", "Starting authentication",
+                                              "AUTHENTICATION SUCCESSFUL", "REALM LIST RECEIVED",
+                                              "AUTH_RESPONSE OK", "CHARACTER LIST RECEIVED",
+                                              "Ready to select character")))
+        self.assertEqual(classify_missing_fragment_failure(0, without_auth, 1800)["result"], "fail")
+        quit_line = "[INFO ] Unattended smoke SDL_QUIT dispatched after 1800 completed update/render iterations\n"
+        shutdown_line = "[INFO ] Application exited successfully\n"
+        reversed_shutdown = failure.replace(quit_line, "").replace(
+            shutdown_line, shutdown_line + quit_line)
+        self.assertEqual(classify_missing_fragment_failure(0, reversed_shutdown, 1800)["result"], "fail")
 
     def test_non_indexed_preview_isolation_is_default_off_and_uncertified(self):
         self.assertEqual(PREVIEW_ISOLATION_ENV["non-indexed-draw"],
@@ -69,6 +85,9 @@ class LiveLoginTest(unittest.TestCase):
         self.assertEqual(diagnostic_mode(isolated, None, object()),
                          "preview isolation: non-indexed-draw; shader override; "
                          "not normal-mode certification")
+        missing = SimpleNamespace(gpu_validation=False, preview_isolation=None)
+        self.assertEqual(diagnostic_mode(missing, None, None, True),
+                         "missing character fragment expected failure; not normal-mode certification")
 
     def test_non_indexed_preview_isolation_requires_production_marker(self):
         missing = classify(0, GOOD, 1800, preview_isolation="non-indexed-draw")

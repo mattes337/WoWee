@@ -20,7 +20,7 @@ PREVIEW_ISOLATION_ENV = {
 }
 
 
-def diagnostic_mode(args, fragment_override, vertex_override):
+def diagnostic_mode(args, fragment_override, vertex_override, missing_fragment=False):
     modes = []
     if args.gpu_validation:
         modes.append("GPU-assisted validation requested")
@@ -28,6 +28,8 @@ def diagnostic_mode(args, fragment_override, vertex_override):
         modes.append(f"preview isolation: {args.preview_isolation}")
     if fragment_override or vertex_override:
         modes.append("shader override")
+    if missing_fragment:
+        modes.append("missing character fragment expected failure")
     return "; ".join(modes) + "; not normal-mode certification" if modes else "normal validation"
 
 from client_smoke import classify as classify_smoke
@@ -93,6 +95,8 @@ def classify(returncode, log, updates, event_count=8, created_name=None,
         return next((i for i in range(start, len(messages)) if messages[i] == message), -1)
     positions = {key: position(marker) for key, marker in markers.items()}
     report.update({key: index >= 0 for key, index in positions.items()})
+    report["asset_manager_initialized"] = position("Asset manager initialized successfully") >= 0
+    report["vulkan_validation_enabled"] = position("Vulkan validation layers enabled") >= 0
     protocol_keys = list(markers)[:7]
     protocol_positions = [positions[key] for key in protocol_keys]
     report["protocol_order_verified"] = (all(i >= 0 for i in protocol_positions)
@@ -147,8 +151,10 @@ def classify_missing_fragment_failure(returncode, log, updates, event_count=8):
     required = [any(pattern.fullmatch(line) for line in errors) for pattern in allowed]
     match = re.search(r"shutdown: VMA still holds (\d+) allocations in (\d+) blocks", log)
     clean_vma = bool(match and int(match.group(1)) == 0)
-    lifecycle = base["quit_dispatched"] and base["trace_completed"] and base["shutdown_completed"]
-    passed = returncode == 0 and all(required) and not unexpected and clean_vma and lifecycle
+    startup = base["asset_manager_initialized"] and base["vulkan_validation_enabled"]
+    passed = (returncode == 0 and all(required) and not unexpected and clean_vma
+              and startup and base["protocol_order_verified"]
+              and base["lifecycle_order_verified"])
     return {
         **base,
         "result": "expected-failure-pass" if passed else "fail",
@@ -293,7 +299,8 @@ def run(args):
                   input_geometry={"account_x": args.account_x, "account_y": args.account_y,
                                   "basis": args.geometry_basis},
                   requested_character=args.create_name,
-                  diagnostic_mode=diagnostic_mode(args, fragment_override, vertex_override),
+                  diagnostic_mode=diagnostic_mode(args, fragment_override, vertex_override,
+                                                  bool(missing_fragment)),
                   preview_isolation=args.preview_isolation,
                   sync_validation_requested=args.sync_validation,
                   character_fragment_override=fragment_override,
