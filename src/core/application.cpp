@@ -1,5 +1,6 @@
 #include "core/application.hpp"
 #include "core/env_flag.hpp"
+#include "core/test_update_limit.hpp"
 #include "core/character_paths.hpp"
 #include "ui/settings_schema.hpp"
 #include "pipeline/m2_asset_loader.hpp"
@@ -1171,6 +1172,12 @@ bool Application::initialize() {
 void Application::run() {
     ZoneScopedN("Application::run");
     LOG_INFO("Starting main loop");
+    TestUpdateLimit testUpdateLimit(std::getenv("WOWEE_TEST_MAX_UPDATES"));
+    bool testQuitDispatched = false;
+    if (testUpdateLimit.enabled()) {
+        LOG_INFO("Unattended smoke limit: ", testUpdateLimit.limit(),
+                 " completed update/render iterations (not presented frames)");
+    }
 
     // Do not pin the main thread. The shared render pool is created lazily
     // from this thread, and OS threads inherit their creator's affinity mask
@@ -1367,6 +1374,11 @@ void Application::run() {
 
             // Handle window events
             if (event.type == SDL_QUIT) {
+                if (testUpdateLimit.reached()) {
+                    testQuitDispatched = true;
+                    LOG_INFO("Unattended smoke SDL_QUIT dispatched after ",
+                             testUpdateLimit.completed(), " completed update/render iterations");
+                }
                 window->setShouldClose(true);
             }
             else if (event.type == SDL_WINDOWEVENT) {
@@ -1678,7 +1690,16 @@ void Application::run() {
         // Exit gracefully on GPU device lost (unrecoverable)
         if (renderer && renderer->getVkContext() && renderer->getVkContext()->isDeviceLost()) {
             LOG_ERROR("GPU device lost - exiting application");
+            if (testUpdateLimit.enabled()) {
+                throw std::runtime_error("WOWEE_TEST_MAX_UPDATES: GPU device lost during smoke run");
+            }
             window->setShouldClose(true);
+        }
+
+        if (testUpdateLimit.completeIteration()) {
+            SDL_Event quitEvent{};
+            quitEvent.type = SDL_QUIT;
+            TestUpdateLimit::requireQueuedQuit(SDL_PushEvent(&quitEvent));
         }
 
         // Pace from the start of the frame we just completed. Using deltaTime
@@ -1696,6 +1717,7 @@ void Application::run() {
         }
     }
 
+    testUpdateLimit.requireCompletedQuit(testQuitDispatched);
     LOG_INFO("Main loop ended");
 }
 

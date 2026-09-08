@@ -219,3 +219,7 @@ set_tests_properties(lua_handler_globals lua_generic_for lua_arg_coercion addon_
 # FrameXML runner exit/failure contract shared with the runtime entrypoint.
 wowee_add_test(test_framexml_run_contract SOURCES test_framexml_run_contract.cpp)
 set_tests_properties(framexml_run_contract PROPERTIES LABELS "headless")
+
+# Opt-in real-client smoke loop limit and successful SDL quit contract.
+wowee_add_test(test_update_limit SOURCES test_update_limit.cpp)
+set_tests_properties(update_limit PROPERTIES LABELS "headless")
