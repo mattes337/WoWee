@@ -67,3 +67,13 @@ Debug build with `WOWEE_ENABLE_ASAN=ON` passed all 11 then-configured tests
 passed all 13 configured tests, including settings-panel layout and the
 ready-check member helper. The remote GitHub Actions job has not been executed
 from this workspace.
+
+
+After sharing and instrumenting the vendored Lua VM, a fresh no-Vulkan Ubuntu
+container run built and passed all 18 then-configured tests (including the Lua
+protected-call, handler-global, legacy iteration, argument-coercion and injected
+snippet regressions). The configure/build/CTest transcript is retained locally
+at `build-headless-20260908/linux-sanitizer-result.txt`. Windows Debug also
+passed these 18 tests using the same pinned GLM 1.0.1 installation recipe as CI.
+CI explicitly sets `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1` so a UBSan
+report fails the job; that stricter environment was added after the local run.
