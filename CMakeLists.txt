@@ -29,6 +29,7 @@ option(WOWEE_BUILD_TESTS "Build tests" ON)
 option(WOWEE_ENABLE_ASAN "Enable AddressSanitizer + UBSan (applied to all build configs; pairs well with Debug)" OFF)
 option(WOWEE_ENABLE_TRACY "Enable Tracy profiler instrumentation" OFF)
 option(WOWEE_HEADLESS_TESTS_ONLY "Build pure packet, spline, widget and XML tests without the client or graphics SDKs" OFF)
+option(WOWEE_TEST_SDL_EVENTS "Include the SDL event-queue fixture in headless tests" OFF)
 
 # Resolve only the dependency used by the pure tests. Return before discovery
 # of SDL, Vulkan, shader compilers, audio, optional SDKs or client targets.
@@ -37,6 +38,9 @@ if(WOWEE_HEADLESS_TESTS_ONLY)
         message(FATAL_ERROR "WOWEE_HEADLESS_TESTS_ONLY requires WOWEE_BUILD_TESTS=ON")
     endif()
     find_package(glm REQUIRED)
+    if(WOWEE_TEST_SDL_EVENTS)
+        find_package(SDL2 CONFIG REQUIRED)
+    endif()
     include(${CMAKE_SOURCE_DIR}/cmake/Lua51.cmake)
     enable_testing()
     add_subdirectory(tests)
@@ -554,6 +558,8 @@ endif()
 set(WOWEE_SOURCES
     # Core
     src/core/application.cpp
+    src/core/test_input_trace.cpp
+    src/core/test_input_trace_sdl.cpp
     src/core/entity_spawner.cpp
     src/core/entity_spawner_player.cpp
     src/core/entity_spawner_processing.cpp

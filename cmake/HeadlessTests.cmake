@@ -1,6 +1,26 @@
 # Pure tests: no graphics SDK, window, game assets, or running server.
 # Included by tests/CMakeLists.txt in both client and headless configurations.
 
+wowee_add_test(test_input_trace SOURCES test_input_trace.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/test_input_trace.cpp)
+target_include_directories(test_input_trace SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/extern)
+set_tests_properties(input_trace PROPERTIES LABELS "headless")
+
+if(TARGET SDL2::SDL2)
+    wowee_add_test(test_input_trace_sdl SOURCES test_input_trace_sdl.cpp
+        ${CMAKE_SOURCE_DIR}/src/core/test_input_trace.cpp
+        ${CMAKE_SOURCE_DIR}/src/core/test_input_trace_sdl.cpp)
+    target_include_directories(test_input_trace_sdl SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/extern)
+    target_link_libraries(test_input_trace_sdl PRIVATE SDL2::SDL2)
+    set_tests_properties(input_trace_sdl PROPERTIES LABELS "headless;sdl")
+    if(WIN32)
+        add_custom_command(TARGET test_input_trace_sdl POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:test_input_trace_sdl>
+            VERBATIM)
+    endif()
+endif()
+
 # ── test_framexml ───────────────────────────────────────────
 add_executable(test_framexml
     test_framexml.cpp

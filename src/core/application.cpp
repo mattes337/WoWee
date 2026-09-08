@@ -1,6 +1,7 @@
 #include "core/application.hpp"
 #include "core/env_flag.hpp"
 #include "core/test_update_limit.hpp"
+#include "core/test_input_trace.hpp"
 #include "core/character_paths.hpp"
 #include "ui/settings_schema.hpp"
 #include "pipeline/m2_asset_loader.hpp"
@@ -1172,7 +1173,15 @@ bool Application::initialize() {
 void Application::run() {
     ZoneScopedN("Application::run");
     LOG_INFO("Starting main loop");
-    TestUpdateLimit testUpdateLimit(std::getenv("WOWEE_TEST_MAX_UPDATES"));
+    auto testInputTrace = TestInputTrace::fromFile(std::getenv("WOWEE_TEST_INPUT_TRACE"));
+    const std::string traceLimit = testInputTrace.enabled() ? std::to_string(testInputTrace.stopAfterUpdates()) : "";
+    const char* explicitLimit = std::getenv("WOWEE_TEST_MAX_UPDATES");
+    TestUpdateLimit testUpdateLimit(explicitLimit ? explicitLimit :
+        (testInputTrace.enabled() ? traceLimit.c_str() : nullptr));
+    if (testInputTrace.enabled() && testUpdateLimit.limit() != testInputTrace.stopAfterUpdates())
+        throw std::invalid_argument("WOWEE_TEST_INPUT_TRACE: stop count conflicts with WOWEE_TEST_MAX_UPDATES");
+    if (testInputTrace.enabled())
+        LOG_INFO("SDL input trace enabled: ", testInputTrace.size(), " events; payloads omitted");
     bool testQuitDispatched = false;
     if (testUpdateLimit.enabled()) {
         LOG_INFO("Unattended smoke limit: ", testUpdateLimit.limit(),
@@ -1298,6 +1307,14 @@ void Application::run() {
         // the draw, further down this same iteration, is the only reader.
         ui::clearInterfaceConsumedKeys();
         ui::ageChatSlashEcho();
+        if (testInputTrace.enabled()) {
+            const uint32_t windowId = SDL_GetWindowID(window->getSDLWindow());
+            if (windowId == 0)
+                throw std::runtime_error("WOWEE_TEST_INPUT_TRACE: application has no SDL window");
+            testInputTrace.queueDue(testUpdateLimit.completed(), [windowId](const TestInputEvent& input) {
+                return pushTestInputEvent(input, windowId);
+            });
+        }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
 #ifdef __ANDROID__
@@ -1718,6 +1735,10 @@ void Application::run() {
     }
 
     testUpdateLimit.requireCompletedQuit(testQuitDispatched);
+    testInputTrace.requireComplete(testUpdateLimit.completed());
+    if (testInputTrace.enabled())
+        LOG_INFO("SDL input trace completed: ", testInputTrace.size(), " events, ",
+                 testUpdateLimit.completed(), " completed update/render iterations; not presented-frame assertions");
     LOG_INFO("Main loop ended");
 }
 
