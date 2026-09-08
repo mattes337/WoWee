@@ -127,6 +127,8 @@ def run(args):
         env["VK_LAYER_PATH"] = str(args.layer_path)
     if args.screenshot:
         env["WOWEE_TEST_SCREENSHOT_PATH"] = str(args.output / "screenshot.png")
+        if args.screenshot_after_updates is not None:
+            env["WOWEE_TEST_SCREENSHOT_AFTER_UPDATES"] = str(args.screenshot_after_updates)
     env["PATH"] = str(args.binary.parent) + os.pathsep + env.get("PATH", "")
     report = {"result": "prepared-not-run"}
     if args.execute:
@@ -155,7 +157,9 @@ def run(args):
             captured = capture.is_file() and f"Screenshot saved: {capture}" in log
             report["screenshot"] = {"completion_logged": captured,
                                     "sha256": sha256(capture) if captured else None,
-                                    "pixels_decoded": False, "timing": "startup capture, not final state"}
+                                    "pixels_decoded": False,
+                                    "after_updates": args.screenshot_after_updates,
+                                    "timing": "completed-update count; not a server-state condition" if args.screenshot_after_updates is not None else "startup capture, not final state"}
             if not captured:
                 report["result"] = "fail"
     report.update(binary_sha256=binary_hash, expected_binary_sha256=args.expected_binary_sha256, input=identity,
@@ -183,6 +187,8 @@ def main():
     parser.add_argument("--timeout", type=float, default=90)
     parser.add_argument("--execute", action="store_true", help="otherwise prepare private fixtures only")
     parser.add_argument("--screenshot", action="store_true", help="require startup capture acknowledgement; pixels need separate inspection")
+    parser.add_argument("--screenshot-after-updates", type=int,
+                        help="delay capture by completed updates; does not wait for a server state")
     parser.add_argument("--create-name", help="optional dedicated test character to create through the UI")
     parser.add_argument("--newhero-x", type=int)
     parser.add_argument("--newhero-y", type=int)
@@ -192,6 +198,9 @@ def main():
         parser.error("updates must be 46..1000000 and timeout positive and at most 3600")
     if args.create_name and (args.newhero_x is None or args.newhero_y is None):
         parser.error("character creation requires explicit New Hero coordinates")
+    if args.screenshot_after_updates is not None and (not args.screenshot or
+            not 0 <= args.screenshot_after_updates < args.updates):
+        parser.error("delayed capture requires --screenshot and an update count before shutdown")
     report = run(args)
     print(json.dumps({key: report[key] for key in ("result", "account", "auth_endpoint")}))
     return 0 if report["result"] in ("pass", "prepared-not-run") else 1
