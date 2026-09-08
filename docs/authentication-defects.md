@@ -32,5 +32,13 @@ vectors provide a separate derivation for the interleave step. A short
 client A is not forced by this fixture. Legacy/custom multiplier and
 hash-endian modes remain unverified.
 
-The actual post-fix client authentication run is pending. Unit results do
-not establish server login, character creation or world-entry acceptance.
+The actual post-fix `live-login-03` run passes using the same dedicated
+account and unchanged salt. Binary SHA-256
+`a319fbc1bd3c2be83338e74e87b56858a023bf8801709e4294c387e8232ab7f7`
+authenticates, receives the realm list, completes world authentication and
+receives an empty character list in that order. Its eight SDL input events
+complete, followed by normal SDL_QUIT shutdown after 1,800 updates with exit
+0 and no logged errors. [Server/runtime evidence](evidence/emulator-readiness-20260908.md)
+preserves the scope and earlier failed attempts. This closes the reproduced
+authentication failure for the controlled server. Character creation,
+world entry and legacy/custom modes remain separate acceptance gates.
