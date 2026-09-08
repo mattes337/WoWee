@@ -20,7 +20,7 @@ def classify(returncode, log, updates):
     passed = (returncode == 0 and dispatch in log
               and "Application exited successfully" in log
               and "Asset manager initialized successfully" in log
-              and "Vulkan validation layers requested" in log and not errors)
+              and "Vulkan validation layers enabled" in log and not errors)
     return {"result": "pass" if passed else "fail", "exit_code": returncode,
             "quit_dispatched": dispatch in log,
             "shutdown_completed": "Application exited successfully" in log,
@@ -42,7 +42,9 @@ def run(binary, assets, profiles, output, updates, timeout, layer_path=None):
     shutil.copytree(profiles, fixture / "expansions")
     config = output / "config"
     config.mkdir()
-    env = os.environ.copy()
+    # Inherited debug overrides can redirect writes or skip renderer work.
+    env = {key: value for key, value in os.environ.items()
+           if not key.upper().startswith("WOWEE_")}
     env.update(WOW_DATA_PATH=str(fixture), WOWEE_CONFIG_ROOT=str(config),
                WOWEE_LOG_FILE="smoke.log", WOWEE_LOG_LEVEL="info",
                WOWEE_LOAD_FRAMEXML="1", WOWEE_LUA_API_FALLBACK="0",
