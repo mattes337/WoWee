@@ -431,6 +431,17 @@ target_link_libraries(test_srp PRIVATE catch2_main OpenSSL::SSL OpenSSL::Crypto)
 add_test(NAME srp COMMAND test_srp)
 register_test_target(test_srp)
 
+
+# The session-key edge cases use production SHA1, without an SRP handshake.
+add_executable(test_srp_session_key
+    test_srp_session_key.cpp
+    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
+)
+target_include_directories(test_srp_session_key PRIVATE ${TEST_INCLUDE_DIRS})
+target_link_libraries(test_srp_session_key PRIVATE catch2_main OpenSSL::Crypto)
+add_test(NAME srp_session_key COMMAND test_srp_session_key)
+register_test_target(test_srp_session_key)
+
 # ── test_m2_ribbon_tracks ────────────────────────────────────
 # A ribbon emitter's alpha and visibility tracks, whose keys are fixed16 and
 # bytes rather than floats. Real-asset coverage; skips when unextracted.
