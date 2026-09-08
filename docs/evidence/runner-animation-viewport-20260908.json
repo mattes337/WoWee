@@ -1,0 +1,21 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "command": [
+    "G:\\WoW Projects\\wowee\\build-fork-windows\\bin\\Debug\\framexml_run.exe",
+    "G:\\WoW Projects\\wowee\\logs\\fork-baseline\\runner-animation-viewport-02\\assets",
+    "--viewport:1024x768",
+    "--script:G:\\WoW Projects\\wowee\\logs\\fork-baseline\\runner-animation-viewport-02\\scenario.lua"
+  ],
+  "binary_sha256": "c38047669933eb6641c065d37e8e4f66063e8a307ce40162eb2c9146dd705d0a",
+  "script_sha256": "a09fe6af114eb7387073c21e8b44e3d34b7db89f40b13334b4e7f631e0a4cb55",
+  "stdout_sha256": "0f7d6f820c142a8b68287664c5cc172c3a1778090aac19de221fc03e5267192a",
+  "input": {
+    "asset_root": "G:\\WoW Projects\\wowee\\logs\\fork-baseline\\runner-animation-viewport-02\\assets",
+    "manifest_sha256": "278ea8084737c328e4928ccef6dce7addf95f381714c8f9c6214d0d54f3ab861",
+    "manifest_base_path": "../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "source": "== source: 915c8752feae5c4e1cbf475983cda07d568e0616-dirty; built 2026-09-08",
+  "scope": "offline FrameXML, initial viewport and ordered animation integration; no GPU or gameplay claim"
+}
