@@ -68,6 +68,30 @@ The same dump set contains `Blizzard_Calendar.xml.lua` with
 animation and smoothing emitter changes while omitting the later OnLoad
 dispatch change.
 
+## Incremental-build identity
+
+The runner project names the source directly as
+`G:/WoW Projects/wowee/src/ui/framexml_emitter.cpp`; its `Cl.items.tlog` maps
+that path to
+`build-fork-windows/framexml_run.dir/Debug/framexml_emitter.obj`. The runner
+object was 2,189,580 bytes, had SHA-256
+`e65ddc3409b4cbf217cda4d1d115243e06d1a278c50553d3f3dfb2d1e6fe9fcf`,
+and completed at 2026-09-08 19:45:15 UTC. The final source was 94,251 bytes
+with mtime 19:44:55 UTC, while commit `16c377939` was recorded at 19:46:01 UTC.
+The separately compiled client object completed later, at 19:47:26 UTC, was
+2,667,631 bytes, and had SHA-256
+`92690c7fcdcf8f1571eae98daff28a0f05db85f68a4a2d9ee3edfc3677697de1`.
+
+`CL.read.1.tlog` records `include/ui/framexml_emitter.hpp` as a dependency and
+the generated project contains the correct shared-worktree source paths for
+both the emitter and Lua engine. The runner CL read/write logs were rewritten
+at 19:47:52 UTC and do not preserve the individual compiler start time. These
+records rule out a stale configured source path, but cannot prove whether the
+runner compiler read the translation unit while it was being edited. Because
+the runner object timestamp is newer than the source mtime, a later ordinary
+incremental build can validly skip that object even though the linked behavior
+shows it lacks the final edit.
+
 ## Conclusion and pending verification
 
 The failed assertion exercised an executable with stale FrameXML emitter code.
