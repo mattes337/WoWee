@@ -22,19 +22,19 @@ public:
         if (!std::isfinite(pos.x) || !std::isfinite(pos.y) || !std::isfinite(pos.z)) return;
         position = pos; updateViewMatrix();
     }
-    void setRotation(float yaw, float pitch) {
-        if (!std::isfinite(yaw) || !std::isfinite(pitch)) return;
-        this->yaw = yaw; this->pitch = pitch; updateViewMatrix();
+    void setRotation(float yawDegrees, float pitchDegrees) {
+        if (!std::isfinite(yawDegrees) || !std::isfinite(pitchDegrees)) return;
+        yaw = yawDegrees; pitch = pitchDegrees; updateViewMatrix();
     }
     void setAspectRatio(float aspect) {
         // glm::perspective with aspect <= 0 produces NaN in the projection.
         if (!std::isfinite(aspect) || aspect <= 0.0f) return;
         aspectRatio = aspect; updateProjectionMatrix();
     }
-    void setFov(float fov) {
+    void setFov(float fovDegrees) {
         // glm::perspective(0) is degenerate; >180 wraps the trig.
-        if (!std::isfinite(fov) || fov <= 0.0f || fov >= 180.0f) return;
-        this->fov = fov; updateProjectionMatrix();
+        if (!std::isfinite(fovDegrees) || fovDegrees <= 0.0f || fovDegrees >= 180.0f) return;
+        fov = fovDegrees; updateProjectionMatrix();
     }
 
     [[nodiscard]] const glm::vec3& getPosition() const { return position; }

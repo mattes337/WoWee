@@ -43,7 +43,7 @@ public:
     }
     [[nodiscard]] float maxDistanceFactor() const { return maxDistanceFactor_; }
     [[nodiscard]] bool isExtendedZoom() const { return extendedZoom_; }
-    void setEnabled(bool enabled) { this->enabled = enabled; }
+    void setEnabled(bool value) { enabled = value; }
     void setTerrainManager(TerrainManager* tm) { terrainManager = tm; }
     void setWMORenderer(WMORenderer* wmo) { wmoRenderer = wmo; }
     void setM2Renderer(M2Renderer* m2) { m2Renderer = m2; }
@@ -92,9 +92,9 @@ public:
     void startIntroPan(float durationSec = 2.8f, float orbitDegrees = 140.0f);
     [[nodiscard]] bool isIntroActive() const { return introActive; }
     [[nodiscard]] bool isIdleOrbit() const { return idleOrbit_; }
-    void setIdleOrbitEnabled(bool enabled) {
-        idleOrbitEnabled_ = enabled;
-        if (!enabled && idleOrbit_) {
+    void setIdleOrbitEnabled(bool value) {
+        idleOrbitEnabled_ = value;
+        if (!value && idleOrbit_) {
             introActive = false;
             idleOrbit_ = false;
             idleTimer_ = 0.0f;
@@ -241,9 +241,9 @@ public:
     void setMounted(bool m) { mounted_ = m; }
     void setIntoxication(float amount) { intoxication_ = std::clamp(amount, 0.0f, 1.0f); }
     void setMountHeightOffset(float offset) { mountHeightOffset_ = offset; }
-    void setExternalFollow(bool enabled) { externalFollow_ = enabled; }
+    void setExternalFollow(bool value) { externalFollow_ = value; }
     void setExternalMoving(bool moving) { externalMoving_ = moving; }
-    void setFacingYaw(float yaw) { facingYaw = yaw; }  // For taxi/scripted movement
+    void setFacingYaw(float yawDegrees) { facingYaw = yawDegrees; }  // For taxi/scripted movement
     void clearMovementInputs();
     void suppressMovementFor(float seconds) { movementSuppressTimer_ = seconds; }
     void suspendGravityFor(float seconds) { gravitySuspendTimer_ = seconds; }

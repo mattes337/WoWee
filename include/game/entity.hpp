@@ -361,14 +361,14 @@ public:
     // Power (mana/rage/energy) - indexed by power type (0-6)
     [[nodiscard]] uint32_t getPower() const { return powers[powerType < 7 ? powerType : 0]; }
     void setPower(uint32_t p) { powers[powerType < 7 ? powerType : 0] = p; }
-    void setPowerByType(uint8_t type, uint32_t p) { if (type < 7) powers[type] = p; }
+    void setPowerByType(uint8_t powerIndex, uint32_t p) { if (powerIndex < 7) powers[powerIndex] = p; }
 
     [[nodiscard]] uint32_t getMaxPower() const { return maxPowers[powerType < 7 ? powerType : 0]; }
     void setMaxPower(uint32_t p) { maxPowers[powerType < 7 ? powerType : 0] = p; }
-    void setMaxPowerByType(uint8_t type, uint32_t p) { if (type < 7) maxPowers[type] = p; }
+    void setMaxPowerByType(uint8_t powerIndex, uint32_t p) { if (powerIndex < 7) maxPowers[powerIndex] = p; }
 
-    [[nodiscard]] uint32_t getPowerByType(uint8_t type) const { return type < 7 ? powers[type] : 0; }
-    [[nodiscard]] uint32_t getMaxPowerByType(uint8_t type) const { return type < 7 ? maxPowers[type] : 0; }
+    [[nodiscard]] uint32_t getPowerByType(uint8_t powerIndex) const { return powerIndex < 7 ? powers[powerIndex] : 0; }
+    [[nodiscard]] uint32_t getMaxPowerByType(uint8_t powerIndex) const { return powerIndex < 7 ? maxPowers[powerIndex] : 0; }
 
     [[nodiscard]] uint8_t getPowerType() const { return powerType; }
     void setPowerType(uint8_t t) { powerType = t; }

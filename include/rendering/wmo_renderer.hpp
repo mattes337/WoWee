@@ -224,12 +224,13 @@ public:
                                 wowee::rendering::VkShaderModule& vertShader,
                                 wowee::rendering::VkShaderModule& fragShader);
     bool isInitialized() const { return initialized_; }
-    uint32_t getModelCount() const { return loadedModels.size(); }
+    // Preserve the established 32-bit statistics API at the size_t boundary.
+    uint32_t getModelCount() const { return static_cast<uint32_t>(loadedModels.size()); }
 
     /**
      * Get number of active instances
      */
-    uint32_t getInstanceCount() const { return instances.size(); }
+    uint32_t getInstanceCount() const { return static_cast<uint32_t>(instances.size()); }
     size_t getLoadedModelCount() const { return loadedModels.size(); }
 
     /**
