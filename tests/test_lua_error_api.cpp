@@ -124,3 +124,21 @@ TEST_CASE("ordinary Lua failures still fail the harness", "[lua-error-api]") {
     REQUIRE(lua_isstring(f.L, -1));
     CHECK(std::string(lua_tostring(f.L, -1)).find("unprotected regression failure") != std::string::npos);
 }
+
+TEST_CASE("protected errors reach engine diagnostics independently of addon handlers", "[lua-error-api]") {
+    Fixture f;
+    int observed = 0;
+    wowee::addons::registerErrorApis(f.L, [](lua_State* L) -> int {
+        auto* count = static_cast<int*>(lua_touserdata(L, lua_upvalueindex(1)));
+        ++*count;
+        return 0;
+    }, &observed);
+    f.run(R"lua(
+        seterrorhandler(function() end)
+        securecall(function() assert(false, 'caught assertion') end)
+        seterrorhandler(function() error('handler also failed') end)
+        securecall(function() error('caught throw') end)
+        assert(securecall(function() return 42 end) == 42)
+    )lua");
+    CHECK(observed == 2);
+}

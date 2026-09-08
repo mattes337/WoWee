@@ -5635,7 +5635,14 @@ bool LuaEngine::initialize() {
     luaopen_table(L_);
     luaopen_string(L_);
     luaopen_math(L_);
-    registerErrorApis(L_);
+    registerErrorApis(L_, [](lua_State* state) -> int {
+        auto* engine = static_cast<LuaEngine*>(lua_touserdata(state, lua_upvalueindex(1)));
+        const char* message = lua_tostring(state, 1);
+        const std::string error = message ? message : "(non-string Lua error)";
+        LOG_WARNING("Lua securecall error: ", error);
+        if (engine->luaErrorCallback_) engine->luaErrorCallback_(error);
+        return 0;
+    }, this);
 
     // Remove unsafe globals from base library.
     //

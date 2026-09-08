@@ -15,6 +15,7 @@ namespace error_api {
 
 inline constexpr const char* kHandler = "wowee_error_handler";
 inline constexpr const char* kReporting = "wowee_reporting_error";
+inline constexpr const char* kObserver = "wowee_error_observer";
 
 inline int defaultHandler(lua_State* L) { lua_settop(L, 1); return 1; }
 inline int getHandler(lua_State* L) {
@@ -37,6 +38,15 @@ inline int reportError(lua_State* L) {
     if (!reporting) {
         lua_pushboolean(L, 1);
         lua_setfield(L, LUA_REGISTRYINDEX, kReporting);
+        // Engine diagnostics remain independent of the addon's error handler:
+        // a protected Lua throw is contained but must still fail a test run.
+        lua_getfield(L, LUA_REGISTRYINDEX, kObserver);
+        if (lua_isfunction(L, -1)) {
+            lua_pushvalue(L, 1);
+            if (lua_pcall(L, 1, 0, 0) != 0) lua_pop(L, 1);
+        } else {
+            lua_pop(L, 1);
+        }
         lua_getfield(L, LUA_REGISTRYINDEX, kHandler);
         lua_pushvalue(L, 1);
         if (lua_pcall(L, 1, 0, 0) != 0) lua_pop(L, 1);
@@ -89,9 +99,16 @@ inline int debugStack(lua_State* L) {
 
 } // namespace error_api
 
-inline void registerErrorApis(lua_State* L) {
+inline void registerErrorApis(lua_State* L, lua_CFunction observer = nullptr, void* context = nullptr) {
     lua_pushcfunction(L, error_api::defaultHandler);
     lua_setfield(L, LUA_REGISTRYINDEX, error_api::kHandler);
+    if (observer) {
+        lua_pushlightuserdata(L, context);
+        lua_pushcclosure(L, observer, 1);
+    } else {
+        lua_pushnil(L);
+    }
+    lua_setfield(L, LUA_REGISTRYINDEX, error_api::kObserver);
     lua_register(L, "geterrorhandler", error_api::getHandler);
     lua_register(L, "seterrorhandler", error_api::setHandler);
     lua_register(L, "securecall", error_api::secureCall);

@@ -30,7 +30,13 @@ cmake --build build-headless-20260908 --config Debug --target test_lua_error_api
 ctest --test-dir build-headless-20260908 -C Debug -R '^lua_error_api$' --output-on-failure
 ```
 
-MSVC Debug: five test cases passed (11 C++ assertions, with the semantic
+MSVC Debug: six test cases passed (14 C++ assertions, with the semantic
 assertions executed inside Lua). This is not full taint tracking (BOTH-01),
 byte-identical stock stack formatting, or rendered error-dialog acceptance.
 The full client build and fallback-off live addon validation remain separate.
+
+A follow-up observer reports protected errors to LuaEngine's existing error
+callback independently of an addon's chosen error handler. This preserves
+securecall containment while preventing a caught assertion from producing a
+green harness run. The observer regression checks two caught errors with two
+different addon handlers and verifies a successful call still returns normally.

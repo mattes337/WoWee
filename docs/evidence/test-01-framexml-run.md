@@ -10,6 +10,8 @@ The runner now aggregates those phases and asset initialization into its exit
 status, capped at 100. AddonManager's existing loading method returns aggregate
 FrameXML/enabled-addon success; existing callers can continue ignoring the
 return. A malformed existing Bindings.xml also contributes to load failure.
+The Lua error callback is installed before manager initialization, so bootstrap
+errors are included and its storage remains alive through manager shutdown.
 
 Input failures return nonzero before loading the interface: missing asset
 directory, empty expression, empty `--lua:`, and missing/unreadable/empty
@@ -43,6 +45,10 @@ and confirm nonzero exits for missing assets/manifest/listed file/script, a
 script containing `assert(false)`, a script containing `error('failure')`, and
 a script containing `while true do end`. Verify a successful fixture separately;
 the local interface may have genuine missing APIs that should now fail it.
+Also verify `securecall(function() assert(false) end)`: the VM now reports
+protected throws through the engine observer while preserving securecall's
+zero-result error return. An addon's custom error handler cannot hide that
+diagnostic from the runner.
 
 This patch does not implement process-level watchdogs for native hangs, SDL
 input, captures, network-authoritative waits, variable viewport selection,

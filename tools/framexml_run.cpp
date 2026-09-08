@@ -222,16 +222,16 @@ int main(int argc, char** argv) {
     settingServices.setClientSetting = [](const std::string& key, const std::string& value) {
         gameScreen.getSettingsPanel().setSettingValue(key, value);
     };
+    std::vector<std::string> errors;
     wowee::addons::AddonManager mgr;
+    mgr.getLuaEngine()->setLuaErrorCallback(
+        [&errors](const std::string& e) { errors.push_back(e); });
     if (!mgr.initialize(nullptr, settingServices)) {
         std::fprintf(stderr, "framexml_run: Lua would not initialise\n");
         return 2;
     }
 
-    std::vector<std::string> errors;
     if (auto* engine = mgr.getLuaEngine()) {
-        engine->setLuaErrorCallback(
-            [&errors](const std::string& e) { errors.push_back(e); });
         // The screen the interface loads against, which in the client comes
         // from the window - there is none here, and the same size the relayout
         // below uses stands in for it. Without it every rect the interface
@@ -244,7 +244,7 @@ int main(int argc, char** argv) {
     mgr.scanAddons(assetPath + "/interface/AddOns");
     const bool loaded = mgr.loadAllAddons();
 
-    std::printf("== load: %zu error(s)\n", errors.size());
+    std::printf("== load: %zu error(s), result=%s\n", errors.size(), loaded ? "loaded" : "failed");
     for (const std::string& e : errors) std::printf("   %s\n", e.c_str());
 
     // Then every addon that waits to be asked for, because loading one is
