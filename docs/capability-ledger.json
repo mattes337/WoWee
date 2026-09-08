@@ -7,7 +7,7 @@
     "result": "not runtime verified",
     "interface_path": "Data/extracted/interface/FrameXML",
     "stock_provenance": "unverified",
-    "input_sha256": "3c3b6ce6bad42ee8e580f589e97df71bef688188818fc5903c82c8c80be4006b",
+    "input_sha256": "dcff7e0ee57635e98bd323ebbd1032f9eb2b1b82f136704294eb2d3d53f94c59",
     "limitations": "Regex detections overlap and include defaults, comments and unreachable code. No coverage percentage or functional completion is implied."
   },
   "wotlk_opcode_warnings": [
@@ -11198,7 +11198,7 @@
     },
     "configured_tests": {
       "manifest_status": "configured",
-      "sha256": "fedfd41432fc465c0d3d01346df60b54d744e9fe1b0d2858ee97871ff723c4b4",
+      "sha256": "e115cbe8c8130ccdec0c0640785c5807c3aba2f49f27b662a21393e945491f3e",
       "tests": [
         {
           "name": "addon_lua_snippets",
