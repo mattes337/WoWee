@@ -20,6 +20,7 @@
 #include "rendering/pom_quality.hpp"
 #include "rendering/shadow_params.hpp"
 #include "rendering/normal_map.hpp"
+#include "rendering/tangent_basis.hpp"
 #include "rendering/m2_track_sampler.hpp"
 #include "rendering/animation/animation_ids.hpp"
 #include "core/thread_pool.hpp"
@@ -1920,10 +1921,7 @@ void CharacterRenderer::setupModelBuffers(M2ModelGPU& gpuModel) {
             gpuVerts[i].tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
             continue;
         }
-        // Gram-Schmidt orthogonalize
-        glm::vec3 tOrtho = glm::normalize(t - n * glm::dot(n, t));
-        float w = (glm::dot(glm::cross(n, t), bitanAccum[i]) < 0.0f) ? -1.0f : 1.0f;
-        gpuVerts[i].tangent = glm::vec4(tOrtho, w);
+        gpuVerts[i].tangent = makeFiniteTangent(n, t, bitanAccum[i]);
     }
 
     // Upload vertex buffer (CharVertexGPU, 56 bytes per vertex)

@@ -270,3 +270,8 @@ set_tests_properties(animation_group_lua PROPERTIES LABELS "headless")
 
 wowee_add_test(test_model_replacement SOURCES test_model_replacement.cpp)
 set_tests_properties(model_replacement PROPERTIES LABELS "headless")
+
+# Tangent construction is pure CPU math but feeds the character GPU vertex
+# buffer. Degenerate normals and UV-derived tangents must remain finite.
+wowee_add_test(test_tangent_basis SOURCES test_tangent_basis.cpp)
+set_tests_properties(tangent_basis PROPERTIES LABELS "headless")
