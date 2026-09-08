@@ -137,3 +137,7 @@ add_test(NAME settings_panel_layout COMMAND test_settings_panel_layout)
 register_test_target(test_settings_panel_layout)
 
 set_tests_properties(settings_panel_layout PROPERTIES LABELS "headless")
+
+# Wire-format response helper updates ready state and member payload together.
+wowee_add_test(test_ready_check_member SOURCES test_ready_check_member.cpp)
+set_tests_properties(ready_check_member PROPERTIES LABELS "headless")

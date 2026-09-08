@@ -2,6 +2,7 @@
 #include "core/local_time.hpp"
 #include "game/item_text.hpp"
 #include "game/social_handler.hpp"
+#include "game/ready_check_member.hpp"
 #include "addons/lua_api_registrations.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "game/game_handler.hpp"
@@ -575,20 +576,20 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
 
     // ---- Ready check ----
     table[Opcode::MSG_RAID_READY_CHECK] = [this](network::Packet& packet) {
+        if (!packet.hasRemaining(8)) { packet.skipAll(); return; }
+        const uint64_t initiatorGuid = packet.readUInt64();
         pendingReadyCheck_ = true;
         readyCheckState_.start();
-        readyCheckInitiator_.clear();
+        readyCheckInitiator_ = readyCheckMember(partyData, owner_.getPlayerGuid(), initiatorGuid).name;
         readyCheckResults_.clear();
-        if (packet.hasRemaining(8)) {
-            uint64_t initiatorGuid = packet.readUInt64();
+        if (readyCheckInitiator_.empty()) {
             auto entity = owner_.getEntityManager().getEntity(initiatorGuid);
             if (auto* unit = dynamic_cast<Unit*>(entity.get()))
                 readyCheckInitiator_ = unit->getName();
         }
-        if (readyCheckInitiator_.empty() && partyData.leaderGuid != 0) {
-            for (const auto& member : partyData.members) {
-                if (member.guid == partyData.leaderGuid) { readyCheckInitiator_ = member.name; break; }
-            }
+        if (readyCheckInitiator_.empty()) {
+            const auto name = owner_.getPlayerNameCache().find(initiatorGuid);
+            if (name != owner_.getPlayerNameCache().end()) readyCheckInitiator_ = name->second;
         }
         owner_.addSystemChatMessage(readyCheckInitiator_.empty()
             ? "Ready check initiated!"
@@ -601,10 +602,11 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         uint64_t respGuid = packet.readUInt64();
         uint8_t  isReady  = packet.readUInt8();
         readyCheckState_.confirm(respGuid, isReady != 0);
+        const auto responder = readyCheckMember(partyData, owner_.getPlayerGuid(), respGuid);
         auto nit = owner_.getPlayerNameCache().find(respGuid);
-        std::string rname;
-        if (nit != owner_.getPlayerNameCache().end()) rname = nit->second;
-        else {
+        std::string rname = responder.name;
+        if (rname.empty() && nit != owner_.getPlayerNameCache().end()) rname = nit->second;
+        if (rname.empty()) {
             // Only cast to Unit if the entity actually is one - a raw
             // static_pointer_cast on a GameObject would be undefined behavior.
             auto ent = owner_.getEntityManager().getEntity(respGuid);
@@ -622,9 +624,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
             owner_.addSystemChatMessage(rbuf);
         }
         if (owner_.addonEventCallbackRef()) {
-            char guidBuf[32];
-            snprintf(guidBuf, sizeof(guidBuf), "0x%016llX", (unsigned long long)respGuid);
-            owner_.addonEventCallbackRef()("READY_CHECK_CONFIRM", {guidBuf, isReady ? "1" : "0"});
+            owner_.addonEventCallbackRef()("READY_CHECK_CONFIRM", {responder.unit, isReady ? "1" : "0"});
         }
     };
     table[Opcode::MSG_RAID_READY_CHECK_FINISHED] = [this](network::Packet& /*packet*/) {
