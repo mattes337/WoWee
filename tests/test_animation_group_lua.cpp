@@ -170,6 +170,40 @@ TEST_CASE("parallel animations share an order span including start delay", "[ani
     )lua");
 }
 
+TEST_CASE("zero-duration animation finishes once at its delayed order boundary", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local g = __WoweeCreateAnimationGroup(frame)
+        local instant = g:CreateAnimation('Animation')
+        instant:SetOrder(1)
+        instant:SetStartDelay(0.5)
+        instant:SetDuration(0)
+        local nextStage = g:CreateAnimation('Animation')
+        nextStage:SetOrder(2)
+        nextStage:SetDuration(1)
+        local instantFinishes, groupFinishes = 0, 0
+        instant:SetScript('OnFinished', function() instantFinishes = instantFinishes + 1 end)
+        g:SetScript('OnFinished', function() groupFinishes = groupFinishes + 1 end)
+
+        g:Play()
+        __WoweeTickAnimations(0.25)
+        assert(instant:GetProgress() == 0 and instantFinishes == 0)
+        assert(nextStage:GetProgress() == 0 and nextStage:GetElapsed() == 0)
+        __WoweeTickAnimations(0.25)
+        assert(instant:GetProgress() == 1 and instantFinishes == 1)
+        assert(nextStage:GetProgress() == 0 and g:IsPlaying())
+        __WoweeTickAnimations(0)
+        assert(instantFinishes == 1 and nextStage:GetProgress() == 0)
+        __WoweeTickAnimations(0.5)
+        assert(nextStage:GetProgress() == 0.5 and instantFinishes == 1)
+        __WoweeTickAnimations(0.5)
+        assert(nextStage:GetProgress() == 1 and instantFinishes == 1)
+        assert(not g:IsPlaying() and groupFinishes == 1)
+        __WoweeTickAnimations(2)
+        assert(instantFinishes == 1 and groupFinishes == 1)
+    )lua");
+}
+
 TEST_CASE("duration groups sparse order values and recomputes changed spans", "[animation]") {
     AnimationFixture f;
     f.run(R"lua(

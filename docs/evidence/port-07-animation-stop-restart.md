@@ -85,10 +85,47 @@ cases failed against the shared production literal.
 The source audit also found work beyond these repairs: endDelay is stored but
 not used by the tick; easing is exposed through GetSmoothProgress while
 interpolation uses raw progress; repeated explicit Finish calls are not guarded
-for exactly once completion. Loop carryover, zero-duration completion callbacks,
-callback reentrancy, paused Play semantics and cleanup on
-hide/destruction/reload also need dedicated tests before making broader behavior
-claims.
+for exactly once completion. Loop carryover, callback reentrancy, paused Play
+semantics and cleanup on hide/destruction/reload also need dedicated tests
+before making broader behavior claims.
+
+## Proven remaining animation-clock defects
+
+Three minimal executions of the shared production Lua literal make the
+remaining clock defects concrete:
+
+- **Animation callback reentrancy.** A one-second animation whose `OnFinished`
+  calls its group's `Play()` ends the tick with `IsPlaying() == false`, animation
+  progress reset to 0, one animation callback and one group callback. The outer
+  tick continues after the animation callback and calls `Finish()`, cancelling
+  the replay. Replacing `Play()` with `Stop()` produces one `OnStop` and then one
+  group `OnFinished` in the same tick.
+- **Zero-duration completion.** An order-1 animation with start delay 0.5 and
+  duration 0 reaches progress 1 at 0.5 seconds, and its order-2 successor runs
+  and finishes, but the zero-duration animation's `OnFinished` count remains 0
+  while the group's count reaches 1.
+- **Loop carryover.** A one-second `REPEAT` group ticked once with 2.5 seconds
+  remains playing with animation elapsed reset to 0, progress left at 1, and
+  exactly one `OnLoop`. The 1.5 seconds beyond the first loop boundary are
+  discarded rather than advancing the next iteration.
+
+These observations describe the current implementation; they do not establish
+new callback or loop semantics. The zero-duration callback is handled by the
+bounded follow-up below. Callback reentrancy and loop carryover remain open.
+
+## Zero-duration completion follow-up
+
+The zero-duration branch now uses the same `finished` flag and animation
+`OnFinished` call as the timed branch. It does not alter group completion,
+looping, or callback reentrancy behavior.
+
+The added real-Lua case places an instant animation after a 0.5-second start
+delay in order 1 and a one-second animation in order 2. It verifies no early
+callback at 0.25 seconds, one callback exactly at the 0.5-second order boundary,
+no duplicate from a zero-length tick, the successor's half and full progress,
+one group completion, and no callbacks from ticks after completion. Before the
+repair, vendored Lua 5.1 CTest reported **34 passed, 1 failed** at the boundary
+callback assertion. After the repair, it passes **35 assertions in 7 cases**.
 
 This change does not certify stock cast bars, pulse/fade visuals, every loop or
 finish path, or live frame cleanup. PORT-07 remains open for those acceptance
