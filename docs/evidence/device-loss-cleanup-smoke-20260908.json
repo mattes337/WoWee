@@ -1,0 +1,29 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "quit_dispatched": true,
+  "shutdown_completed": true,
+  "errors": [],
+  "screenshot": {
+    "extent": [
+      1280,
+      720
+    ],
+    "bytes": 90965,
+    "sha256": "90d5a4335ebb9517c4c4a74c2c7d0fc39f4f745b08c434db367892d518c08202",
+    "completion_logged": true
+  },
+  "binary_sha256": "d6d5393e24fd1c2967e78998b4265382274ae7126e8c23f9792d854ae939c2b5",
+  "input": {
+    "asset_root": "G:\\WoW Projects\\wowee\\logs\\fork-baseline\\device-loss-cleanup-smoke\\runtime\\Data",
+    "manifest_sha256": "2a42c12bf244bfb6b23d97324f7d9cfa51f36281506922860636c812af6d8e91",
+    "manifest_base_path": "../../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 120,
+  "timeout_seconds": 90.0,
+  "layer_path": "G:\\Dev\\VulkanSDK\\1.4.357.0\\Bin",
+  "source_revision": "63be8ed58969ed4037aa39a5db0855c1bb5db85c",
+  "log_sha256": "4211cc79eb8e8f06ab32c2c36321a9042830d00c8d46d1575ad67a25a9161619",
+  "scope": "offline startup and normal shutdown; no visual/presented-frame/gameplay certification"
+}

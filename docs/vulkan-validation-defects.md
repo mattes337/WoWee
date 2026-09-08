@@ -284,6 +284,12 @@ it is not a preview rendering fix. A subsequent fault replay is needed to
 verify the secondary reset diagnostics disappear while the original error
 remains reported.
 
+The rebuilt client passed an independent 120-update offline startup/shutdown
+regression with mandatory validation enabled. Its screenshot fully decoded as
+1280x720 RGBA and visibly shows the login screen. [Run identity and outcome](evidence/device-loss-cleanup-smoke-20260908.json).
+This healthy-path regression does not exercise device loss or verify that the
+secondary diagnostics disappear during a fault.
+
 ### Remaining preview resource diagnostic
 
 A further read-only lifetime audit found no observed pre-fault model replacement
