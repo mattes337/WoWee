@@ -377,3 +377,28 @@ Disabling the backdrop alone does not prevent the observed failure. This
 narrows the diagnostic result but does not prove that the model draw,
 descriptor state, command submission or another specific component is the
 root cause. No further replay followed this bounded isolation run.
+
+## Model-draw isolation and authoritative creation: live-login-08
+
+The same `860f0b...97a57c` binary was replayed with only
+`WOWEE_TEST_PREVIEW_NO_MODEL_DRAW=1`; the backdrop remained enabled, normal
+validation remained enabled, and GPU-AV was off. The normal UI trace sent
+`CMSG_CHAR_CREATE` for `Woweetrial`; the real server returned success code
+**47**, followed by a fresh character list containing that name. A read-only
+query of only the new DB confirms GUID 1, account 1, race 1, class 1 and
+level 1. Character creation occurred through the actual protocol, not a
+direct character-table insertion.
+
+The run is a **diagnostic-mode pass**: 16 input events, 1800-update normal
+quit/shutdown, successful update-900 capture and no ERROR/FATAL log entries.
+Pillow decoded the PNG as 1280x720 RGBA. Visual inspection shows the selected
+Human Warrior Woweetrial on Choose a Hero; the model preview is blank under
+the explicit isolation flag. The Enter World button is visible around
+x910..1094, y594..638, but was not activated.
+
+Disabling model draw avoided the observed device loss with the rest of this
+preview path active. This is useful fault isolation, **not a repaired or
+certified default renderer**. The driver reports `no-model-draw` and
+`default_preview_certified=false`. Account A now has a character; future
+traces must not assume its earlier empty-list state. World entry/gameplay
+and the movement-map compatibility gate remain unverified.
