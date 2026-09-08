@@ -43,3 +43,40 @@ Windows fixture that builds an executable importing a two-DLL chain. On Septembe
 8, 2026 all four tests passed and both real DLLs were copied byte-identically
 beside the fixture executable, without starting it. The Windows headless CI job
 runs both packaging regressions.
+
+## September 8 local installed-package verification
+
+A full Debug install completed into `logs/fork-baseline/package-verify` after
+building its declared tool prerequisites (`dbc_to_csv`, `auth_probe`,
+`auth_login_probe`, `blp_convert`). The first attempt, before those prerequisites
+were built, stopped at the missing tool; the completed install is recorded in
+`logs/fork-baseline/package-install-complete.txt`. No install-rule workaround or
+old executable was substituted. This configuration does not install framexml_run
+or the disabled asset_extract target.
+
+The installed client matched released binary SHA-256
+`4b4c8c78559e3aab51015652a9db2015de704cf48cc5f60c00a4d1e9dd355005`.
+All 81 compiled shader binaries matched the installed overlay byte-for-byte.
+The tree contains five executables and four DLLs flat beside them, with no
+Debug/Release subdirectories or symlinks. Dumpbin import closure resolved every
+installed executable using only the package directory plus system DLL
+classification: four non-system DLLs for wowee, one each for the auth tools,
+and none for dbc_to_csv/blp_convert. No dependency-prefix directory was searched.
+
+The [sanitized package smoke result](evidence/windows-package-smoke.json)
+records exact executable/DLL, PNG and log hashes. The real client ran with its
+working directory set to installed `bin`, using those installed assets, a fresh
+config root and explicit extracted-data fixture. Child PATH contained only
+installed bin, Windows/System32 and Windows. Required Vulkan validation was
+loaded from the explicitly supplied SDK path. The 120-update run exited 0 with
+normal quit, no ERROR/FATAL entries and exactly one screenshot success event.
+Pillow verified and fully decoded the capture as 1280x720 RGBA. Original output
+is under `logs/fork-baseline/package-smoke`; the executed client wrote its log
+under the installed bin and a copy was retained with the fixture evidence.
+
+This proves a local installed-package startup and readback without build-tree
+asset/import fallback. It does not prove a clean destination machine: the host
+provides system/CRT DLLs, graphics drivers and the validation SDK; extracted game
+data is explicitly external. It also does not certify Release packaging,
+authenticated world rendering, optional dynamically loaded plugins, or execution
+of the four installed command-line tools.

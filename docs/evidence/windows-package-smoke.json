@@ -1,0 +1,57 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "quit_dispatched": true,
+  "shutdown_completed": true,
+  "errors": [],
+  "screenshot": {
+    "extent": [
+      1280,
+      720
+    ],
+    "bytes": 90965,
+    "sha256": "90d5a4335ebb9517c4c4a74c2c7d0fc39f4f745b08c434db367892d518c08202",
+    "completion_logged": true
+  },
+  "binary_sha256": "4b4c8c78559e3aab51015652a9db2015de704cf48cc5f60c00a4d1e9dd355005",
+  "input": {
+    "asset_root": "runtime/Data",
+    "manifest_sha256": "2a42c12bf244bfb6b23d97324f7d9cfa51f36281506922860636c812af6d8e91",
+    "manifest_base_path": "../../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 120,
+  "timeout_seconds": 90,
+  "layer_path": "VulkanSDK/1.4.357.0/Bin",
+  "source_revision": "e146401b9e793fb442dc8f9e149c02567a8dabd3",
+  "log_sha256": "b8e0fc0a56c6ccb406e4cb84d6bc6a7794f5b2dc7590504bdae04f88cc9b9866",
+  "scope": "offline startup and normal shutdown; no visual/presented-frame/gameplay certification",
+  "decoded_png": {
+    "extent": [
+      1280,
+      720
+    ],
+    "mode": "RGBA"
+  },
+  "execution": {
+    "working_directory": "installed bin",
+    "path": "installed bin + Windows/System32 + Windows",
+    "data": "explicit isolated fixture manifest routing extracted game data",
+    "validation_layer": "explicit Vulkan SDK 1.4.357.0 path",
+    "clean_machine": false
+  },
+  "installed_files_sha256": {
+    "auth_login_probe.exe": "095d5a0f622761688b675fac073b83cbbf50ab250701ab9e3a748703473fa56b",
+    "auth_probe.exe": "4e26fbd921f9cdb2673ebb126c12f2a97432903f51f424aec4268c92d133284a",
+    "blp_convert.exe": "1a0a3e325a5d87ad2c529cd25c8e5d833e85dd5723400cf0e7fa270808465503",
+    "dbc_to_csv.exe": "1aa2729946e9e3b9843550c4758efd2145f8b13e0062d57c785e0793185e5b6f",
+    "libcrypto-3-x64.dll": "6b19da2295cf4261605250083461c69610d9f7279dd4af19ec2550a7769b10c4",
+    "SDL2d.dll": "27aa6abd8c56af60d6ffb486a6cab0f6b1d12fa54a4b3877137b8b84756b0f64",
+    "vulkan-1.dll": "220baa4c20e736015b3fadaaa07150397986c7aa2ee323918ee84b89867c24bc",
+    "wowee.exe": "4b4c8c78559e3aab51015652a9db2015de704cf48cc5f60c00a4d1e9dd355005",
+    "zlib1.dll": "4cf010fa01b483b1469893c9dbada2b3c6297d84e10e844354aa5be74f813ea9"
+  },
+  "compiled_shaders_verified": 81,
+  "nested_configuration_directories": false,
+  "symlinks": false
+}
