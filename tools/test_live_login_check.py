@@ -39,7 +39,7 @@ class LiveLoginTest(unittest.TestCase):
             "--missing-character-fragment", "--preview-single-sample",
         ], capture_output=True, text=True)
         self.assertEqual(result.returncode, 2)
-        self.assertIn("missing fragment cannot reach the single-sample diagnostic marker",
+        self.assertIn("missing fragment cannot be combined with the single-sample diagnostic",
                       result.stderr)
 
     def test_external_private_output_requires_contained_fresh_child(self):

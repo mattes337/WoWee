@@ -447,7 +447,7 @@ def main():
     if args.missing_character_fragment and args.preview_rasterizer_discard:
         parser.error("missing fragment cannot reach the rasterizer-discard diagnostic")
     if args.missing_character_fragment and args.preview_single_sample:
-        parser.error("missing fragment cannot reach the single-sample diagnostic marker")
+        parser.error("missing fragment cannot be combined with the single-sample diagnostic")
     retry_coordinates = (args.preview_retry_x, args.preview_retry_y)
     if (retry_coordinates[0] is None) != (retry_coordinates[1] is None):
         parser.error("preview retry requires both x and y")
