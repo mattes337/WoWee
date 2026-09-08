@@ -37,13 +37,13 @@ wait was established in the earlier ownership audit.
 `VkRenderTarget::beginPass` sets the dynamic viewport and scissor. The character
 pipelines declare viewport, scissor, and depth bias dynamic at
 `src/rendering/character_renderer.cpp:334`. Normal material batches set depth
-bias before drawing at line 3132. The whole-model fallback draw at line 3193
-does not set depth bias itself. Because these pipelines also enable depth bias,
-a model with no preceding material batch can reach a draw without defining the
-required dynamic depth-bias value. This is a concrete latent command-state gap,
-but the recorded failing character has ordinary material batches and validation
-did not report an unset dynamic-state VUID, so it is not established as DEF004's
-cause.
+bias before drawing at line 3132. The whole-model fallback previously drew
+without setting depth bias itself. Because these pipelines also enable depth
+bias, a model with no preceding material batch could reach a draw without
+defining the required dynamic value. The fallback now sets neutral depth bias
+immediately before its shared indexed/non-indexed draw. The recorded failing
+character has ordinary material batches and validation did not report an unset
+dynamic-state VUID, so this correction is not established as DEF004's cause.
 
 ## Next discriminating pair
 

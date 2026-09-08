@@ -3190,6 +3190,11 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                     pipelineLayout_, 1, 1, &materialSet, 1, &dynamicOffset);
 
+            // Every main-pass pipeline enables dynamic depth bias. A model
+            // without material batches reaches this fallback without the
+            // per-batch assignment above, so define the neutral value before
+            // either its indexed or diagnostic non-indexed draw.
+            vkCmdSetDepthBias(cmd, 0.0f, 0.0f, 0.0f);
             draw(gpuModel.indexCount, 0);
         }
     }
