@@ -1,0 +1,271 @@
+{
+  "format": 1,
+  "mpyq_version": "0.2.5",
+  "source_root": "G:\\WoW AzerothCore\\Data",
+  "extracted_root": "G:\\WoW Projects\\wowee\\Data\\extracted",
+  "precedence": "not resolved; each archive independently inspected",
+  "archive_identity": "optional matching-archive SHA256; no authenticated release hashes",
+  "files": [
+    {
+      "entry": "Character\\Human\\Male\\HumanMale.m2",
+      "extracted_relative": "character/human/male/humanmale.m2",
+      "size": 1585376,
+      "sha256": "b22478c1ab8d1e9bb7542f686e60e4e665a510d11b5360109a3e9e46d5bf91d2",
+      "candidates": [
+        {
+          "archive": "common-2.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 1395328,
+          "locale": 0,
+          "platform": 0,
+          "size": 1395328,
+          "sha256": "2ea3d73b01169f6c903e243825357839c153b29c6a23193a745cc30713c92168",
+          "matches_extracted": false
+        },
+        {
+          "archive": "patch-2.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 1585376,
+          "locale": 0,
+          "platform": 0,
+          "size": 1585376,
+          "sha256": "4aa763b81a933731f145d455fb4d70af3c539f675de6c42e808378f6a9e2d7c3",
+          "matches_extracted": false
+        },
+        {
+          "archive": "patch-3.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 1585376,
+          "locale": 0,
+          "platform": 0,
+          "size": 1585376,
+          "sha256": "b22478c1ab8d1e9bb7542f686e60e4e665a510d11b5360109a3e9e46d5bf91d2",
+          "matches_extracted": true
+        },
+        {
+          "archive": "patch.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 1593104,
+          "locale": 0,
+          "platform": 0,
+          "size": 1593104,
+          "sha256": "957575ba2ff08f412cbf41096af8be3c223ec880ab1887e7b0b01d2253117594",
+          "matches_extracted": false
+        }
+      ],
+      "source_loose_file": {
+        "exists": true,
+        "size": 1585376,
+        "sha256": "4a0f596c0d80bf78122cea419ee06bcc573545c5ee1a8371970056da5ce0c844",
+        "matches_extracted": false
+      },
+      "manifest_entry": {
+        "p": "character/human/male/humanmale.m2",
+        "s": 1585376,
+        "h": "cbdd0ceb"
+      },
+      "manifest_resolved_sha256": "b22478c1ab8d1e9bb7542f686e60e4e665a510d11b5360109a3e9e46d5bf91d2",
+      "manifest_matches_selected": true
+    },
+    {
+      "entry": "Character\\Human\\Male\\HumanMale00.skin",
+      "extracted_relative": "character/human/male/humanmale00.skin",
+      "size": 74176,
+      "sha256": "cfc65fba893f05335bbd054b083b910455ef852c57ca8094ff4549741596ed0e",
+      "candidates": [
+        {
+          "archive": "common-2.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 74432,
+          "locale": 0,
+          "platform": 0,
+          "size": 74432,
+          "sha256": "5f5fdf93736022e705cc5f428a7b2750cbc6da8c0aaeb31336acd57eb34ffaa4",
+          "matches_extracted": false
+        },
+        {
+          "archive": "patch-2.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 74176,
+          "locale": 0,
+          "platform": 0,
+          "size": 74176,
+          "sha256": "cfc65fba893f05335bbd054b083b910455ef852c57ca8094ff4549741596ed0e",
+          "matches_extracted": true
+        },
+        {
+          "archive": "patch.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 74272,
+          "locale": 0,
+          "platform": 0,
+          "size": 74272,
+          "sha256": "0d10c00aa9fa829201c79f37aae71bc26d8bdae97a634c4ffbcc924f94d4eb2d",
+          "matches_extracted": false
+        }
+      ],
+      "source_loose_file": {
+        "exists": false
+      },
+      "manifest_entry": {
+        "p": "character/human/male/humanmale00.skin",
+        "s": 74176,
+        "h": "6b11e393"
+      },
+      "manifest_resolved_sha256": "cfc65fba893f05335bbd054b083b910455ef852c57ca8094ff4549741596ed0e",
+      "manifest_matches_selected": true
+    },
+    {
+      "entry": "Interface\\Glues\\Models\\UI_Human\\UI_Human.m2",
+      "extracted_relative": "interface/Glues/MODELS/UI_Human/UI_Human.m2",
+      "size": 481552,
+      "sha256": "1aa7299a6c99fdc733c2e62cd6d74af8357045f29ff96abf3c46767bbc2ddde7",
+      "candidates": [
+        {
+          "archive": "enUS\\locale-enUS.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 481552,
+          "locale": 0,
+          "platform": 0,
+          "size": 481552,
+          "sha256": "1aa7299a6c99fdc733c2e62cd6d74af8357045f29ff96abf3c46767bbc2ddde7",
+          "matches_extracted": true
+        }
+      ],
+      "source_loose_file": {
+        "exists": true,
+        "size": 481552,
+        "sha256": "6ea89baa5dbc60e689f030f88d77067251292047b19a8de29fb98155579810b9",
+        "matches_extracted": false
+      },
+      "manifest_entry": {
+        "p": "interface/GLUES/MODELS/UI_Human/UI_Human.m2",
+        "s": 481552,
+        "h": "b7ae1609"
+      },
+      "manifest_resolved_sha256": "1aa7299a6c99fdc733c2e62cd6d74af8357045f29ff96abf3c46767bbc2ddde7",
+      "manifest_matches_selected": true
+    },
+    {
+      "entry": "Interface\\Glues\\Models\\UI_Human\\UI_Human00.skin",
+      "extracted_relative": "interface/Glues/MODELS/UI_Human/UI_Human00.skin",
+      "size": 113248,
+      "sha256": "f93ecae326e01dbb382ce604e7a528148e751c2e45a13a0cd6e59bcde3cf0bd6",
+      "candidates": [
+        {
+          "archive": "enUS\\locale-enUS.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 113248,
+          "locale": 0,
+          "platform": 0,
+          "size": 113248,
+          "sha256": "f93ecae326e01dbb382ce604e7a528148e751c2e45a13a0cd6e59bcde3cf0bd6",
+          "matches_extracted": true
+        }
+      ],
+      "source_loose_file": {
+        "exists": false
+      },
+      "manifest_entry": {
+        "p": "interface/GLUES/MODELS/UI_Human/UI_Human00.skin",
+        "s": 113248,
+        "h": "0e7281c1"
+      },
+      "manifest_resolved_sha256": "f93ecae326e01dbb382ce604e7a528148e751c2e45a13a0cd6e59bcde3cf0bd6",
+      "manifest_matches_selected": true
+    }
+  ],
+  "archives": [
+    {
+      "path": "common-2.MPQ",
+      "size": 1810430636,
+      "mtime_ns": 1615324616000000000
+    },
+    {
+      "path": "common.MPQ",
+      "size": 2881154862,
+      "mtime_ns": 1615324518000000000
+    },
+    {
+      "path": "enUS\\backup-enUS.MPQ",
+      "size": 167245856,
+      "mtime_ns": 1615324562000000000
+    },
+    {
+      "path": "enUS\\base-enUS.MPQ",
+      "size": 29176975,
+      "mtime_ns": 1615324562000000000
+    },
+    {
+      "path": "enUS\\expansion-locale-enUS.MPQ",
+      "size": 17389181,
+      "mtime_ns": 1615324580000000000
+    },
+    {
+      "path": "enUS\\expansion-speech-enUS.MPQ",
+      "size": 241033297,
+      "mtime_ns": 1615324586000000000
+    },
+    {
+      "path": "enUS\\lichking-locale-enUS.MPQ",
+      "size": 12354378,
+      "mtime_ns": 1615324580000000000
+    },
+    {
+      "path": "enUS\\lichking-speech-enUS.MPQ",
+      "size": 354008839,
+      "mtime_ns": 1615324584000000000
+    },
+    {
+      "path": "enUS\\locale-enUS.MPQ",
+      "size": 204291376,
+      "mtime_ns": 1615324594000000000
+    },
+    {
+      "path": "enUS\\patch-enUS-2.MPQ",
+      "size": 225570171,
+      "mtime_ns": 1615324574000000000
+    },
+    {
+      "path": "enUS\\patch-enUS-3.MPQ",
+      "size": 100373935,
+      "mtime_ns": 1615324588000000000
+    },
+    {
+      "path": "enUS\\patch-enUS.MPQ",
+      "size": 296616080,
+      "mtime_ns": 1615324580000000000
+    },
+    {
+      "path": "enUS\\speech-enUS.MPQ",
+      "size": 438430439,
+      "mtime_ns": 1615324568000000000
+    },
+    {
+      "path": "expansion.MPQ",
+      "size": 1921219911,
+      "mtime_ns": 1615324530000000000
+    },
+    {
+      "path": "lichking.MPQ",
+      "size": 2553948549,
+      "mtime_ns": 1615324560000000000
+    },
+    {
+      "path": "patch-2.MPQ",
+      "size": 1401729059,
+      "mtime_ns": 1615324494000000000
+    },
+    {
+      "path": "patch-3.MPQ",
+      "size": 605089137,
+      "mtime_ns": 1615324598000000000
+    },
+    {
+      "path": "patch.MPQ",
+      "size": 4004713057,
+      "mtime_ns": 1615324484000000000
+    }
+  ],
+  "manifest_sha256": "cef6ab65fbbb2c4385348ed8bc65d4f8034e41f9fa36b20ac7f33c18c23c7759"
+}

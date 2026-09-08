@@ -1,0 +1,249 @@
+{
+  "format": 1,
+  "mpyq_version": "0.2.5",
+  "source_root": "G:\\WoW AzerothCore\\Data",
+  "extracted_root": "G:\\WoW Projects\\wowee\\Data\\extracted",
+  "precedence": "not resolved; each archive independently inspected",
+  "archive_identity": "optional matching-archive SHA256; no authenticated release hashes",
+  "files": [
+    {
+      "entry": "Interface\\FrameXML\\FrameXML.toc",
+      "extracted_relative": "interface/FrameXML/FrameXML.toc",
+      "size": 2820,
+      "sha256": "3158bea13225ae51137a389f0f3ab8566e94b6be84196dd2c1fda27024677754",
+      "candidates": [
+        {
+          "archive": "enUS\\locale-enUS.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 2456,
+          "locale": 0,
+          "platform": 0,
+          "size": 2456,
+          "sha256": "36ccfed8ad8e424fb312c942a75bd17c6091dd264df8653f117dcfe8417d91a3",
+          "matches_extracted": false
+        },
+        {
+          "archive": "enUS\\patch-enUS-2.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 2770,
+          "locale": 0,
+          "platform": 0,
+          "size": 2770,
+          "sha256": "3be2f25eacbf8d95c04bd219dfc38e5cf6b3c603c09c80abcd471b2e4115eed2",
+          "matches_extracted": false
+        },
+        {
+          "archive": "enUS\\patch-enUS-3.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 2820,
+          "locale": 0,
+          "platform": 0,
+          "size": 2820,
+          "sha256": "3158bea13225ae51137a389f0f3ab8566e94b6be84196dd2c1fda27024677754",
+          "matches_extracted": true
+        },
+        {
+          "archive": "enUS\\patch-enUS.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 2712,
+          "locale": 0,
+          "platform": 0,
+          "size": 2712,
+          "sha256": "0bc5adb269695d107b9602a8187f815813a63bbca3d1b2b3d5fab388f2b59734",
+          "matches_extracted": false
+        }
+      ],
+      "source_loose_file": {
+        "exists": false
+      },
+      "manifest_entry": {
+        "p": "interface/FrameXML/FrameXML.toc",
+        "s": 2820,
+        "h": "d3199952"
+      },
+      "manifest_resolved_sha256": "3158bea13225ae51137a389f0f3ab8566e94b6be84196dd2c1fda27024677754",
+      "manifest_matches_selected": true
+    },
+    {
+      "entry": "Interface\\FrameXML\\WorldFrame.lua",
+      "extracted_relative": "interface/FrameXML/WorldFrame.lua",
+      "size": 3327,
+      "sha256": "295c9066359278a08804290346f4da72634c4d247338bb5836e8317c747d0cc4",
+      "candidates": [
+        {
+          "archive": "enUS\\locale-enUS.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 2549,
+          "locale": 0,
+          "platform": 0,
+          "size": 2549,
+          "sha256": "2b128d6281352a6ead29aa37cce23f1e5172e56b9f897576c08be0c27573abf7",
+          "matches_extracted": false
+        },
+        {
+          "archive": "enUS\\patch-enUS-2.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 3306,
+          "locale": 0,
+          "platform": 0,
+          "size": 3306,
+          "sha256": "75d577cec8da72e6ab85f6eea0cbb8e5cbb3fe3963bd7e35d2bb7455648e227e",
+          "matches_extracted": false
+        },
+        {
+          "archive": "enUS\\patch-enUS-3.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 3327,
+          "locale": 0,
+          "platform": 0,
+          "size": 3327,
+          "sha256": "295c9066359278a08804290346f4da72634c4d247338bb5836e8317c747d0cc4",
+          "matches_extracted": true
+        },
+        {
+          "archive": "enUS\\patch-enUS.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 3159,
+          "locale": 0,
+          "platform": 0,
+          "size": 3159,
+          "sha256": "13eb58c3a37a06fa9a8cdca52694e0dc6aa55489e18ea2ff13d1d5cc086737f7",
+          "matches_extracted": false
+        }
+      ],
+      "source_loose_file": {
+        "exists": false
+      },
+      "manifest_entry": {
+        "p": "interface/FrameXML/WorldFrame.lua",
+        "s": 3327,
+        "h": "04bbb8f2"
+      },
+      "manifest_resolved_sha256": "295c9066359278a08804290346f4da72634c4d247338bb5836e8317c747d0cc4",
+      "manifest_matches_selected": true
+    },
+    {
+      "entry": "Fonts\\FRIZQT__.TTF",
+      "extracted_relative": "misc/Fonts/FRIZQT__.TTF",
+      "size": 62316,
+      "sha256": "8f798feb09a0e9dc97daf0a54b52a9a1a7b4cf7103fcb2aa1566ab36ac4dc41c",
+      "candidates": [
+        {
+          "archive": "enUS\\locale-enUS.MPQ",
+          "flags": "0x84000200",
+          "declared_size": 62316,
+          "locale": 0,
+          "platform": 0,
+          "size": 62316,
+          "sha256": "8f798feb09a0e9dc97daf0a54b52a9a1a7b4cf7103fcb2aa1566ab36ac4dc41c",
+          "matches_extracted": true
+        }
+      ],
+      "source_loose_file": {
+        "exists": false
+      },
+      "manifest_entry": {
+        "p": "misc/Fonts/FRIZQT__.TTF",
+        "s": 62316,
+        "h": "91461842"
+      },
+      "manifest_resolved_sha256": "8f798feb09a0e9dc97daf0a54b52a9a1a7b4cf7103fcb2aa1566ab36ac4dc41c",
+      "manifest_matches_selected": true
+    }
+  ],
+  "archives": [
+    {
+      "path": "common-2.MPQ",
+      "size": 1810430636,
+      "mtime_ns": 1615324616000000000
+    },
+    {
+      "path": "common.MPQ",
+      "size": 2881154862,
+      "mtime_ns": 1615324518000000000
+    },
+    {
+      "path": "enUS\\backup-enUS.MPQ",
+      "size": 167245856,
+      "mtime_ns": 1615324562000000000
+    },
+    {
+      "path": "enUS\\base-enUS.MPQ",
+      "size": 29176975,
+      "mtime_ns": 1615324562000000000
+    },
+    {
+      "path": "enUS\\expansion-locale-enUS.MPQ",
+      "size": 17389181,
+      "mtime_ns": 1615324580000000000
+    },
+    {
+      "path": "enUS\\expansion-speech-enUS.MPQ",
+      "size": 241033297,
+      "mtime_ns": 1615324586000000000
+    },
+    {
+      "path": "enUS\\lichking-locale-enUS.MPQ",
+      "size": 12354378,
+      "mtime_ns": 1615324580000000000
+    },
+    {
+      "path": "enUS\\lichking-speech-enUS.MPQ",
+      "size": 354008839,
+      "mtime_ns": 1615324584000000000
+    },
+    {
+      "path": "enUS\\locale-enUS.MPQ",
+      "size": 204291376,
+      "mtime_ns": 1615324594000000000,
+      "sha256": "45f02a3bf3964b169f397cea58113cdce5fa7bdf58d4b63f68e46255bb3bd3ea"
+    },
+    {
+      "path": "enUS\\patch-enUS-2.MPQ",
+      "size": 225570171,
+      "mtime_ns": 1615324574000000000
+    },
+    {
+      "path": "enUS\\patch-enUS-3.MPQ",
+      "size": 100373935,
+      "mtime_ns": 1615324588000000000,
+      "sha256": "d61a60297af9044d926754d997cd5aa630500cd003d41983a9ccb5b324d61299"
+    },
+    {
+      "path": "enUS\\patch-enUS.MPQ",
+      "size": 296616080,
+      "mtime_ns": 1615324580000000000
+    },
+    {
+      "path": "enUS\\speech-enUS.MPQ",
+      "size": 438430439,
+      "mtime_ns": 1615324568000000000
+    },
+    {
+      "path": "expansion.MPQ",
+      "size": 1921219911,
+      "mtime_ns": 1615324530000000000
+    },
+    {
+      "path": "lichking.MPQ",
+      "size": 2553948549,
+      "mtime_ns": 1615324560000000000
+    },
+    {
+      "path": "patch-2.MPQ",
+      "size": 1401729059,
+      "mtime_ns": 1615324494000000000
+    },
+    {
+      "path": "patch-3.MPQ",
+      "size": 605089137,
+      "mtime_ns": 1615324598000000000
+    },
+    {
+      "path": "patch.MPQ",
+      "size": 4004713057,
+      "mtime_ns": 1615324484000000000
+    }
+  ],
+  "manifest_sha256": "cef6ab65fbbb2c4385348ed8bc65d4f8034e41f9fa36b20ac7f33c18c23c7759"
+}
