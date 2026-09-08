@@ -1,0 +1,48 @@
+{
+  "result": "pass",
+  "binary_sha256": "be0ec04c26bf5655f2223e1cbb0b90d510b605ee382574c25d09d7f52f8f5357",
+  "input": {
+    "asset_root": "C:\\wowee-runner-input-preflight-20260908\\assets",
+    "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
+    "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "cases": [
+    {
+      "name": "stock_and_valid",
+      "result": "pass",
+      "exit_code": 0,
+      "stdout_sha256": "abb1fdbf096f94fcc058217c21fa3bf091b4b3f345f9a6239e8afc58ca095f1e",
+      "source": "== source: 72a2d495318006a739206fb3060d108055f815a4-dirty; built 2026-09-08"
+    },
+    {
+      "name": "hit_trailing",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "8e0ef56d3b3c59fc8cd83c6362001c6b1d95f5aeadb4512a47a3d65d403c2218",
+      "source": null
+    },
+    {
+      "name": "hit_nan",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "8e0ef56d3b3c59fc8cd83c6362001c6b1d95f5aeadb4512a47a3d65d403c2218",
+      "source": null
+    },
+    {
+      "name": "mouse_unknown",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "d292620f954b9dabdd246c8730de0f9c052f770e1c68c64164c9b9bd4d2ac6fa",
+      "source": null
+    },
+    {
+      "name": "mouse_infinite",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "d292620f954b9dabdd246c8730de0f9c052f770e1c68c64164c9b9bd4d2ac6fa",
+      "source": null
+    }
+  ],
+  "scope": "Fresh offline Calendar smoothing and finite negative CLI input; malformed preflight rejection. Timer-start integration is a separate unresolved check. No GPU/gameplay certification."
+}
