@@ -61,6 +61,36 @@ TEST_CASE("runner mouse requires complete coordinates and recognized buttons",
     }
 }
 
+TEST_CASE("runner text accepts intentional UTF-8 whitespace and rejects malformed bytes",
+          "[framexml-contract]") {
+    CHECK(validRunnerUtf8(" h\xc3\xa9  "));
+    CHECK(validRunnerUtf8("   "));
+    CHECK_FALSE(validRunnerUtf8(""));
+    CHECK_FALSE(validRunnerUtf8(std::string("\xc3", 1)));
+    CHECK_FALSE(validRunnerUtf8(std::string("\xc0\x80", 2)));
+    CHECK_FALSE(validRunnerUtf8(std::string("\xed\xa0\x80", 3)));
+    CHECK_FALSE(validRunnerUtf8(std::string("\xf4\x90\x80\x80", 4)));
+}
+
+TEST_CASE("runner keys use exact deterministic names without control syntax",
+          "[framexml-contract]") {
+    int key = 123;
+    CHECK(parseRunnerKey("BACKSPACE", key));
+    CHECK(key == '\b');
+    for (const auto valid : {"DELETE", "LEFT", "RIGHT", "HOME", "END", "UP",
+                             "DOWN", "ENTER", "ESCAPE", "TAB"}) {
+        CAPTURE(valid);
+        CHECK(parseRunnerKey(valid, key));
+    }
+    key = 123;
+    for (const auto invalid : {"", "backspace", "BACKSPACEjunk", "CTRL+C", "C",
+                               "13", "ENTER ", "SHIFT+TAB"}) {
+        CAPTURE(invalid);
+        CHECK_FALSE(parseRunnerKey(invalid, key));
+        CHECK(key == 123);
+    }
+}
+
 TEST_CASE("FrameXML runner failures in setup and callbacks cannot produce green", "[framexml-contract]") {
     CHECK(frameXmlRunExitCode(true, true, 0, 0, 0) == 0);
     CHECK(frameXmlRunExitCode(false, true, 0, 0, 0) != 0);

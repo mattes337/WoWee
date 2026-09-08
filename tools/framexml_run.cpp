@@ -84,6 +84,9 @@
 #include <string>
 #include <set>
 #include <vector>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace {
 void printFileIdentity(const std::string& path) {
@@ -110,7 +113,7 @@ void printFileIdentity(const std::string& path) {
 }
 }
 
-int main(int argc, char** argv) {
+static int framexmlMain(int argc, char** argv) {
     // Its own log file, before anything can open one.
     //
     // The logger truncates whatever it opens, and every process using it took
@@ -128,6 +131,8 @@ int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
                      "usage: framexml_run <assetPath> [expression ...]\n"
+                     "  --text:UTF8 dispatches text to the focused EditBox\n"
+                     "  --key:NAME dispatches BACKSPACE, DELETE, LEFT, RIGHT, HOME, END, UP, DOWN, ENTER, ESCAPE, or TAB\n"
                      "  e.g. framexml_run Data/extracted --viewport:1024x768 'ToggleGameMenu()' --script:test.lua\n");
         return 2;
     }
@@ -158,6 +163,21 @@ int main(int argc, char** argv) {
             if (!wowee::addons::parseRunnerMouse(argument.substr(8), mouse)) {
                 std::fprintf(stderr,
                     "framexml_run: --mouse: requires finite X,Y and only L, R, M buttons\n");
+                return 2;
+            }
+            continue;
+        }
+        if (argument.rfind("--text:", 0) == 0) {
+            if (!wowee::addons::validRunnerUtf8(argument.substr(7))) {
+                std::fprintf(stderr, "framexml_run: --text: requires nonempty valid UTF-8\n");
+                return 2;
+            }
+            continue;
+        }
+        if (argument.rfind("--key:", 0) == 0) {
+            int key = 0;
+            if (!wowee::addons::parseRunnerKey(argument.substr(6), key)) {
+                std::fprintf(stderr, "framexml_run: --key: requires a supported uppercase key name\n");
                 return 2;
             }
             continue;
@@ -689,6 +709,32 @@ int main(int argc, char** argv) {
                     std::printf("   %s\n", errors[k].c_str());
                 }
             }
+            continue;
+        }
+        if (std::strncmp(argv[i], "--text:", 7) == 0) {
+            auto* engine = mgr.getLuaEngine();
+            if (!engine || !engine->editBoxHasFocus()) {
+                std::printf("   --text: requires a focused edit box\n");
+                ++raised;
+                continue;
+            }
+            engine->dispatchText(argv[i] + 7);
+            std::printf("   text dispatched (%zu UTF-8 bytes)\n", std::strlen(argv[i] + 7));
+            if (errors.size() != before) ++raised;
+            continue;
+        }
+        if (std::strncmp(argv[i], "--key:", 6) == 0) {
+            auto* engine = mgr.getLuaEngine();
+            if (!engine || !engine->editBoxHasFocus()) {
+                std::printf("   --key: requires a focused edit box\n");
+                ++raised;
+                continue;
+            }
+            int key = 0;
+            wowee::addons::parseRunnerKey(argv[i] + 6, key);
+            engine->dispatchKey(key, false);
+            std::printf("   key dispatched: %s\n", argv[i] + 6);
+            if (errors.size() != before) ++raised;
             continue;
         }
         // --fire:EVENT sends one event through the engine's own dispatch.
@@ -1235,3 +1281,35 @@ int main(int argc, char** argv) {
 
     return wowee::addons::frameXmlRunExitCode(loaded, haveAssets, errors.size(), addonFailures.size(), raised);
 }
+
+#ifdef _WIN32
+int wmain(int argc, wchar_t** wideArgv) {
+    std::vector<std::string> args;
+    args.reserve(static_cast<std::size_t>(argc));
+    for (int i = 0; i < argc; ++i) {
+        const int size = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wideArgv[i], -1,
+                                             nullptr, 0, nullptr, nullptr);
+        if (size <= 0) {
+            std::fprintf(stderr, "Invalid UTF-16 command-line argument\n");
+            return 2;
+        }
+        std::string value(static_cast<std::size_t>(size), '\0');
+        if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wideArgv[i], -1,
+                                value.data(), size, nullptr, nullptr) <= 0) {
+            std::fprintf(stderr, "Invalid UTF-16 command-line argument\n");
+            return 2;
+        }
+        value.pop_back();
+        args.push_back(std::move(value));
+    }
+    std::vector<char*> argv;
+    argv.reserve(args.size() + 1);
+    for (auto& arg : args) argv.push_back(arg.data());
+    argv.push_back(nullptr);
+    return framexmlMain(argc, argv.data());
+}
+#else
+int main(int argc, char** argv) {
+    return framexmlMain(argc, argv);
+}
+#endif

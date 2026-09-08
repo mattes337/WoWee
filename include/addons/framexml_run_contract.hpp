@@ -1,9 +1,11 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -26,6 +28,44 @@ struct RunnerMouse {
     RunnerPoint point;
     std::string buttons;
 };
+
+inline bool validRunnerUtf8(std::string_view text) {
+    if (text.empty()) return false;
+    for (std::size_t i = 0; i < text.size();) {
+        const auto lead = static_cast<unsigned char>(text[i]);
+        std::size_t count = 0;
+        uint32_t codepoint = 0;
+        if (lead <= 0x7f) { count = 1; codepoint = lead; }
+        else if (lead >= 0xc2 && lead <= 0xdf) { count = 2; codepoint = lead & 0x1f; }
+        else if (lead >= 0xe0 && lead <= 0xef) { count = 3; codepoint = lead & 0x0f; }
+        else if (lead >= 0xf0 && lead <= 0xf4) { count = 4; codepoint = lead & 0x07; }
+        else return false;
+        if (i + count > text.size()) return false;
+        for (std::size_t j = 1; j < count; ++j) {
+            const auto continuation = static_cast<unsigned char>(text[i + j]);
+            if ((continuation & 0xc0) != 0x80) return false;
+            codepoint = (codepoint << 6) | (continuation & 0x3f);
+        }
+        if ((count == 3 && codepoint < 0x800) || (count == 4 && codepoint < 0x10000)
+            || (codepoint >= 0xd800 && codepoint <= 0xdfff) || codepoint > 0x10ffff) return false;
+        i += count;
+    }
+    return true;
+}
+
+inline bool parseRunnerKey(std::string_view text, int& output) {
+    constexpr std::array<std::pair<std::string_view, int>, 11> keys{{
+        {"BACKSPACE", '\b'}, {"DELETE", 0x4000004c}, {"LEFT", 0x40000050},
+        {"RIGHT", 0x4000004f}, {"HOME", 0x4000004a}, {"END", 0x4000004d},
+        {"UP", 0x40000052}, {"DOWN", 0x40000051}, {"ENTER", '\r'},
+        {"ESCAPE", 27}, {"TAB", '\t'},
+    }};
+    const auto found = std::find_if(keys.begin(), keys.end(),
+        [text](const auto& key) { return key.first == text; });
+    if (found == keys.end()) return false;
+    output = found->second;
+    return true;
+}
 
 inline bool parseRunnerCoordinate(std::string_view text, float& output) {
     if (text.empty()) return false;

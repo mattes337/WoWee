@@ -106,6 +106,23 @@ def run(binary: Path, assets: Path, output: Path, timeout: float) -> dict:
             "--hit: requires finite X,Y coordinates", False, False),
         ("mouse_unknown_button", ["--mouse:1,2,X"],
             "--mouse: requires finite X,Y and only L, R, M buttons", False, False),
+        ("text_empty", ["--text:"], "--text: requires nonempty valid UTF-8", False, False),
+        ("key_unknown", ["--key:CTRL+C"],
+            "--key: requires a supported uppercase key name", False, False),
+        ("text_key_stock_editbox", ["--viewport:1024x768",
+            "--lua:ChatFrame1EditBox:ClearFocus(); ChatFrame1EditBox:Show(); "
+            "__woweeTextChanges=0; local old=ChatFrame1EditBox:GetScript('OnTextChanged'); "
+            "ChatFrame1EditBox:SetScript('OnTextChanged', function(self, ...) "
+            "__woweeTextChanges=__woweeTextChanges+1; if old then old(self, ...) end end)",
+            "--mouse:96,672,L", "--mouse:96,672,",
+            "--lua:assert(ChatFrame1EditBox:HasFocus(), 'TEXT_FOCUS')",
+            "--text:h\u00e9 ",
+            "--lua:assert(ChatFrame1EditBox:GetText()=='h\u00e9 ' and "
+            "__woweeTextChanges==1, 'TEXT_INSERT')",
+            "--key:BACKSPACE", "--key:BACKSPACE",
+            "--lua:assert(ChatFrame1EditBox:GetText()=='h' and "
+            "__woweeTextChanges==3, 'TEXT_BACKSPACE')"],
+            "key dispatched: BACKSPACE", True, True),
         ("missing_arguments", [], "usage: framexml_run", False, False),
         ("missing_assets", [], "asset directory does not exist", False, False),
         ("empty_expression", [""], "empty expression", False, False),
