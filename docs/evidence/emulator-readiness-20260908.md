@@ -419,3 +419,21 @@ driver reported **fail** and no update-600 screenshot was produced. No
 character creation was requested. A constant fragment alone does not avoid
 the fault, narrowing the diagnosis beyond fragment lighting/material logic
 without proving a vertex, index, descriptor or pass-lifecycle root cause.
+
+## Bind-pose vertex plus constant fragment: live-login-10
+
+One replay added the fixture-only bind-pose vertex shader SHA-256
+`3e5f222559c10cab3d791534c75109f23599608daf5562dee0215a35b2aeeb2f`
+to the previous constant fragment override, with the same pinned executable
+and default model/backdrop draw path. Both fixture hashes were verified and
+both production shader hashes remained unchanged after execution. The
+vertex diagnostic preserves position/projection/model transforms and removes
+bones/TBN work.
+
+Auth/world/list receipt succeeded, then frame 55 again failed submission
+with device loss and invalid write at zero. No graphics/upload checkpoint
+was reported reached in this replay, and no update-600 capture was produced.
+The driver reported **fail** and the process stopped. These two simplified
+shader stages still do not prevent the failure; the result does not prove
+a specific index, descriptor, pipeline or pass-lifecycle defect. No creation
+or world entry was attempted.

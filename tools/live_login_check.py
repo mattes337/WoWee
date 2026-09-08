@@ -117,6 +117,16 @@ def run(args):
                              "override_sha256": sha256(source),
                              "scope": "fresh runtime/assets/shaders/character.frag.spv only"}
         shutil.copyfile(source, target)
+    vertex_override = None
+    if args.character_vertex_override:
+        source = args.character_vertex_override
+        target = runtime / "assets/shaders/character.vert.spv"
+        if not target.is_file() or source.read_bytes()[:4] != b"\x03\x02\x23\x07":
+            raise ValueError("vertex override needs an existing fixture shader and SPIR-V input")
+        vertex_override = {"original_sha256": sha256(target),
+                           "override_sha256": sha256(source),
+                           "scope": "fresh runtime/assets/shaders/character.vert.spv only"}
+        shutil.copyfile(source, target)
     fixture = runtime / "Data"
     identity = prepare_assets(args.assets, fixture, (args.assets / "manifest.json").read_text(encoding="utf-8"))
     shutil.copytree(args.profiles, fixture / "expansions")
@@ -187,10 +197,11 @@ def run(args):
                   input_geometry={"account_x": args.account_x, "account_y": args.account_y,
                                   "basis": args.geometry_basis},
                   requested_character=args.create_name,
-                  diagnostic_mode="GPU-assisted validation requested; not normal-mode certification" if args.gpu_validation else ("fragment shader override; not normal-mode certification" if fragment_override else "normal validation"),
+                  diagnostic_mode="GPU-assisted validation requested; not normal-mode certification" if args.gpu_validation else ("shader override; not normal-mode certification" if fragment_override or vertex_override else "normal validation"),
                   preview_isolation=args.preview_isolation,
                   character_fragment_override=fragment_override,
-                  default_preview_certified=False if args.preview_isolation or fragment_override else None,
+                  character_vertex_override=vertex_override,
+                  default_preview_certified=False if args.preview_isolation or fragment_override or vertex_override else None,
                   scope="real SDL input, authentication, realm and character list; optional real character creation; no world entry or gameplay certification")
     (args.output / "result.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
@@ -215,6 +226,8 @@ def main():
                         help="diagnostic preview isolation; cannot certify default rendering")
     parser.add_argument("--character-fragment-override", type=lambda value: Path(value).resolve(),
                         help="diagnostic SPIR-V copied only over the fresh fixture character fragment shader")
+    parser.add_argument("--character-vertex-override", type=lambda value: Path(value).resolve(),
+                        help="diagnostic SPIR-V copied only over the fresh fixture character vertex shader")
     parser.add_argument("--screenshot-after-updates", type=int,
                         help="delay capture by completed updates; does not wait for a server state")
     parser.add_argument("--create-name", help="optional dedicated test character to create through the UI")
