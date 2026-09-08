@@ -360,3 +360,20 @@ This replay is **diagnostic failure**, not normal-mode certification or a
 confirmed shader bounds diagnosis. No further replay was attempted. The
 driver now exposes the opt-in `--gpu-validation` flag and identifies this
 mode in its report, while continuing to strip inherited WOWEE overrides.
+
+## Backdrop isolation replay: live-login-07
+
+Debug binary SHA-256
+`860f0bbfae466b509a137a0b264819ec27356a3b172cb7912b0b6cfd3497a57c`
+repeated the creation trace with only `WOWEE_TEST_PREVIEW_NO_BACKDROP=1`,
+normal validation enabled and GPU-AV off. The runtime explicitly logged
+`Preview diagnostic: racial backdrop disabled`. Auth/world/empty-list
+acceptance succeeded, but frame 306 again failed submission with device loss
+and an invalid write at address zero, before creation submission. The
+process stopped and the driver reported **fail**; no update-900 capture or
+creation success occurred, and the new DB still has zero characters.
+
+Disabling the backdrop alone does not prevent the observed failure. This
+narrows the diagnostic result but does not prove that the model draw,
+descriptor state, command submission or another specific component is the
+root cause. No further replay followed this bounded isolation run.
