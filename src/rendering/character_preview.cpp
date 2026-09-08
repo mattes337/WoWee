@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 #include <cstring>
@@ -257,12 +258,22 @@ bool CharacterPreview::createFBO() {
     VmaAllocator allocator = vkCtx_->getAllocator();
 
     // 1. Create off-screen render target with depth
+    const bool previewSingleSample =
+        core::envFlagEnabled("WOWEE_TEST_PREVIEW_SINGLE_SAMPLE");
+    const VkSampleCountFlagBits previewSamples = previewSingleSample
+        ? VK_SAMPLE_COUNT_1_BIT : VK_SAMPLE_COUNT_4_BIT;
     renderTarget_ = std::make_unique<VkRenderTarget>();
     if (!renderTarget_->create(*vkCtx_, fboWidth_, fboHeight_, VK_FORMAT_R8G8B8A8_UNORM, true,
-                               VK_SAMPLE_COUNT_4_BIT)) {
+                               previewSamples)) {
         LOG_ERROR("CharacterPreview: failed to create render target");
         renderTarget_.reset();
         return false;
+    }
+    if (previewSingleSample) {
+        static std::once_flag markerOnce;
+        std::call_once(markerOnce, [] {
+            LOG_WARNING("CharacterPreview: preview single-sample diagnostic enabled");
+        });
     }
 
     // 1b. Transition the color image from UNDEFINED to SHADER_READ_ONLY_OPTIMAL

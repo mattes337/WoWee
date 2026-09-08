@@ -1,0 +1,51 @@
+{
+  "recorded_at_utc": "2026-09-08T20:54:28Z",
+  "observations": "Captured immediately before this record; no pool-tag or driver attribution established",
+  "memory_counter_snapshot": {
+    "available_mbytes": 170,
+    "committed_bytes": 51415973888,
+    "commit_limit_bytes": 58417729536,
+    "pool_nonpaged_bytes": 30593527808,
+    "pool_paged_bytes": 2067222528,
+    "system_cache_resident_bytes": 2650112
+  },
+  "later_snapshot": {
+    "free_physical_kbytes": 18656,
+    "free_virtual_kbytes": 7236916,
+    "total_virtual_kbytes": 57048564
+  },
+  "build_processes": "No cl.exe, MSBuild.exe or cmake.exe remained at final inspection",
+  "evaluation_containers": {
+    "project": "wowee-eval-20260908-af5200",
+    "world": "Exited (255)",
+    "auth": "Exited (255)",
+    "db": "Exited (255)",
+    "causal_attribution": "Exit timing overlaps host pressure; exact exit cause unverified"
+  },
+  "build_logs": [
+    {
+      "path": "logs/fork-baseline/build-valid-discard-calendar.log",
+      "sha256": "90ad292ae7638f615d8af903905751ac7f4aa8634cb2a4dcb5f27e9636239bc7"
+    },
+    {
+      "path": "logs/fork-baseline/build-valid-discard-calendar-serial.log",
+      "sha256": "532f3df99ee0a8464b4adb8098903257858883948bf49458f90296ea270572e6"
+    },
+    {
+      "path": "logs/fork-baseline/build-runner-text-key-calendar.log",
+      "sha256": "f0653f1b43cb773c69bd10d200a5545f8dbbd5b0e65d07dd314fa964840da960"
+    },
+    {
+      "path": "logs/fork-baseline/build-runner-text-key-calendar-mp1.log",
+      "sha256": "30c0ac494360f481677353d47b80312aaf43552b9804d5190acfbb10d19dfc12"
+    }
+  ],
+  "retained_passing_client_sha256": "014c5317e5a261d4c8efe0ab0a6a2a6294270199784004e57ce7e6678bd6d817",
+  "retained_last_verified_runner_sha256": "716ab029949ec60eb4e07a7b4fde726b4aa459d41789370bcc12693c630f6534",
+  "blocked": [
+    "updated runner linking/runtime",
+    "new preview single-sample diagnostic build/runtime",
+    "further local emulator scenarios"
+  ],
+  "action": "Builds/GPU launches suspended. User asked to save other work and restart host. No host restart, driver reset, unrelated application termination or original database modification performed."
+}
