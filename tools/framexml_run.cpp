@@ -128,7 +128,7 @@ int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
                      "usage: framexml_run <assetPath> [expression ...]\n"
-                     "  e.g. framexml_run Data/extracted 'ToggleGameMenu()' --script:test.lua\n");
+                     "  e.g. framexml_run Data/extracted --viewport:1024x768 'ToggleGameMenu()' --script:test.lua\n");
         return 2;
     }
     const std::string assetPath = argv[1];
@@ -141,8 +141,18 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "framexml_run: WOWEE_LOAD_FRAMEXML=0 disables the interface under test\n");
         return 2;
     }
+    wowee::addons::RunnerViewport viewport;
+    bool viewportSpecified = false;
     for (int i = 2; i < argc; ++i) {
         const std::string argument = argv[i];
+        if (argument.rfind("--viewport:", 0) == 0) {
+            if (viewportSpecified || !wowee::addons::parseRunnerViewport(argument.substr(11), viewport)) {
+                std::fprintf(stderr, "framexml_run: --viewport: requires one WIDTHxHEIGHT, each dimension 1..16384\n");
+                return 2;
+            }
+            viewportSpecified = true;
+            continue;
+        }
         const auto code = argument.rfind("--lua:", 0) == 0 ? argument.substr(6) : argument;
         if (!wowee::addons::hasLuaExpression(code)) {
             std::fprintf(stderr, "framexml_run: empty expression\n");
@@ -156,8 +166,11 @@ int main(int argc, char** argv) {
         }
     }
     std::printf("== source: %s; built %s\n", wowee::core::kSourceRevision, wowee::core::kBuildDate);
-    std::printf("== setup: assets=%s viewport=1920x1080 server=none expression-timeout-ms=5000 fallback=%s\n",
+    const float viewportWidth = static_cast<float>(viewport.width);
+    const float viewportHeight = static_cast<float>(viewport.height);
+    std::printf("== setup: assets=%s viewport=%dx%d server=none expression-timeout-ms=5000 fallback=%s\n",
                 std::filesystem::absolute(assetPath).string().c_str(),
+                viewport.width, viewport.height,
                 std::getenv("WOWEE_LUA_API_FALLBACK") ? std::getenv("WOWEE_LUA_API_FALLBACK") : "default");
     printFileIdentity(assetPath + "/interface/FrameXML/FrameXML.toc");
 
@@ -237,7 +250,7 @@ int main(int argc, char** argv) {
         // below uses stands in for it. Without it every rect the interface
         // reads while it builds itself answers zero, which is a state the
         // client is not in and so not one worth reproducing.
-        engine->widgets().noteScreenSize(1920.0f, 1080.0f);
+        engine->widgets().noteScreenSize(viewportWidth, viewportHeight);
     }
 
     mgr.setFrameXmlDir(assetPath + "/interface/FrameXML");
@@ -333,7 +346,7 @@ int main(int argc, char** argv) {
     ImGui::CreateContext();
     {
         ImGuiIO& io = ImGui::GetIO();
-        io.DisplaySize = ImVec2(1920.0f, 1080.0f);
+        io.DisplaySize = ImVec2(viewportWidth, viewportHeight);
         io.DeltaTime = 1.0f / 60.0f;
         // The game's own faces where they are on disk, so a label measures
         // what it will really measure. Loading a TTF into an atlas is pure
@@ -444,9 +457,9 @@ int main(int argc, char** argv) {
     // Same order as the client: visibility first, because a panel's OnShow is
     // what fills it in, and the size of what it filled is what the range is
     // then measured from.
-    auto relayout = [&mgr, &widgets] {
+    auto relayout = [&mgr, &widgets, viewportWidth, viewportHeight] {
         if (auto* engine = mgr.getLuaEngine()) {
-            widgets.layout(engine->widgets(), 1920.0f, 1080.0f);
+            widgets.layout(engine->widgets(), viewportWidth, viewportHeight);
             engine->updateVisibility();
             engine->updateSizeChanges();
             engine->updateScrollRanges();
@@ -457,6 +470,7 @@ int main(int argc, char** argv) {
     int raised = 0;
     mgr.getLuaEngine()->setChunkTimeoutMs(5000);
     for (int i = 2; i < argc; ++i) {
+        if (std::strncmp(argv[i], "--viewport:", 11) == 0) continue;
         const size_t before = errors.size();
         std::printf("\n== %s\n", argv[i]);
         // --tick:N runs N frames of the interface's own per-frame work rather
@@ -616,7 +630,7 @@ int main(int argc, char** argv) {
                 // disagree - which read as the drop path being broken when it
                 // was this line.
                 float tx = hx, ty = hy;
-                wowee::ui::mouseToTreeSpace(tx, ty, 1080.0f, engine->widgets().uiScale());
+                wowee::ui::mouseToTreeSpace(tx, ty, viewportHeight, engine->widgets().uiScale());
                 const uint32_t id = engine->widgets().hitTest(tx, ty);
                 const auto* w = id ? engine->widgets().get(id) : nullptr;
                 std::printf("   hit at %.0f,%.0f -> %s\n", hx, hy,
@@ -647,7 +661,7 @@ int main(int argc, char** argv) {
             buttons.middle = std::strchr(held, 'M') != nullptr;
             relayout();
             if (auto* engine = mgr.getLuaEngine()) {
-                engine->dispatchMouse(mx, my, 1080.0f, buttons);
+                engine->dispatchMouse(mx, my, viewportHeight, buttons);
             }
             std::printf("   mouse at %.0f,%.0f holding '%s'\n", mx, my,
                         held[0] ? held : "nothing");
@@ -740,7 +754,7 @@ int main(int argc, char** argv) {
         if (std::strcmp(argv[i], "--draw") == 0) {
             relayout();
             if (auto* engine = mgr.getLuaEngine()) {
-                widgets.draw(engine->widgets(), 1920.0f, 1080.0f);
+                widgets.draw(engine->widgets(), viewportWidth, viewportHeight);
                 std::printf("   drew the tree\n");
             }
             continue;
@@ -872,8 +886,8 @@ int main(int argc, char** argv) {
             auto* engine = mgr.getLuaEngine();
             if (!engine) { std::printf("   no engine\n"); continue; }
             const auto& tree = engine->widgets();
-            const float sw = 1920.0f / tree.uiScale();
-            const float sh = 1080.0f / tree.uiScale();
+            const float sw = viewportWidth / tree.uiScale();
+            const float sh = viewportHeight / tree.uiScale();
             int found = 0, onscreen = 0;
             for (uint32_t id = 1; id < tree.size(); ++id) {
                 const auto* w = tree.get(id);

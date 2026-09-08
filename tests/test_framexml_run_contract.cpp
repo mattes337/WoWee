@@ -6,6 +6,24 @@
 
 using namespace wowee::addons;
 
+TEST_CASE("runner viewport validates both dimensions before changing setup", "[framexml-contract]") {
+    RunnerViewport viewport;
+    CHECK(parseRunnerViewport("1024x768", viewport));
+    CHECK(viewport.width == 1024);
+    CHECK(viewport.height == 768);
+    for (const auto invalid : {"", "1024", "x768", "1024x", "0x768", "1024x0",
+                              "-1x768", "+1x768", "1024x768junk", "1024x768x1",
+                              " 1024x768", "16385x768", "1024x999999999999999999"}) {
+        CAPTURE(invalid);
+        CHECK_FALSE(parseRunnerViewport(invalid, viewport));
+        CHECK(viewport.width == 1024);
+        CHECK(viewport.height == 768);
+    }
+    CHECK(parseRunnerViewport("1x16384", viewport));
+    CHECK(viewport.width == 1);
+    CHECK(viewport.height == 16384);
+}
+
 TEST_CASE("FrameXML runner failures in setup and callbacks cannot produce green", "[framexml-contract]") {
     CHECK(frameXmlRunExitCode(true, true, 0, 0, 0) == 0);
     CHECK(frameXmlRunExitCode(false, true, 0, 0, 0) != 0);

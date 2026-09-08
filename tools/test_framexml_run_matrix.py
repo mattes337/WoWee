@@ -26,6 +26,12 @@ class ClassificationTests(unittest.TestCase):
         self.assertEqual(classify(1, "marker", "marker", False, False, True), "failed_baseline")
         self.assertEqual(classify(1, "marker", "marker", True, True), "pass")
 
+    def test_dependent_positive_case_cannot_override_a_failed_baseline(self):
+        self.assertEqual(classify(0, "marker", "marker", False, True, True),
+                         "inconclusive_failing_baseline")
+        self.assertEqual(classify(0, "marker", "marker", True, True, True), "pass")
+        self.assertEqual(classify(0, "marker", "marker", False, False, True), "pass")
+
     def test_fixture_isolates_saved_variables_and_routes_original_assets(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "original"

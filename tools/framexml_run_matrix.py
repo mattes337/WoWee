@@ -32,7 +32,11 @@ def classify(returncode: int | None, output: str, marker: str,
                                            "terminate called after throwing")):
         return "crash"
     if expected_success:
-        return "pass" if returncode == 0 and marker in output else "failed_baseline"
+        if returncode != 0 or marker not in output:
+            return "failed_baseline"
+        if needs_baseline and not baseline_ok:
+            return "inconclusive_failing_baseline"
+        return "pass"
     if returncode == 0:
         return "false_success"
     if marker not in output:
@@ -79,11 +83,18 @@ def run(binary: Path, assets: Path, output: Path, timeout: float) -> dict:
         "binary": str(binary), "binary_sha256": sha256(binary),
         "source_assets": str(assets), "source_manifest_sha256": sha256(manifest),
         "interface_files": {str(path.relative_to(assets)): sha256(path) for path in inputs},
-        "server": "none; production offline FrameXML runner", "viewport": "1920x1080",
+        "server": "none; production offline FrameXML runner", "default_viewport": "1920x1080",
         "fallback": "0", "process_timeout_seconds": timeout, "cases": [],
     }
     scenarios = [
         ("baseline", ["--lua:assert(true)"], "   ran", True, False),
+        ("viewport_1024", ["--viewport:1024x768",
+            "--lua:assert(math.abs(GetScreenWidth()-1024)<0.01, 'VIEWPORT_WIDTH'); "
+            "assert(math.abs(GetScreenHeight()-768)<0.01, 'VIEWPORT_HEIGHT'); "
+            "assert(math.abs(UIParent:GetWidth()-1024)<0.01, 'VIEWPORT_ROOT')"], "   ran", True, True),
+        ("viewport_invalid", ["--viewport:1024x0"], "each dimension 1..16384", False, False),
+        ("viewport_duplicate", ["--viewport:1024x768", "--viewport:1920x1080"],
+            "requires one WIDTHxHEIGHT", False, False),
         ("missing_arguments", [], "usage: framexml_run", False, False),
         ("missing_assets", [], "asset directory does not exist", False, False),
         ("empty_expression", [""], "empty expression", False, False),
@@ -156,7 +167,7 @@ def run(binary: Path, assets: Path, output: Path, timeout: float) -> dict:
                 code = None
         captured = stdout.read_text(encoding="utf-8", errors="replace")
         status = classify(code, captured, marker, baseline_ok, needs_baseline, success)
-        if success:
+        if name == "baseline":
             baseline_ok = status == "pass"
         result = {"name": name, "status": status, "exit_code": code,
                   "elapsed_seconds": round(time.monotonic() - started, 3),

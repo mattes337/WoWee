@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <charconv>
 #include <cstddef>
 #include <fstream>
 #include <iterator>
@@ -8,6 +9,29 @@
 #include <string_view>
 
 namespace wowee::addons {
+
+struct RunnerViewport {
+    int width = 1920;
+    int height = 1080;
+};
+
+// Reject malformed and impractically large viewports before loading addons.
+// Keep the destination unchanged if either dimension is invalid.
+inline bool parseRunnerViewport(std::string_view text, RunnerViewport& output) {
+    const auto separator = text.find('x');
+    if (separator == std::string_view::npos) return false;
+    const auto dimension = [](std::string_view part, int& value) {
+        if (part.empty()) return false;
+        const auto result = std::from_chars(part.data(), part.data() + part.size(), value);
+        return result.ec == std::errc{} && result.ptr == part.data() + part.size()
+            && value >= 1 && value <= 16384;
+    };
+    RunnerViewport parsed;
+    if (!dimension(text.substr(0, separator), parsed.width)
+        || !dimension(text.substr(separator + 1), parsed.height)) return false;
+    output = parsed;
+    return true;
+}
 
 inline bool hasLuaExpression(std::string_view text) {
     return text.find_first_not_of(" \t\r\n") != std::string_view::npos;
