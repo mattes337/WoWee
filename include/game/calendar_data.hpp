@@ -165,6 +165,11 @@ struct CalendarEventDetail {
     std::vector<CalendarEventInvitee> invitees;
 };
 
+/// Whether the supported calendar permission model lets this player edit the
+/// open event. The server remains authoritative; currently only its creator is
+/// known to have edit permission.
+bool calendarEventCreatorCanEdit(uint64_t creatorGuid, uint64_t playerGuid);
+
 /// Read one SMSG_CALENDAR_SEND_EVENT. False when it runs out mid-row.
 bool parseCalendarSendEvent(network::Packet& packet, CalendarEventDetail& out);
 

@@ -9,6 +9,10 @@
 namespace wowee {
 namespace game {
 
+bool calendarEventCreatorCanEdit(uint64_t creatorGuid, uint64_t playerGuid) {
+    return creatorGuid != 0 && playerGuid != 0 && creatorGuid == playerGuid;
+}
+
 namespace {
 
 /// The smallest a row of each list can be, used to reject a count before any

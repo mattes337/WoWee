@@ -26,6 +26,18 @@ Application* Application::instance = nullptr;
 using namespace wowee::game;
 using wowee::network::Packet;
 
+TEST_CASE("calendar event edit permission requires a known creator matching the player",
+          "[calendar][permission]") {
+    CalendarEventDetail event;
+    event.creatorGuid = 42;
+
+    CHECK_FALSE(calendarEventCreatorCanEdit(event.creatorGuid, 0));
+    CHECK_FALSE(calendarEventCreatorCanEdit(0, 42));
+    CHECK_FALSE(calendarEventCreatorCanEdit(event.creatorGuid, 41));
+    CHECK(calendarEventCreatorCanEdit(event.creatorGuid, 42));
+
+}
+
 namespace {
 
 /// A holiday row: five fields, then 26 dates, 10 durations, 10 flags, then the
@@ -355,6 +367,9 @@ TEST_CASE("One event reads back with its invite list", "[calendar]") {
     CHECK(ev.dungeonId == -1);
     CHECK(ev.flags == 0x0400u);
     CHECK(ev.guildId == 77);
+    CHECK(calendarEventCreatorCanEdit(ev.creatorGuid, ev.creatorGuid));
+    CHECK_FALSE(calendarEventCreatorCanEdit(ev.creatorGuid,
+                                            0x070000000000BEEFull));
 
     REQUIRE(ev.invitees.size() == 2);
     CHECK(ev.invitees[0].guid == 0x11ull);

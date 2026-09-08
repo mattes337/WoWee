@@ -7557,11 +7557,15 @@ void registerSystemLuaAPI(lua_State* L) {
             if (!gh || index < 1 || static_cast<size_t>(index) > rows.size()) return 0;
             const auto& row = rows[static_cast<size_t>(index) - 1];
             if (row.kind != wowee::game::CalendarEntryKind::Event) return 0;
+            // The previous detail is no longer the open event while this
+            // request is pending. Invalid selections returned above preserve
+            // it because no new event was selected.
+            gh->clearCalendarEventDetail();
             gh->requestCalendarEvent(gh->getCalendarData().events[row.index].eventId);
             return 0;
         }},
                 {"CalendarCloseEvent", [](lua_State* L) -> int {
-            (void)L;
+            if (auto* gh = getGameHandler(L)) gh->clearCalendarEventDetail();
             return 0;
         }},
                 // Twenty-five values, in the order the view frame unpacks
@@ -7639,6 +7643,19 @@ void registerSystemLuaAPI(lua_State* L) {
                 }
             }
             lua_pushboolean(L, can ? 1 : 0);
+            return 1;
+        }},
+                // Whether the currently open event belongs in the editable
+                // form or the read-only view. Every stock call is zero-arg and
+                // rechecks this state after calendar or guild updates. The
+                // server remains authoritative; this client currently proves
+                // edit ownership only for the event creator.
+                {"CalendarEventCanEdit", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto* event = gh ? &gh->getCalendarEventDetail() : nullptr;
+            lua_pushboolean(L, event && event->eventId != 0 &&
+                                   wowee::game::calendarEventCreatorCanEdit(
+                                       event->creatorGuid, gh->getPlayerGuid()) ? 1 : 0);
             return 1;
         }},
                 {"CalendarEventGetNumInvites", [](lua_State* L) -> int {
@@ -7936,8 +7953,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 return 1;
             }
             const auto& ev = gh->getCalendarData().events[row.index];
-            lua_pushboolean(L, ev.creatorGuid != 0 &&
-                                   ev.creatorGuid == gh->getPlayerGuid() ? 1 : 0);
+            lua_pushboolean(L, wowee::game::calendarEventCreatorCanEdit(
+                                   ev.creatorGuid, gh->getPlayerGuid()) ? 1 : 0);
             return 1;
         }},
                 // Reporting an event is a GM feature this client has no

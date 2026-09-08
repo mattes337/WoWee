@@ -767,6 +767,9 @@ public:
     const CalendarEventDetail& getCalendarEventDetail() const {
         return calendarEventDetail_;
     }
+    void clearCalendarEventDetail() {
+        calendarEventDetail_ = CalendarEventDetail{};
+    }
     /// Invite someone to an event, or to one not yet created.
     void inviteToCalendarEvent(uint64_t eventId, uint64_t inviteId,
                                const std::string& name, bool isPreInvite,
