@@ -4,6 +4,7 @@ import unittest
 import json
 from pathlib import Path
 import tempfile
+from unittest.mock import patch
 from framexml_run_matrix import classify, prepare_assets
 
 
@@ -48,6 +49,18 @@ class ClassificationTests(unittest.TestCase):
             self.assertEqual((addon / "Example.lua.saved").read_text(), "old player state")
             route = json.loads((fixture / "manifest.json").read_text())["basePath"]
             self.assertEqual((fixture / route).resolve(), source.resolve())
+
+    def test_fixture_uses_absolute_route_when_drives_have_no_relative_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "original"
+            source.mkdir()
+            fixture = Path(directory) / "fixture"
+            with patch("framexml_run_matrix.os.path.relpath", side_effect=ValueError("different drives")):
+                report = prepare_assets(source, fixture, json.dumps({"basePath": ".", "entries": {}}))
+            route = json.loads((fixture / "manifest.json").read_text())["basePath"]
+            self.assertTrue(Path(route).is_absolute())
+            self.assertEqual(Path(route).resolve(), source.resolve())
+            self.assertEqual(report["manifest_base_path"], route)
 
 
 if __name__ == "__main__":

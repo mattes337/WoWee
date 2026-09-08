@@ -57,20 +57,23 @@ def prepare_assets(source: Path, destination: Path, manifest_text: str) -> dict:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, target)
     destination.mkdir(parents=True, exist_ok=True)
-    # The current manifest loader resolves drive-letter paths as relative;
-    # an explicit relative path also keeps the fixture routing portable.
+    # Prefer a portable relative route. Windows fixtures on another drive
+    # require the absolute route supported by the native manifest loader.
     declared_base = Path(json.loads(manifest_text).get("basePath", "."))
     original_base = (source / declared_base).resolve()
-    relative = Path(os.path.relpath(original_base, destination)).as_posix()
+    try:
+        route = Path(os.path.relpath(original_base, destination)).as_posix()
+    except ValueError:
+        route = original_base.as_posix()
     routed, replacements = re.subn(
         r'("basePath"\s*:\s*)"(?:[^"\\]|\\.)*"',
-        lambda match: match.group(1) + json.dumps(relative), manifest_text, count=1)
+        lambda match: match.group(1) + json.dumps(route), manifest_text, count=1)
     if replacements != 1:
         raise ValueError("source manifest must declare basePath")
     manifest = destination / "manifest.json"
     manifest.write_text(routed, encoding="utf-8", newline="\n")
     return {"asset_root": str(destination), "manifest_sha256": sha256(manifest),
-            "manifest_base_path": relative, "saved_variables": "fresh, fixture-local"}
+            "manifest_base_path": route, "saved_variables": "fresh, fixture-local"}
 
 
 def run(binary: Path, assets: Path, output: Path, timeout: float) -> dict:

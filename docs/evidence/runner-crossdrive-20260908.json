@@ -1,0 +1,21 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "command": [
+    "G:\\WoW Projects\\wowee\\build-fork-windows\\bin\\Debug\\framexml_run.exe",
+    "C:\\wowee-runner-crossdrive-20260908\\assets",
+    "--viewport:1024x768",
+    "--script:C:\\wowee-runner-crossdrive-20260908\\scenario.lua"
+  ],
+  "binary_sha256": "5ee2c54dd18fc3588047b21f58354e87c46a2b0fa786b384c54f39e1d641bcba",
+  "script_sha256": "a09fe6af114eb7387073c21e8b44e3d34b7db89f40b13334b4e7f631e0a4cb55",
+  "stdout_sha256": "a60a5eac8858e6f12d15f3709e760708854f0d2944c9cec4cea4035c695598b9",
+  "input": {
+    "asset_root": "C:\\wowee-runner-crossdrive-20260908\\assets",
+    "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
+    "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "source": "== source: 77923e92b900110858e667c1be71dc3835e7e84d-dirty; built 2026-09-08",
+  "scope": "offline FrameXML, initial viewport and ordered animation integration; no GPU or gameplay claim"
+}
