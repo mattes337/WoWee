@@ -268,6 +268,16 @@ repair, both cases failed because no OnLoad call was emitted (**7 passed, 2
 failed**). The repaired isolated FrameXML suite passes **333 assertions in 94
 cases**.
 
+The first stock-runner check did not verify this repair. Its actual emitted-Lua
+dump installed the group handler but omitted the new call that invokes it,
+proving that the frozen executable carried a stale emitter object. Runtime
+state showed `runId=nil`; directly invoking the installed handler changed it to
+1 and registered the group as playing. The binary, stock XML, dump and logs are
+identified in [the stale-emitter evidence](runner-stale-emitter-20260908.md).
+A forced rebuild and repetition of the original pre-tick assertion remain
+pending, so OnLoad is focused-test verified but is not yet claimed as verified
+through the runner.
+
 ## Focused Linux sanitizer validation
 
 A later frozen archive at
