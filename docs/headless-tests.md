@@ -41,27 +41,35 @@ and configure diagnostics on failure. `ctest -L headless` selects this subset
 in a full build as well. GPU/FrameXML runtime and local-emulator CI gates are
 still separate, unverified work under TEST-10.
 
-## Current configured inventory and focused additions
-
-At committed revision `1659d85fc`, a headless-only configure registers **25**
-pure CTest targets. `-DWOWEE_TEST_SDL_EVENTS=ON` adds `input_trace_sdl` for a
-total of **26**. These are configured inventories, not claims that all 25 or 26
-have run together from that revision.
-
-The two targets added after the frozen baseline have narrower evidence:
-
-- `animation_group_lua` passed 20 Catch assertions across four cases for
-  ordered-stage duration at `4d582ff06`.
-- `model_replacement` passed 26 assertions across four cases in Windows Debug
-  and in an isolated Ubuntu 24.04 ASan/UBSan build at `1659d85fc`; see
-  [DEF-006](vulkan-validation-defects.md#def-006---p1---replacing-a-model-id-invalidates-surviving-instance-pointers).
-
-The optional SDL target was also run separately for held-input replay at
-`4a73bc719`, passing 78 assertions across five cases; see
-[its focused evidence](evidence/test-02-input-replay-20260908.md). Focused target
-passes do not extend the combined 23/24 baseline below.
-
 ## Latest combined frozen baseline, 2026-09-08
+
+Committed source `915c8752feae5c4e1cbf475983cda07d568e0616` was captured once
+with `git archive` and used for every result below. The archive SHA-256 is
+`da535eafc069df02091af2661555547565684ed24d5b31d8acb10972265cba7d`.
+The snapshot excluded the then-dirty generated/status files
+`docs/capability-ledger.json`, `docs/capability-ledger.md`, and
+`docs/evidence/headless-configured-tests-20260908.json`; none is covered by
+this run.
+
+| Executed suite | Windows MSVC Debug | Ubuntu 24.04 GNU Debug ASan + UBSan |
+|---|---|---|
+| Pure headless | **27/27 pass** | **27/27 pass** |
+| With optional SDL events | **28/28 pass** | **28/28 pass** |
+
+The configured inventories and executed CTest logs are separate artifacts.
+Windows and Linux contain the same 27 pure names and the same 28 SDL names;
+`input_trace_sdl` is the sole optional addition. Linux used
+`ASAN_OPTIONS=detect_leaks=1:halt_on_error=1` and
+`UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`, and asserted that Vulkan
+headers and `glslc` were absent before both stages.
+
+The portable relative-path manifest, source identity, inventories and logs are
+under `C:/wowee-headless-baseline-915c8752f/`; the entry point is
+`C:/wowee-headless-baseline-915c8752f/manifest.json`. Changes in `6993a86a6`
+and `0b437c9dd` were committed later and are not covered by this snapshot;
+their focused regressions remain separate evidence.
+
+## Earlier combined frozen baseline, 2026-09-08
 
 The updated ready-check completion/packet-serializer regression, screenshot
 request outcomes and capture schedule, and input parser/SDL fixture were
