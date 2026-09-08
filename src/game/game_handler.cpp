@@ -116,13 +116,13 @@ void GameHandler::setPacketParsers(std::unique_ptr<PacketParsers> parsers) {
 
 bool GameHandler::connect(const std::string& host,
                           uint16_t port,
-                          const std::vector<uint8_t>& sessionKey,
-                          const std::string& accountName,
-                          uint32_t build,
+                          const std::vector<uint8_t>& authenticationKey,
+                          const std::string& loginAccount,
+                          uint32_t clientBuild,
                           uint32_t realmId) {
 
-    if (sessionKey.size() != 40) {
-        LOG_ERROR("Invalid session key size: ", sessionKey.size(), " (expected 40)");
+    if (authenticationKey.size() != 40) {
+        LOG_ERROR("Invalid session key size: ", authenticationKey.size(), " (expected 40)");
         fail("Invalid session key");
         return false;
     }
@@ -132,13 +132,13 @@ bool GameHandler::connect(const std::string& host,
     LOG_INFO("========================================");
     LOG_INFO("Host: ", host);
     LOG_INFO("Port: ", port);
-    LOG_INFO("Account: ", accountName);
-    LOG_INFO("Build: ", build);
+    LOG_INFO("Account: ", loginAccount);
+    LOG_INFO("Build: ", clientBuild);
 
     // Store authentication data
-    this->sessionKey = sessionKey;
-    this->accountName = accountName;
-    this->build = build;
+    sessionKey = authenticationKey;
+    accountName = loginAccount;
+    build = clientBuild;
     this->realmId_ = realmId;
 
     // The session key is the shared secret the world handshake proves knowledge
@@ -146,7 +146,7 @@ bool GameHandler::connect(const std::string& host,
     // authenticate as this account and decrypt its traffic. It must never reach
     // a log, which is a file users are routinely asked to attach to a bug
     // report. Its length is the only part of it that diagnoses anything.
-    LOG_INFO("GameHandler session key received (", sessionKey.size(), " bytes)");
+    LOG_INFO("GameHandler session key received (", authenticationKey.size(), " bytes)");
     // Generate random client seed
     this->clientSeed = generateClientSeed();
     LOG_DEBUG("Generated client seed: 0x", std::hex, clientSeed, std::dec);

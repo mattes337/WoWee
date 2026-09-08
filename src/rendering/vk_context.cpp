@@ -467,21 +467,21 @@ void VkContext::reportUnsuitableDevices() const {
     vkEnumeratePhysicalDevices(instance, &count, devices.data());
 
     LOG_ERROR("  ", count, " device(s) offered:");
-    for (VkPhysicalDevice device : devices) {
+    for (VkPhysicalDevice candidate : devices) {
         VkPhysicalDeviceProperties props{};
-        vkGetPhysicalDeviceProperties(device, &props);
+        vkGetPhysicalDeviceProperties(candidate, &props);
 
         uint32_t familyCount = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &familyCount, nullptr);
+        vkGetPhysicalDeviceQueueFamilyProperties(candidate, &familyCount, nullptr);
         std::vector<VkQueueFamilyProperties> families(familyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &familyCount, families.data());
+        vkGetPhysicalDeviceQueueFamilyProperties(candidate, &familyCount, families.data());
 
         bool graphics = false;
         bool present = false;
         for (uint32_t i = 0; i < familyCount; ++i) {
             if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) graphics = true;
             VkBool32 supported = VK_FALSE;
-            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &supported);
+            vkGetPhysicalDeviceSurfaceSupportKHR(candidate, i, surface, &supported);
             if (supported) present = true;
         }
 

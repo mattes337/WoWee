@@ -2472,10 +2472,10 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
     static const bool skipSky = (std::getenv("WOWEE_SKIP_SKY") != nullptr);
 
     // Get time of day for sky-related rendering
-    auto* skybox = skySystem ? skySystem->getSkybox() : nullptr;
+    auto* activeSkybox = skySystem ? skySystem->getSkybox() : nullptr;
     float timeOfDay = lightingManager
         ? lightingManager->getVisualTimeOfDayHours()
-        : (skybox ? skybox->getTimeOfDay() : 12.0f);
+        : (activeSkybox ? activeSkybox->getTimeOfDay() : 12.0f);
     const bool useOriginalSkybox =
         skyboxModelRenderer_ && skyboxModelInstanceId_ != 0;
 

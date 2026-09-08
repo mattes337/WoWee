@@ -121,8 +121,8 @@ void Inventory::setBankBagSize(int bagIndex, int size) {
 }
 
 const ItemSlot& Inventory::getBankBagItem(int bagIndex) const {
-    static const ItemSlot EMPTY_SLOT;
-    if (bagIndex < 0 || bagIndex >= BANK_BAG_SLOTS) return EMPTY_SLOT;
+    static const ItemSlot emptyBankBag;
+    if (bagIndex < 0 || bagIndex >= BANK_BAG_SLOTS) return emptyBankBag;
     return bankBags_[bagIndex].bagItem;
 }
 

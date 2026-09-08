@@ -982,11 +982,11 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
             // non-attackable/immune, rather than requiring hostile faction.
             constexpr uint32_t UNIT_FLAG_NON_ATTACKABLE = 0x00000002;
             constexpr uint32_t UNIT_FLAG_IMMUNE_TO_PC   = 0x00000100;
-            constexpr uint32_t UNIT_FLAG_NOT_SELECTABLE = 0x02000000;
+            constexpr uint32_t kChargeNotSelectable = 0x02000000;
             constexpr uint32_t kBlockedChargeFlags =
                 UNIT_FLAG_NON_ATTACKABLE |
                 UNIT_FLAG_IMMUNE_TO_PC |
-                UNIT_FLAG_NOT_SELECTABLE;
+                kChargeNotSelectable;
             const bool hostileOrAggressive =
                 unit->isHostile() || owner_.isAggressiveTowardPlayer(target);
             const bool clearlyFriendly = unit->isInteractable() && !hostileOrAggressive;
@@ -3529,9 +3529,9 @@ uint32_t SpellHandler::tradeskillOpenerSkillLine(uint32_t spellId) {
         if (known == spellId) continue;
         auto kslIt = owner_.spellToSkillLineRef().find(known);
         if (kslIt == owner_.spellToSkillLineRef().end() || kslIt->second != skillLine) continue;
-        auto cacheIt = owner_.spellNameCacheRef().find(known);
-        if (cacheIt == owner_.spellNameCacheRef().end()) continue;
-        const auto& entry = cacheIt->second;
+        auto recipeIt = owner_.spellNameCacheRef().find(known);
+        if (recipeIt == owner_.spellNameCacheRef().end()) continue;
+        const auto& entry = recipeIt->second;
         bool hasReagents = false;
         for (const auto& reagent : entry.reagents) {
             if (reagent.itemId != 0) { hasReagents = true; break; }
