@@ -179,3 +179,16 @@ matching Windows. These results close DEF-002's acquired-image lifetime and
 reported readback/write outcome defect. They do not close TEST-04's separate
 same-tick hide/move and deterministic script-wait requirements or certify
 reference visual parity.
+
+### Scheduled test capture
+
+`WOWEE_TEST_SCREENSHOT_AFTER_UPDATES` optionally delays the test screenshot
+request until that many application update/render iterations have completed.
+It requires `WOWEE_TEST_SCREENSHOT_PATH`, accepts digits for 0..1000000, defaults
+to zero, and must be less than an enabled bounded-stop count. The request is
+queued exactly once before the normal SDL event poll. Skipped update iterations
+do not advance the schedule, while a queued renderer request survives skipped
+image frames. The existing run-end check still requires actual PNG success.
+This enables a later character-list capture without claiming a server-state or
+presented-frame condition wait. Three focused helper cases cover default/later
+scheduling, one-shot behavior, skipped iterations and invalid/unreachable bounds.

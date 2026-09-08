@@ -247,3 +247,6 @@ set_tests_properties(update_limit PROPERTIES LABELS "headless")
 # Deferred screenshot acceptance/completion contract; no graphics dependency.
 wowee_add_test(test_screenshot_request SOURCES test_screenshot_request.cpp)
 set_tests_properties(screenshot_request PROPERTIES LABELS "headless")
+
+wowee_add_test(test_screenshot_schedule SOURCES test_screenshot_schedule.cpp)
+set_tests_properties(screenshot_schedule PROPERTIES LABELS "headless")

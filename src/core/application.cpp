@@ -1,6 +1,7 @@
 #include "core/application.hpp"
 #include "core/env_flag.hpp"
 #include "core/test_update_limit.hpp"
+#include "core/test_screenshot_schedule.hpp"
 #include "core/test_input_trace.hpp"
 #include "core/character_paths.hpp"
 #include "ui/settings_schema.hpp"
@@ -1183,8 +1184,8 @@ void Application::run() {
     if (testInputTrace.enabled())
         LOG_INFO("SDL input trace enabled: ", testInputTrace.size(), " events; payloads omitted");
     const char* screenshotPath = std::getenv("WOWEE_TEST_SCREENSHOT_PATH");
-    if (screenshotPath && (!*screenshotPath || !renderer || !renderer->captureScreenshot(screenshotPath)))
-        throw std::invalid_argument("WOWEE_TEST_SCREENSHOT_PATH: request rejected");
+    TestScreenshotSchedule screenshotSchedule(screenshotPath,
+        std::getenv("WOWEE_TEST_SCREENSHOT_AFTER_UPDATES"), testUpdateLimit.limit());
     bool testQuitDispatched = false;
     if (testUpdateLimit.enabled()) {
         LOG_INFO("Unattended smoke limit: ", testUpdateLimit.limit(),
@@ -1301,6 +1302,13 @@ void Application::run() {
 
         if (renderer && renderer->getCameraController() && ImGui::GetIO().WantCaptureMouse) {
             renderer->getCameraController()->releaseMouseCapture();
+        }
+
+        if (screenshotSchedule.takeDue()) {
+            if (!renderer || !renderer->captureScreenshot(screenshotPath))
+                throw std::runtime_error("WOWEE_TEST_SCREENSHOT_PATH: request rejected");
+            LOG_INFO("Unattended screenshot queued after ", screenshotSchedule.afterUpdates(),
+                     " completed update/render iterations");
         }
 
         // Poll events
@@ -1716,6 +1724,7 @@ void Application::run() {
             window->setShouldClose(true);
         }
 
+        screenshotSchedule.completeIteration();
         if (testUpdateLimit.completeIteration()) {
             SDL_Event quitEvent{};
             quitEvent.type = SDL_QUIT;
