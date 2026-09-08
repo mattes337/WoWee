@@ -105,9 +105,10 @@ Ask the script.
 
     tools/framexml_api_gap.py <path to Interface/FrameXML>
 
-reported 49 unresolved names at 62 call sites in the locally extracted
-interface on 2026-09-08: 5,296 distinct called names, 3,797 detected interface
+reported 48 unresolved names at 60 call sites after scanner fix `21ac6d5b9`
+on 2026-09-08: 5,296 distinct called names, 3,798 detected interface
 definitions and 1,507 detected provided names. These categories overlap.
+This is a pinned observation; rerun the command after API changes.
 The [ledger](capability-ledger.json) records exact inputs, source locations
 and dispositions; this is a regex candidate list, not a completeness measure
 or a certified stock-interface inventory.

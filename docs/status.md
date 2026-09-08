@@ -70,10 +70,10 @@ Recent fork work (August-September 2026):
 - Test registration expanded; the former fixed 89-suite count is historical.
   Use `ctest --test-dir <build> -N` (plus `-C Debug` for a multi-configuration
   build) for that configuration's manifest, then execute it to establish results.
-  At `1659d85fc`, headless-only CMake registers 25 pure targets or 26 with the
-  optional SDL event fixture. The latest combined frozen execution remains
-  23/23 pure and 24/24 with SDL; newer animation and model-lifetime targets have
-  focused results documented in [headless tests](headless-tests.md).
+  Frozen source `2b1c97914` passes 28/28 pure targets and 29/29 with the
+  optional SDL fixture on Windows MSVC and Linux GNU with ASan/UBSan/leak
+  checks. Later animation changes have separately scoped results in
+  [headless tests](headless-tests.md); they are not part of that frozen run.
 - macOS: SIGPIPE is ignored at startup, so a send to a dropped connection no longer terminates the client; crash backtraces now work there as well as on Linux
 
 In progress / known gaps:
@@ -84,13 +84,19 @@ In progress / known gaps:
   sizes; startup metrics still have a character-count fallback, and additive
   UI textures still approximate blending with brightness-derived alpha.
   See [widget source evidence](widget-system.md).
-- The static interface run reports 49 unresolved API candidates, including a
-  proven local-helper false positive. All 30 WotLK opcode-map warnings have
+- The scanner at `21ac6d5b9` reports 48 unresolved API candidates after
+  removing a proven lexical-local false positive. The ledger retains 49
+  historical dispositions; use its generation command for current inputs. All 30 WotLK opcode-map warnings have
   source dispositions, but this does not certify their live behavior.
   Reproduction commands and remaining gates are in the [ledger](capability-ledger.md).
 - Pure tests now have a separate [headless configuration](headless-tests.md)
   requiring no Vulkan SDK, SDL, game assets or server. Full-client and GPU
   results remain separate; count and execute tests in the selected build.
+
+- The normal character preview still has an unresolved Vulkan device-loss
+  defect. Diagnostic shader/draw experiments are not rendering certification;
+  see [DEF-004 and preserved results](vulkan-validation-defects.md). Successful
+  authentication and offline tests do not close this gameplay blocker.
 
 - World map: zone hover detection has edge cases with some zone boundaries; cosmic highlight sizing is approximate
 - Transports: M2 transports (trams) working with position-delta riding; WMO transports (ships, zeppelins) working with path following; some edge cases remain
