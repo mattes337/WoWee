@@ -30,6 +30,16 @@ jobs:
         run: cmake --build build-headless --parallel 2
       - name: Test
         run: ctest --test-dir build-headless --output-on-failure --no-tests=error
+      - name: Attach failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-linux-diagnostics
+          path: |
+            build-headless/Testing/Temporary/
+            build-headless/CMakeFiles/CMakeConfigureLog.yaml
+            build-headless/CMakeCache.txt
+
 
   headless-windows:
     runs-on: windows-2022
@@ -55,3 +65,13 @@ jobs:
         run: cmake --build build-headless --config Debug --parallel 2
       - name: Test
         run: ctest --test-dir build-headless -C Debug --output-on-failure --no-tests=error
+      - name: Attach failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-windows-diagnostics
+          path: |
+            build-headless/Testing/Temporary/
+            build-headless/CMakeFiles/CMakeConfigureLog.yaml
+            build-headless/CMakeCache.txt
+
