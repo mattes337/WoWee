@@ -28,6 +28,20 @@ option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 option(WOWEE_BUILD_TESTS "Build tests" ON)
 option(WOWEE_ENABLE_ASAN "Enable AddressSanitizer + UBSan (applied to all build configs; pairs well with Debug)" OFF)
 option(WOWEE_ENABLE_TRACY "Enable Tracy profiler instrumentation" OFF)
+option(WOWEE_HEADLESS_TESTS_ONLY "Build pure packet, spline, widget and XML tests without the client or graphics SDKs" OFF)
+
+# Resolve only the dependency used by the pure tests. Return before discovery
+# of SDL, Vulkan, shader compilers, audio, optional SDKs or client targets.
+if(WOWEE_HEADLESS_TESTS_ONLY)
+    if(NOT WOWEE_BUILD_TESTS)
+        message(FATAL_ERROR "WOWEE_HEADLESS_TESTS_ONLY requires WOWEE_BUILD_TESTS=ON")
+    endif()
+    find_package(glm REQUIRED)
+    enable_testing()
+    add_subdirectory(tests)
+    return()
+endif()
+
 # AMD's FidelityFX SDK backends, off by default.
 #
 # They give neither a performance nor a quality gain here today, and FSR3 frame

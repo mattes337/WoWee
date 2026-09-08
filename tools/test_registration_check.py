@@ -21,14 +21,14 @@ about a hundred and forty lost the line.
 
 WHAT IT LOOKS FOR
 
-Every `add_test(NAME x COMMAND target)` in tests/CMakeLists.txt, and whether
+Every `add_test(NAME x COMMAND target)` in tests/CMakeLists.txt and cmake/HeadlessTests.cmake, and whether
 that target is registered - directly, or by one of the wowee_add_test helpers,
 which register what they build.
 
 WHAT IT CANNOT SEE
 
 A target registered under a computed name, and a test added from another
-CMakeLists. Neither exists here.
+CMakeLists other than the explicitly scanned shared headless module.
 """
 import pathlib
 import re
@@ -43,7 +43,8 @@ def main() -> int:
         print("tests/CMakeLists.txt is not here; the zero below would mean the "
               "scan broke rather than every test being registered.")
         return 1
-    text = cml.read_text()
+    text = cml.read_text(encoding="utf-8")
+    text += "\n" + (ROOT / "cmake" / "HeadlessTests.cmake").read_text(encoding="utf-8")
 
     added = re.findall(r"add_test\(NAME\s+(\w+)\s+COMMAND\s+(\w+)\)", text)
     registered = set(re.findall(r"register_test_target\((\w+)\)", text))

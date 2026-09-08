@@ -118,6 +118,25 @@ function(wowee_add_test target)
     register_test_target(${target})
 endfunction()
 
+# These exact same real tests run in both configurations.
+include(${CMAKE_SOURCE_DIR}/cmake/HeadlessTests.cmake)
+
+if(NOT WOWEE_HEADLESS_TESTS_ONLY)
+# ── test_settings_panel_layout ───────────────────────────────
+# The options panels are generated from the schema by Lua, and nothing else
+# checks the arithmetic between them. A control laid out past the bottom of a
+# panel registers, refreshes and answers correctly - it is just not on screen.
+add_executable(test_settings_panel_layout
+    test_settings_panel_layout.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/settings_schema.cpp
+    ${TEST_COMMON_SOURCES}
+)
+target_include_directories(test_settings_panel_layout PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_settings_panel_layout SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_settings_panel_layout PRIVATE catch2_main)
+add_test(NAME settings_panel_layout COMMAND test_settings_panel_layout)
+register_test_target(test_settings_panel_layout)
+
 # The packet layer, and what a test of it links.
 #
 # Sixteen tests named these thirteen sources and these five libraries one by
@@ -206,36 +225,7 @@ target_link_libraries(test_geoset_rules PRIVATE catch2_main)
 add_test(NAME geoset_rules COMMAND test_geoset_rules)
 register_test_target(test_geoset_rules)
 
-# ── test_framexml ───────────────────────────────────────────
-add_executable(test_framexml
-    test_framexml.cpp
-    ${CMAKE_SOURCE_DIR}/src/ui/xml_parser.cpp
-    ${CMAKE_SOURCE_DIR}/src/ui/framexml_emitter.cpp
-)
-target_include_directories(test_framexml PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_framexml SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_compile_definitions(test_framexml PRIVATE
-    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-target_link_libraries(test_framexml PRIVATE catch2_main)
-add_test(NAME framexml COMMAND test_framexml)
-register_test_target(test_framexml)
 
-# ── test_framexml_takeover ──────────────────────────────────
-# Which interface draws what in the configuration a run actually gets. The
-# transition's state is "FrameXML draws all of it", and that rested on a list
-# of forty-nine names and a grouping rule agreeing about fifty-two elements,
-# in a file where either can be edited alone. An element falling out is not an
-# error - this client just draws its own version again.
-add_executable(test_framexml_takeover
-    test_framexml_takeover.cpp
-    ${CMAKE_SOURCE_DIR}/src/ui/framexml_takeover.cpp
-    ${TEST_COMMON_SOURCES}
-)
-target_include_directories(test_framexml_takeover PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_framexml_takeover SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_framexml_takeover PRIVATE catch2_main)
-add_test(NAME framexml_takeover COMMAND test_framexml_takeover)
-register_test_target(test_framexml_takeover)
 
 # ── test_lua_handler_globals ────────────────────────────────
 # The pre-3.0 handler globals, which are a pure function of the Lua stack and
@@ -318,20 +308,6 @@ target_link_libraries(test_settings_schema_consistency PRIVATE catch2_main)
 add_test(NAME settings_schema_consistency COMMAND test_settings_schema_consistency)
 register_test_target(test_settings_schema_consistency)
 
-# ── test_settings_panel_layout ───────────────────────────────
-# The options panels are generated from the schema by Lua, and nothing else
-# checks the arithmetic between them. A control laid out past the bottom of a
-# panel registers, refreshes and answers correctly - it is just not on screen.
-add_executable(test_settings_panel_layout
-    test_settings_panel_layout.cpp
-    ${CMAKE_SOURCE_DIR}/src/ui/settings_schema.cpp
-    ${TEST_COMMON_SOURCES}
-)
-target_include_directories(test_settings_panel_layout PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_settings_panel_layout SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_settings_panel_layout PRIVATE catch2_main)
-add_test(NAME settings_panel_layout COMMAND test_settings_panel_layout)
-register_test_target(test_settings_panel_layout)
 
 # ── test_addon_lua_snippets ──────────────────────────────────
 # The Lua this client injects into the interface lives as C++ string literals,
@@ -488,33 +464,8 @@ target_link_libraries(test_reputation_standing PRIVATE catch2_main)
 add_test(NAME reputation_standing COMMAND test_reputation_standing)
 register_test_target(test_reputation_standing)
 
-# ── test_widget_tree ────────────────────────────────────────
-add_executable(test_widget_tree
-    test_widget_tree.cpp
-    ${CMAKE_SOURCE_DIR}/src/ui/widget_tree.cpp
-)
-target_include_directories(test_widget_tree PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_widget_tree SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_widget_tree PRIVATE catch2_main)
-add_test(NAME widget_tree COMMAND test_widget_tree)
-register_test_target(test_widget_tree)
 
-# ── test_text_edit ──────────────────────────────────────────
-wowee_add_test(test_text_edit SOURCES
-    test_text_edit.cpp
-    ${CMAKE_SOURCE_DIR}/src/ui/text_edit.cpp
-)
 
-# ── test_escape_action ──────────────────────────────────────
-add_executable(test_escape_action
-    test_escape_action.cpp
-    ${CMAKE_SOURCE_DIR}/src/ui/escape_action.cpp
-)
-target_include_directories(test_escape_action PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_escape_action SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_escape_action PRIVATE catch2_main)
-add_test(NAME escape_action COMMAND test_escape_action)
-register_test_target(test_escape_action)
 
 # ── test_placement_rotation ─────────────────────────────────
 wowee_add_test(test_placement_rotation
@@ -540,39 +491,8 @@ target_link_libraries(test_addon_globals PRIVATE catch2_main)
 add_test(NAME addon_globals COMMAND test_addon_globals)
 register_test_target(test_addon_globals)
 
-# ── test_monster_move_facing ─────────────────────────────────
-# SMSG_MONSTER_MOVE's move-type byte and the facing after it, which three
-# expansion parsers used to read for themselves. A wrong length here misreads
-# every field that follows.
-wowee_add_test(test_monster_move_facing
-    SOURCES test_monster_move_facing.cpp
-            ${TEST_COMMON_SOURCES}
-            ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-            ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp)
 
-# ── test_packet ──────────────────────────────────────────────
-add_executable(test_packet
-    test_packet.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-)
-target_include_directories(test_packet PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_packet PRIVATE catch2_main)
-add_test(NAME packet COMMAND test_packet)
-register_test_target(test_packet)
 
-# ── test_bit_packet ──────────────────────────────────────────
-add_executable(test_bit_packet
-    test_bit_packet.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-)
-target_include_directories(test_bit_packet PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_bit_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_bit_packet PRIVATE catch2_main)
-add_test(NAME bit_packet COMMAND test_bit_packet)
-register_test_target(test_bit_packet)
 
 # ── test_srp ─────────────────────────────────────────────────
 add_executable(test_srp
@@ -632,22 +552,7 @@ wowee_add_test(test_chunk_surface
             ${CMAKE_SOURCE_DIR}/src/pipeline/adt_alpha.cpp
             ${CMAKE_SOURCE_DIR}/src/pipeline/adt_loader.cpp)
 
-# ── test_spline_body ─────────────────────────────────────────
-# The body of SMSG_MONSTER_MOVE, whose head two parsers shared and neither
-# covered. Checked against AzerothCore's own WriteCommonMonsterMovePart.
-wowee_add_test(test_spline_body
-    SOURCES test_spline_body.cpp
-            ${TEST_COMMON_SOURCES}
-            ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-            ${CMAKE_SOURCE_DIR}/src/network/packet.cpp)
 
-# ── test_spline ──────────────────────────────────────────────
-wowee_add_test(test_spline
-    SOURCES test_spline.cpp
-            ${TEST_COMMON_SOURCES}
-            ${CMAKE_SOURCE_DIR}/src/math/spline.cpp
-            ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-            ${CMAKE_SOURCE_DIR}/src/network/packet.cpp)
 
 # ── test_transport_path_repo ─────────────────────────────────
 wowee_add_test(test_transport_path_repo
@@ -1519,7 +1424,7 @@ register_test_target(test_quest_progress)
 
 # ── ASAN / UBSan for test targets ────────────────────────────
 if(WOWEE_ENABLE_ASAN AND NOT MSVC)
-    foreach(_t IN LISTS ALL_TEST_TARGETS)
+    foreach(_t IN ITEMS wowee_test_common catch2_main ${ALL_TEST_TARGETS})
         target_compile_options(${_t} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
         target_link_options(${_t} PRIVATE -fsanitize=address,undefined)
     endforeach()
@@ -2198,6 +2103,8 @@ wowee_add_test(test_grass_cull_math
     SOURCES test_grass_cull_math.cpp
             ${CMAKE_SOURCE_DIR}/src/rendering/frustum.cpp)
 
+endif() # NOT WOWEE_HEADLESS_TESTS_ONLY
+
 # ── Sanitizers, once every test target exists ────────────────
 # This must be the last thing in this file. The loop walks ALL_TEST_TARGETS,
 # which register_test_target appends to as each test is declared, so the
@@ -2212,7 +2119,7 @@ list(LENGTH ALL_TEST_TARGETS _wowee_test_target_count)
 message(STATUS "Test targets registered: ${_wowee_test_target_count}")
 
 if(WOWEE_ENABLE_ASAN AND NOT MSVC)
-    foreach(_t IN LISTS ALL_TEST_TARGETS)
+    foreach(_t IN ITEMS wowee_test_common catch2_main ${ALL_TEST_TARGETS})
         target_compile_options(${_t} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
         target_link_options(${_t} PRIVATE -fsanitize=address,undefined)
     endforeach()

@@ -1,0 +1,30 @@
+name: Headless tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  headless:
+    runs-on: ubuntu-24.04
+    # A minimal container, instead of the runner's preinstalled graphics SDKs.
+    container: ubuntu:24.04
+    steps:
+      - name: Install pure-test dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git cmake g++ libglm-dev
+      - uses: actions/checkout@v6
+      - name: Verify Vulkan is absent
+        run: |
+          test ! -e /usr/include/vulkan/vulkan.h
+          test ! -e /usr/bin/glslc
+      - name: Configure
+        run: cmake -S . -B build-headless -DWOWEE_HEADLESS_TESTS_ONLY=ON -DCMAKE_BUILD_TYPE=Debug -DWOWEE_ENABLE_ASAN=ON -DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=TRUE -DCMAKE_DISABLE_FIND_PACKAGE_VulkanHeaders=TRUE
+      - name: Build
+        run: cmake --build build-headless --parallel 2
+      - name: Test
+        run: ctest --test-dir build-headless --output-on-failure --no-tests=error
