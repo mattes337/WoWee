@@ -318,8 +318,8 @@ glm::vec3 Weather::getRandomPosition(const glm::vec3& center) const {
     return glm::vec3(x, y, z);
 }
 
-void Weather::setIntensity(float intensity) {
-    this->intensity = glm::clamp(intensity, 0.0f, 1.0f);
+void Weather::setIntensity(float value) {
+    intensity = glm::clamp(value, 0.0f, 1.0f);
 }
 
 int Weather::getParticleCount() const {

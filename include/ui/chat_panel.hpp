@@ -125,8 +125,8 @@ public:
     std::function<void()> saveSettingsFn;
 
     /** Render the "Chat" tab inside the Settings window (delegates to settings). */
-    void renderSettingsTab(const std::function<void()>& saveSettingsFn) {
-        settings.renderSettingsTab(saveSettingsFn);
+    void renderSettingsTab(const std::function<void()>& persistSettings) {
+        settings.renderSettingsTab(persistSettings);
     }
 
     /** Reset all chat settings to defaults (delegates to settings). */

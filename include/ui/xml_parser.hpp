@@ -46,8 +46,8 @@ struct XmlNode {
         if (!v || v->empty()) return fallback;
         try { return std::stof(*v); } catch (...) { return fallback; }
     }
-    [[nodiscard]] const XmlNode* child(const std::string& name) const {
-        for (const auto& c : children) if (c.name == name) return &c;
+    [[nodiscard]] const XmlNode* child(const std::string& childName) const {
+        for (const auto& c : children) if (c.name == childName) return &c;
         return nullptr;
     }
 };

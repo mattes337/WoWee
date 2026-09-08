@@ -58,7 +58,7 @@ public:
                 const glm::vec3& centerWorldPos, int screenWidth, int screenHeight,
                 float playerOrientation = 0.0f, bool hasPlayerOrientation = false);
 
-    void setEnabled(bool enabled) { this->enabled = enabled; }
+    void setEnabled(bool value) { enabled = value; }
     [[nodiscard]] bool isEnabled() const { return enabled; }
     void toggle() { enabled = !enabled; }
 

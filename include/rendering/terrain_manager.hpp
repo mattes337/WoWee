@@ -204,9 +204,9 @@ public:
 
     /**
      * Set map name
-     * @param mapName Map name (e.g., "Azeroth", "Kalimdor")
+     * @param name Map name (e.g., "Azeroth", "Kalimdor")
      */
-    void setMapName(const std::string& mapName) { this->mapName = mapName; }
+    void setMapName(const std::string& name) { mapName = name; }
     [[nodiscard]] bool isCustomZone() const { return isCustomZone_; }
     void setCustomZone(bool custom) { isCustomZone_ = custom; }
 

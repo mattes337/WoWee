@@ -1494,8 +1494,8 @@ void GameHandler::sendAddonMessage(ChatType type, const std::string& message, co
     if (chatHandler_) chatHandler_->sendAddonMessage(type, message, target);
 }
 
-void GameHandler::sendTextEmote(uint32_t textEmoteId, uint64_t targetGuid) {
-    if (chatHandler_) chatHandler_->sendTextEmote(textEmoteId, targetGuid);
+void GameHandler::sendTextEmote(uint32_t textEmoteId, uint64_t recipientGuid) {
+    if (chatHandler_) chatHandler_->sendTextEmote(textEmoteId, recipientGuid);
 }
 
 void GameHandler::joinChannel(const std::string& channelName, const std::string& password) {
@@ -1792,12 +1792,12 @@ void GameHandler::leaveParty() {
     if (socialHandler_) socialHandler_->leaveParty();
 }
 
-void GameHandler::setMainTank(uint64_t targetGuid) {
-    if (socialHandler_) socialHandler_->setMainTank(targetGuid);
+void GameHandler::setMainTank(uint64_t recipientGuid) {
+    if (socialHandler_) socialHandler_->setMainTank(recipientGuid);
 }
 
-void GameHandler::setMainAssist(uint64_t targetGuid) {
-    if (socialHandler_) socialHandler_->setMainAssist(targetGuid);
+void GameHandler::setMainAssist(uint64_t recipientGuid) {
+    if (socialHandler_) socialHandler_->setMainAssist(recipientGuid);
 }
 
 void GameHandler::clearMainTank() {
@@ -1832,16 +1832,16 @@ void GameHandler::setSavedInstanceExtend(uint32_t mapId, uint32_t difficulty, bo
     if (socialHandler_) socialHandler_->setSavedInstanceExtend(mapId, difficulty, extend);
 }
 
-void GameHandler::proposeDuel(uint64_t targetGuid) {
-    if (socialHandler_) socialHandler_->proposeDuel(targetGuid);
+void GameHandler::proposeDuel(uint64_t recipientGuid) {
+    if (socialHandler_) socialHandler_->proposeDuel(recipientGuid);
 }
 
-void GameHandler::initiateTrade(uint64_t targetGuid) {
-    if (inventoryHandler_) inventoryHandler_->initiateTrade(targetGuid);
+void GameHandler::initiateTrade(uint64_t recipientGuid) {
+    if (inventoryHandler_) inventoryHandler_->initiateTrade(recipientGuid);
 }
 
-void GameHandler::reportPlayer(uint64_t targetGuid, const std::string& reason) {
-    if (socialHandler_) socialHandler_->reportPlayer(targetGuid, reason);
+void GameHandler::reportPlayer(uint64_t recipientGuid, const std::string& reason) {
+    if (socialHandler_) socialHandler_->reportPlayer(recipientGuid, reason);
 }
 
 void GameHandler::stopCasting() {
@@ -2091,8 +2091,8 @@ void GameHandler::emitAllOtherPlayerEquipment() {
 // Combat (delegated to CombatHandler)
 // ============================================================
 
-void GameHandler::startAutoAttack(uint64_t targetGuid) {
-    if (combatHandler_) combatHandler_->startAutoAttack(targetGuid);
+void GameHandler::startAutoAttack(uint64_t recipientGuid) {
+    if (combatHandler_) combatHandler_->startAutoAttack(recipientGuid);
 }
 
 void GameHandler::stopAutoAttack() {
@@ -2267,8 +2267,8 @@ void GameHandler::requestBattlefieldList(uint32_t bgTypeId) {
     if (socialHandler_) socialHandler_->requestBattlefieldList(bgTypeId);
 }
 
-void GameHandler::reportPvpAfk(uint64_t playerGuid) {
-    if (socialHandler_) socialHandler_->reportPvpAfk(playerGuid);
+void GameHandler::reportPvpAfk(uint64_t recipientGuid) {
+    if (socialHandler_) socialHandler_->reportPvpAfk(recipientGuid);
 }
 
 void GameHandler::acceptBattlefield(uint32_t queueSlot) {
@@ -2341,8 +2341,8 @@ void GameHandler::requestPvpLog() {
 // Spells
 // ============================================================
 
-void GameHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
-    if (spellHandler_) spellHandler_->castSpell(spellId, targetGuid);
+void GameHandler::castSpell(uint32_t spellId, uint64_t recipientGuid) {
+    if (spellHandler_) spellHandler_->castSpell(spellId, recipientGuid);
 }
 
 void GameHandler::cancelCast() {
@@ -2369,8 +2369,8 @@ void GameHandler::handlePetSpells(network::Packet& packet) {
     if (spellHandler_) spellHandler_->handlePetSpells(packet);
 }
 
-void GameHandler::sendPetAction(uint32_t action, uint64_t targetGuid) {
-    if (spellHandler_) spellHandler_->sendPetAction(action, targetGuid);
+void GameHandler::sendPetAction(uint32_t action, uint64_t recipientGuid) {
+    if (spellHandler_) spellHandler_->sendPetAction(action, recipientGuid);
 }
 
 void GameHandler::dismissCritter() {
@@ -2662,8 +2662,8 @@ void GameHandler::turnInPetition(uint64_t petitionGuid) {
     if (socialHandler_) socialHandler_->turnInPetition(petitionGuid);
 }
 
-void GameHandler::offerPetition(uint64_t petitionGuid, uint64_t targetGuid) {
-    if (socialHandler_) socialHandler_->offerPetition(petitionGuid, targetGuid);
+void GameHandler::offerPetition(uint64_t petitionGuid, uint64_t recipientGuid) {
+    if (socialHandler_) socialHandler_->offerPetition(petitionGuid, recipientGuid);
 }
 
 // ============================================================
@@ -2780,8 +2780,8 @@ void GameHandler::despawnGameObjectLocally(uint64_t guid) {
     LOG_INFO("Locally despawned game object: 0x", std::hex, guid, std::dec);
 }
 
-void GameHandler::lootMasterGive(uint8_t lootSlot, uint64_t targetGuid) {
-    if (inventoryHandler_) inventoryHandler_->lootMasterGive(lootSlot, targetGuid);
+void GameHandler::lootMasterGive(uint8_t lootSlot, uint64_t recipientGuid) {
+    if (inventoryHandler_) inventoryHandler_->lootMasterGive(lootSlot, recipientGuid);
 }
 
 void GameHandler::interactWithNpc(uint64_t guid) {

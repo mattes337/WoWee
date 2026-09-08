@@ -487,10 +487,10 @@ void Lightning::renderFlash(VkCommandBuffer cmd) {
     vkCmdDraw(cmd, 4, 1, 0, 0);
 }
 
-void Lightning::setEnabled(bool enabled) {
-    this->enabled = enabled;
+void Lightning::setEnabled(bool value) {
+    enabled = value;
 
-    if (!enabled) {
+    if (!value) {
         // Clear active effects
         for (auto& bolt : bolts) {
             bolt.active = false;
@@ -499,8 +499,8 @@ void Lightning::setEnabled(bool enabled) {
     }
 }
 
-void Lightning::setIntensity(float intensity) {
-    this->intensity = glm::clamp(intensity, 0.0f, 1.0f);
+void Lightning::setIntensity(float value) {
+    intensity = glm::clamp(value, 0.0f, 1.0f);
 }
 
 } // namespace rendering

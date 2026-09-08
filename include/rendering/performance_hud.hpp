@@ -38,7 +38,7 @@ public:
     /**
      * Enable/disable HUD display
      */
-    void setEnabled(bool enabled) { this->enabled = enabled; }
+    void setEnabled(bool value) { enabled = value; }
     [[nodiscard]] bool isEnabled() const { return enabled; }
 
     /**

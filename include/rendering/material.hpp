@@ -15,9 +15,9 @@ public:
     Material() = default;
     ~Material() = default;
 
-    void setShader(std::shared_ptr<Shader> shader) { this->shader = std::move(shader); }
-    void setTexture(std::shared_ptr<Texture> texture) { this->texture = std::move(texture); }
-    void setColor(const glm::vec4& color) { this->color = color; }
+    void setShader(std::shared_ptr<Shader> value) { shader = std::move(value); }
+    void setTexture(std::shared_ptr<Texture> value) { texture = std::move(value); }
+    void setColor(const glm::vec4& value) { color = value; }
 
     [[nodiscard]] std::shared_ptr<Shader> getShader() const { return shader; }
     [[nodiscard]] std::shared_ptr<Texture> getTexture() const { return texture; }
