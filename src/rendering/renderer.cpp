@@ -1330,7 +1330,7 @@ void Renderer::capturePendingScreenshot() {
     toPresent.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
     toPresent.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     toPresent.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    toPresent.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    toPresent.dstAccessMask = 0;  // Presentation visibility follows the submit semaphore.
     toPresent.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     toPresent.newLayout     = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     VkDependencyInfo toPresentDep{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
