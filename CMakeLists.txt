@@ -1138,7 +1138,9 @@ if(WIN32)
         ${CMAKE_CURRENT_BINARY_DIR}/assets/wowee.ico
         COPYONLY
     )
-    set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I ${CMAKE_CURRENT_BINARY_DIR} -I ${CMAKE_CURRENT_SOURCE_DIR}")
+    # Use structured include paths so MSVC RC/windres quote spaces correctly.
+    set_property(SOURCE resources/wowee.rc APPEND PROPERTY INCLUDE_DIRECTORIES
+        "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
     list(APPEND WOWEE_PLATFORM_SOURCES resources/wowee.rc)
 endif()
 
