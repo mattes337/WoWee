@@ -1,11 +1,11 @@
 # Real emulator readiness audit — 2026-09-08
 
-**Result:** an isolated real AzerothCore evaluation is feasible to prepare using
-the existing client-data volume and pinned official container images. It is
-**not running or certified**. No auth/world binary exists in the inspected
-host build/install paths, no active auth/world process or listener was found,
-and no emulator or database was started by this audit. Source checkout alone
-was not counted as an available server.
+**Initial read-only audit:** an isolated real AzerothCore evaluation was
+feasible using the existing client-data volume and pinned official container
+images. No auth/world binary existed in the inspected host build/install
+paths, and no active auth/world process or listener was found. Source checkout
+alone was not counted as an available server. The separately authorized
+follow-up provisioning and its actual results are recorded below.
 
 Scope: `G:/azerothcore-wotlk`, `G:/WoW Projects/.merged/server`, Docker image
 and volume metadata, and an explicitly authorized ephemeral Ubuntu helper
@@ -141,11 +141,11 @@ These are existing fixture source, not evidence that suitable dedicated
 accounts exist. They were not executed or imported, and no credential values
 were printed. Do not run their database setup against an existing volume.
 
-## Concrete isolated setup path, prepared but not executed
+## Isolated setup procedure
 
 1. Create a new test-owned project, network, database volume and writable
    config/log directories. Use the four pinned images above, rather than the
-   mutable `master` tag. Pulling images and provisioning are still pending.
+   mutable `master` tag. The follow-up execution below records the actual pinned-image provisioning.
 2. Mount existing `docker_ac-client-data` only at
    `/azerothcore/env/dist/data:ro` in the test worldserver. **Omit the
    `ac-client-data-init` service and its dependency:** the stock initializer
@@ -169,9 +169,9 @@ were printed. Do not run their database setup against an existing volume.
    Run identified-client login and multiplayer acceptance with clean per-run
    client settings. No fixture-based replacement of the server is required.
 
-Outstanding gates: image download/startup, source identity of runtime images,
-new DB import and schema compatibility, v19 data compatibility, clean account
-setup, login/world entry and gameplay scenarios. The volume inventory removes
+The audit alone did not establish image startup, source identity of runtime
+images, DB/schema compatibility, v19 data compatibility, clean account setup,
+login/world entry or gameplay scenarios; see the follow-up execution below. The volume inventory removes
 the earlier uncertainty about missing vmaps/mmaps, but **ENV-03 remains open**.
 
 Reproduction used `git rev-parse --verify HEAD`, filename inventories including
@@ -181,3 +181,65 @@ ignored files, selective file hashes/header reads, process/listener inventory,
 Client-data inspection used `docker run --rm --network none --read-only
 --mount type=volume,src=docker_ac-client-data,dst=/data,readonly ubuntu:24.04`
 with directory counts, selected hashes and binary-header reads only.
+
+## Follow-up isolated execution
+
+Authorized local test project `wowee-eval-20260908-af5200` uses the four
+pinned image digests above. Its compose file, generated private credentials,
+configuration and sanitized diagnostic captures are under the locally ignored
+`logs/fork-baseline/emulator/wowee-eval-20260908-af5200/` directory. Secrets
+are not part of this evidence or the repository. Existing database/account
+contents were not inspected or reused.
+
+Docker mount inspection confirms the database uses only the newly created
+`wowee-eval-20260908-af5200_db-data` volume and all services use the new
+`wowee-eval-20260908-af5200-network`. The worldserver mounts
+`docker_ac-client-data` with `RW=false`; the data initializer is absent. MySQL
+has no published host port. Auth/world publish only `127.0.0.1:3724` and
+`127.0.0.1:8085`, respectively; both were free before creation.
+
+All four pinned images pulled successfully. The new MySQL became healthy
+and the official importer reported `AzerothCore rev. a5e0e6b8f2bf+
+2026-09-08 10:39:49 +0200 (master branch) (Unix, RelWithDebInfo, Static)
+(dbimport)`. This is distinct from the local checkout revision. The `+`
+marker is retained; the image digest fixes the artifact, but the log does
+not establish a clean source checkout or identify every image-build change.
+
+The importer exited with code **0**. The newly imported MySQL runtime reports
+`8.4.11`; the world database reports `ACDB 335.17-dev`, cache ID `17`. Table
+counts are 22 auth, 108 character and 312 world tables. Initial unknown-database
+messages precede creation by the importer and are not evidence of a failed
+import. Auth and world both report the same `a5e0e6b8f2bf+` runtime revision.
+The world log reaches `ready...`, auth adds realm `AzerothCore` at
+`127.0.0.1:8085`, and TCP connection probes to loopback 3724 and 8085 succeed.
+These probes establish listeners, not authenticated client/world acceptance.
+
+Two dedicated accounts, `WOWEE_EVAL_A` and `WOWEE_EVAL_B` (IDs 1 and 2,
+expansion 2), were created only in the new auth database. The isolated fixture
+uses fresh 32-byte salts and the AzerothCore SRP6 registration formula from
+`src/common/Cryptography/Authentication/SRP6.cpp`: SHA-1 username/password
+inner digest, little-endian exponent and verifier, generator 7 and the
+source-defined 256-bit modulus. Passwords are generated and retained only in
+the ignored private configuration. Realm ID 1 advertises the host loopback
+endpoint. The character table contains **0 rows** at provisioning time;
+character creation and actual client authentication remain subsequent tests.
+
+**Explicit data blocker:** the pinned worldserver emits
+`MMAP:loadMap: ... was built with generator v19, expected v20` for the existing
+movement-map tiles. The server reaches readiness despite these rejections,
+but pathfinding and full gameplay cannot be certified. The existing client
+volume was not regenerated, modified or mounted writable. No pathfinding
+setting was disabled to hide the mismatch. A compatible separately owned v20
+data set or independently pinned compatible runtime remains necessary for
+that acceptance gate. Auth/login/character UI tests can use this actual server
+while recording the data limitation.
+
+Nonsecret execution evidence under the ignored project directory includes
+`pull.log`, `resource-isolation.json`, `db-import-startup.log`,
+`auth-startup.log`, `world-startup.log`, `schema-evidence.log` and
+`account-provision.log`. Auth's application revision is additionally in
+`auth/logs/Auth.log`. The project remains running for subsequent client
+testing. No pre-existing container, database, account or client-data content
+was changed. ENV-03 remains partial pending actual identified-client
+authentication, character/world entry, scenario coverage and compatible
+pathfinding data.
