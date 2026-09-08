@@ -134,3 +134,41 @@ replacement and roster-token mapping. Earlier passes/provenance are recorded in
 `docs/headless-tests.md` and `docs/evidence/port-08-ready-check/README.md`.
 No tests were rerun for this preparation, and those pure tests do not prove the
 two-client protocol, popup dismissal, event delivery, timeout or icon fade.
+
+
+## Finish emission design after flow audit (proposal only)
+
+No `FinishReadyCheck` Lua binding or call was found in the current client or
+extracted stock Interface tree. `ShowReadyCheck(initiator, timeLeft)` accepts
+`timeLeft` but does not use it. The only stock timing values found are the
+post-finish 10-second icon hold and 1.5-second fade; neither defines the response
+timeout. AzerothCore's eight-byte start packet supplies only the initiator GUID.
+A production timeout duration therefore cannot be derived from these sources.
+Do not promote the harness's 30-second observation deadline into game policy.
+
+A minimal completion path that is supported by the observed protocol would:
+
+1. On a real incoming start, retain its initiator GUID, create a new epoch and
+   snapshot the expected group GUIDs, explicitly including self. Only the client
+   whose GUID equals that initiator may own completion. Assistant-initiated
+   checks must use this ownership too; another leader must not finish them.
+2. Count distinct incoming CONFIRM GUIDs for that epoch and expected roster.
+   Both ready and not-ready count as answered. Unknown GUIDs and duplicate
+   replies cannot advance completion; local send success cannot count as an
+   answer. The initiator must have an actual confirmed answer too; automatic
+   self-ready behavior has not been established by the inspected sources.
+3. Once every expected GUID is answered, and the initiator is still in the same
+   group and authorized as leader/assistant, send the real empty outbound
+   `MSG_RAID_READY_CHECK_FINISHED` once. Arm the sent flag only when queuing
+   succeeds. Keep state active until the server's incoming FINISHED; do not
+   locally synthesize the event, clear answers or trigger a fake fade.
+4. Cancel the completion epoch on group teardown, replacement ready-check or
+   lost session. Treat roster changes as an explicit invalidation policy rather
+   than silently dropping unanswered members to manufacture completion.
+
+This would cover the all-answered yes/no case, but not unanswered timeouts.
+Timeout behavior needs additional primary protocol/client evidence or an
+explicit documented product policy before implementation. Read-only observers
+and synthetic state regressions should also reject duplicate finish sends,
+foreign initiators, stale epochs, unmatched GUIDs and failed queues. No code
+for this proposal was implemented here.
