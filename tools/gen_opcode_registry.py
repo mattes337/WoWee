@@ -56,8 +56,13 @@ def load_aliases(path: Path, canonical: set[str]) -> dict[str, str]:
 
 
 def write_file(path: Path, content: str) -> None:
+    # Compare bytes so Windows newline translation cannot dirty the tracked
+    # fragments or force every dependent translation unit to rebuild.
+    encoded = content.encode("utf-8")
+    if path.exists() and path.read_bytes() == encoded:
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8", newline="\n")
 
 
 def main() -> int:
