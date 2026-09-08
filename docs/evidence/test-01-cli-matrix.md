@@ -33,5 +33,47 @@ matrix command fail, and `report.json` is saved after each completed process.
 Driver regression: `python tools/test_framexml_run_matrix.py` passes five unit
 tests covering false success, wrong failure, Windows/POSIX crashes, external
 timeout, baseline-dependent classification, and fixture SavedVariables isolation
-with original-asset routing. The real CLI matrix is pending
-fresh binary availability; no executable results are claimed here yet.
+with original-asset routing.
+
+## September 8 executed matrix
+
+The fresh executable passed all 16 classifications. Binary SHA256:
+`e6f59410afa02533a614a8c5cae87d1dd4b76c72d0bdccf9f20b789b5c6af5e2`.
+The reported source was `27955f5869ef2a29e858aa3e1fbc341260449b13-dirty`.
+Full input hashes, commands, durations and output locations are in
+`framexml-cli-matrix-20260908.json`; raw output is retained under
+`logs/fork-baseline/framexml-matrix`.
+
+| Case | Exit | Observed result |
+|---|---:|---|
+| Scoped stock baseline | 0 | 13 Lua and 126 XML files, no load/login errors, 5 fonts |
+| Missing arguments | 2 | Usage diagnostic |
+| Missing asset directory | 2 | Missing-directory diagnostic |
+| Empty expression | 2 | Empty-expression diagnostic |
+| Empty inline Lua | 2 | Empty-expression diagnostic |
+| Missing script | 2 | Missing/unreadable/empty script diagnostic |
+| Empty script | 2 | Missing/unreadable/empty script diagnostic |
+| Malformed Lua | 2 | Syntax error near `)` |
+| Assertion | 2 | `MATRIX_ASSERTION` |
+| Ordinary throw | 2 | `MATRIX_THROW` |
+| Protected throw | 2 | `MATRIX_PROTECTED`, despite no-op addon error handler |
+| Runaway Lua | 2 | Production engine's `runaway script aborted` diagnostic |
+| Unknown runner option | 1 | Unknown-option diagnostic |
+| Invalid ticks | 1 | Integer-range diagnostic |
+| Missing asset manifest | 1 | Asset initialization unavailable |
+| Missing FrameXML TOC | 48 | Load failure plus downstream missing-interface errors |
+
+No external timeout or native crash counted as a successful negative. All
+runtime negatives had a successful baseline and their own expected diagnostic.
+
+### Defect found: stale Calendar exclusion
+
+The tested runner attempted 21 LoD addons, all loaded, and excluded
+`Blizzard_Calendar`. This is excluded coverage for EVAL-01/BOTH-04, not successful
+full stock-addon coverage. The old guard at `tools/framexml_run.cpp:269` claimed
+the client also refused it, but `lua_LoadAddOn` in
+`src/addons/lua_system_api.cpp:3647-3669` explicitly allows it now and describes
+the earlier restriction as obsolete. The runner's stale special case has been
+removed; a fresh runner build and follow-up baseline must cover all 22 LoD
+addons before claiming that broader loader coverage. Calendar gameplay and
+server-backed write behavior remain untested.
