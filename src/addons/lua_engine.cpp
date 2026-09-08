@@ -39,6 +39,11 @@ extern "C" {
 
 namespace wowee::addons {
 
+// Declare at namespace scope so MSVC links the widget table to these definitions.
+int lua_EditBox_SetFocus(lua_State* L);
+int lua_EditBox_ClearFocus(lua_State* L);
+int lua_EditBox_HasFocus(lua_State* L);
+
 bool LuaEngine::uiSoundsSuppressed_ = false;
 
 
@@ -5917,12 +5922,6 @@ void LuaEngine::registerCoreAPI() {
     lua_newtable(L_);  // metatable
     lua_pushvalue(L_, -1);
     lua_setfield(L_, -2, "__index"); // metatable.__index = metatable
-
-    // Defined with the other edit-box bindings further down; declared here
-    // because the table below refers to them first.
-    int lua_EditBox_SetFocus(lua_State* L);
-    int lua_EditBox_ClearFocus(lua_State* L);
-    int lua_EditBox_HasFocus(lua_State* L);
 
     static const struct luaL_Reg frameMethods[] = {
         {"RegisterEvent",   lua_Frame_RegisterEvent},
