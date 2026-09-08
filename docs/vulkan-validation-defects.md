@@ -238,3 +238,32 @@ controls only. No outcome from a later isolation replay is asserted here, and
 no control is a fix or replacement for normal-mode acceptance. Creation,
 world entry and normal preview rendering remain blocked pending a reproducible
 root cause and a validated correction.
+
+## DEF-005 - P0 - Uploaded buffers lack copy-to-consumer memory dependencies
+
+Status: source-confirmed gap fixed; live synchronization regression pending.
+Parent: QUALITY-04; related investigation: DEF-004, causality unproven.
+
+`uploadBuffer` and `uploadIntoBuffer` recorded vkCmdCopyBuffer without a
+subsequent buffer memory barrier. Default asynchronous upload batches submit on
+the graphics queue, but submission order alone does not provide memory
+visibility for later vertex/index/shader access. Texture layout barriers cover
+the named images, not these buffers. The conditional begin-frame memory barrier
+only targets fragment-shader reads, so it does not cover vertex/index input.
+This differs from the [Vulkan buffer-upload synchronization example](https://docs.vulkan.org/guide/latest/synchronization_examples.html#upload-data-from-the-cpu-to-a-vertex-buffer),
+which provides a copy-to-consumer dependency when no semaphore intervenes.
+
+Both helpers now record a per-buffer barrier immediately after the copy:
+TRANSFER / TRANSFER_WRITE to ALL_COMMANDS / MEMORY_READ | MEMORY_WRITE, covering
+only the copied destination range with ignored queue-family indices. The shared
+cmdPipelineBarrier2 compatibility path handles core/KHR/legacy recording as it
+does for existing barriers. No global validation behavior changes. The broad
+consumer scope accommodates generic buffer usage while restricting the memory
+range to this allocation.
+
+This addresses default same-queue visibility; an opt-in independent transfer
+queue still requires cross-queue semaphore ordering and is not repaired by this
+barrier alone. The change is not yet established as the cause or solution of
+DEF-004's character-preview device loss. Root's synchronization-validation
+before/after replay is the required runtime regression. No source-text test is
+used as a substitute for GPU synchronization validation.

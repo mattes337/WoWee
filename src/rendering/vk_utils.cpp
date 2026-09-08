@@ -312,6 +312,26 @@ void transitionImageLayout(VkCommandBuffer cmd, VkImage image,
     cmdPipelineBarrier2(cmd, dep);
 }
 
+// Copies and their consumers share the graphics queue in the default upload
+// path. Submission order alone does not make transfer writes visible to later
+// vertex/index/shader accesses. Cross-queue callers still need a semaphore.
+static void recordCopiedBufferReady(VkCommandBuffer cmd, VkBuffer buffer, VkDeviceSize size) {
+    VkBufferMemoryBarrier2 barrier{.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2};
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.buffer = buffer;
+    barrier.offset = 0;
+    barrier.size = size;
+    VkDependencyInfo dependency{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    dependency.bufferMemoryBarrierCount = 1;
+    dependency.pBufferMemoryBarriers = &barrier;
+    cmdPipelineBarrier2(cmd, dependency);
+}
+
 AllocatedBuffer uploadBuffer(VkContext& ctx, const void* data, VkDeviceSize size,
     VkBufferUsageFlags usage)
 {
@@ -334,6 +354,7 @@ AllocatedBuffer uploadBuffer(VkContext& ctx, const void* data, VkDeviceSize size
         VkBufferCopy copyRegion{};
         copyRegion.size = size;
         vkCmdCopyBuffer(cmd, staging.buffer, gpuBuffer.buffer, 1, &copyRegion);
+        recordCopiedBufferReady(cmd, gpuBuffer.buffer, size);
     });
 
     // Destroy staging buffer (deferred if in batch mode)
@@ -366,6 +387,7 @@ bool uploadIntoBuffer(VkContext& ctx, const void* data, VkDeviceSize size,
         VkBufferCopy region{};
         region.size = size;
         vkCmdCopyBuffer(cmd, staging.buffer, target, 1, &region);
+        recordCopiedBufferReady(cmd, target, size);
     });
 
     // See the header: the copy may not have been submitted yet, so the staging
