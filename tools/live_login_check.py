@@ -147,6 +147,9 @@ def run(args):
         env["VK_LAYER_PATH"] = str(args.layer_path)
     if args.gpu_validation:
         env["WOWEE_VULKAN_GPU_VALIDATION"] = "1"
+    if args.sync_validation:
+        env["VK_KHRONOS_VALIDATION_VALIDATE_SYNC"] = "true"
+        env["VK_KHRONOS_VALIDATION_SYNCVAL_SUBMIT_TIME_VALIDATION"] = "true"
     if args.preview_isolation:
         variable = {"no-backdrop": "WOWEE_TEST_PREVIEW_NO_BACKDROP",
                     "no-model-draw": "WOWEE_TEST_PREVIEW_NO_MODEL_DRAW"}[args.preview_isolation]
@@ -199,6 +202,7 @@ def run(args):
                   requested_character=args.create_name,
                   diagnostic_mode="GPU-assisted validation requested; not normal-mode certification" if args.gpu_validation else ("shader override; not normal-mode certification" if fragment_override or vertex_override else "normal validation"),
                   preview_isolation=args.preview_isolation,
+                  sync_validation_requested=args.sync_validation,
                   character_fragment_override=fragment_override,
                   character_vertex_override=vertex_override,
                   default_preview_certified=False if args.preview_isolation or fragment_override or vertex_override else None,
@@ -222,6 +226,7 @@ def main():
     parser.add_argument("--execute", action="store_true", help="otherwise prepare private fixtures only")
     parser.add_argument("--screenshot", action="store_true", help="require startup capture acknowledgement; pixels need separate inspection")
     parser.add_argument("--gpu-validation", action="store_true", help="request GPU-assisted diagnostic validation; not normal-mode certification")
+    parser.add_argument("--sync-validation", action="store_true", help="request synchronization and submit-time diagnostic validation")
     parser.add_argument("--preview-isolation", choices=("no-backdrop", "no-model-draw"),
                         help="diagnostic preview isolation; cannot certify default rendering")
     parser.add_argument("--character-fragment-override", type=lambda value: Path(value).resolve(),

@@ -437,3 +437,20 @@ The driver reported **fail** and the process stopped. These two simplified
 shader stages still do not prevent the failure; the result does not prove
 a specific index, descriptor, pipeline or pass-lifecycle defect. No creation
 or world entry was attempted.
+
+## Synchronization-validation request: live-login-11
+
+One unchanged-binary/default-shader/default-preview replay explicitly set
+`VK_KHRONOS_VALIDATION_VALIDATE_SYNC=true` and
+`VK_KHRONOS_VALIDATION_SYNCVAL_SUBMIT_TIME_VALIDATION=true`, the installed
+SDK settings names. GPU-AV was off. The driver records this as requested
+synchronization validation; the runtime log does not independently confirm
+activation of those layer settings.
+
+Auth/world/list succeeded, then frame 56 failed submission with device loss
+and invalid write at zero. The driver reported **fail**. No `SYNC-HAZARD` or
+read-after-write diagnostic appeared before the fault, and no delayed capture
+was produced. Ordinary pending-command-buffer reset validation errors followed
+the loss. Lack of a synchronization diagnostic does not establish correctness
+of upload/draw dependencies or rule out the independently inspected barrier
+gap. No additional replay or character creation occurred.
