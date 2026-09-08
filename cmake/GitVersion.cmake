@@ -10,7 +10,33 @@
 find_package(Git QUIET)
 
 set(WOWEE_GIT_VERSION "unknown")
+set(WOWEE_SOURCE_REVISION "unknown")
 if(GIT_FOUND)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-parse --verify HEAD
+        WORKING_DIRECTORY ${SRC_DIR}
+        OUTPUT_VARIABLE _source_sha
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE _source_result
+    )
+    if(_source_result EQUAL 0 AND _source_sha)
+        set(WOWEE_SOURCE_REVISION "${_source_sha}")
+        # Ignore extracted assets and other untracked local runtime files.
+        execute_process(
+            COMMAND ${GIT_EXECUTABLE} status --porcelain --untracked-files=no
+            WORKING_DIRECTORY ${SRC_DIR}
+            OUTPUT_VARIABLE _source_changes
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+            RESULT_VARIABLE _status_result
+        )
+        if(NOT _status_result EQUAL 0)
+            string(APPEND WOWEE_SOURCE_REVISION "-state-unknown")
+        elseif(_source_changes)
+            string(APPEND WOWEE_SOURCE_REVISION "-dirty")
+        endif()
+    endif()
     # The last tag reachable from HEAD - the released version this build descends from.
     execute_process(
         COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0
