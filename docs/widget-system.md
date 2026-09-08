@@ -1,5 +1,11 @@
 # The widget system
 
+Source review: 2026-09-08, fork revision `51277f5f3` (widget implementation
+inherited from `3f92198677`). Links below identify current source; historical
+load timings and interface handover notes are not fresh runtime acceptance.
+See [the capability ledger](capability-ledger.md) and [fork roadmap](fork-roadmap.md)
+for remaining validation gates.
+
 The addon API used to answer without doing anything. `CreateFrame` returned a
 table, events dispatched to it, and `CreateTexture` handed back an object whose
 every method was a no-op - so an addon could be written, loaded and run without
@@ -40,7 +46,10 @@ emitter's output is a string a test can read without a Lua state.
 
 ## Environment switches
 
-Both are off by default. Both exist because the work they enable is not finished.
+FrameXML is on by default. API fallback follows that setting unless explicitly
+overridden. `WOWEE_LUA_API_FALLBACK=0` takes precedence even when FrameXML is on;
+see `LuaEngine::installMissingApiFallback` in
+[`lua_engine.cpp`](../src/addons/lua_engine.cpp) for the environment parsing.
 
 ### `WOWEE_LUA_API_FALLBACK=1`
 
@@ -59,21 +68,23 @@ number turns a missing value into a confusing type error further away.
 ### `WOWEE_LOAD_FRAMEXML=1`
 
 Loads the original interface from `Interface/FrameXML/FrameXML.toc`, in the
-order that manifest states, before any addon. It turns the fallback above on by
-itself, because FrameXML cannot get through its own load without one.
+order that manifest states, before user addons. It also enables API fallback
+unless `WOWEE_LUA_API_FALLBACK=0` explicitly disables it. A fresh fallback-off
+load against pinned stock data remains an EVAL-01 acceptance gate.
 
 Every file that fails is listed together at the end of the load, with the reason
 carried up from whichever include or referenced script actually broke, and each
 error carries the Lua call stack that reached it.
 
-All 139 files in the manifest now load, in around 380ms.
+An earlier, unpinned session reported this load result. It is retained as
+historical evidence only; neither the timing nor file count has been rerun
+for the current fork:
 
     FrameXML: 13 Lua files and 126 XML files loaded, 0 failed in 377ms
 
-That is the whole original interface built against this client's widget tree.
-What remains is behaviour rather than loading: frames exist, are laid out and
-are named the way FrameXML expects, but the API behind them mostly answers with
-what the absence of a feature looks like.
+Loading files does not establish behavior: state, return shapes, events and
+rendered output require individual scenarios. Do not infer current API
+coverage from this historical loader result.
 
 ### Whether an event actually arrives
 
@@ -91,29 +102,34 @@ Ask the script.
 
     tools/framexml_api_gap.py <path to Interface/FrameXML>
 
-reports 1,142 names FrameXML calls that this client does not define, out of
-4,217 it calls in total and 2,724 it defines itself as it loads. That ranking
-counts static call sites, though, and most are never reached.
+reported 49 unresolved names at 62 call sites in the locally extracted
+interface on 2026-09-08: 5,296 distinct called names, 3,797 detected interface
+definitions and 1,507 detected provided names. These categories overlap.
+The [ledger](capability-ledger.json) records exact inputs, source locations
+and dispositions; this is a regex candidate list, not a completeness measure
+or a certified stock-interface inventory.
 
 The measurement that matters is a run with the fallback off:
 
     WOWEE_LUA_API_FALLBACK=0 WOWEE_LOAD_FRAMEXML=1 ./wowee
 
-With the fallback on, a missing name answers and the gap is invisible. With it
-off, the log names every one FrameXML actually reached - which is how the list
-that mattered was found, rather than by guessing from the ranking.
+With fallback on, a missing name can be hidden by a default answer. With it
+off, reached missing calls can surface as Lua errors. Save the error output
+and any missing-API report; a first error can stop execution before later
+gaps are reached, so neither report is an exhaustive API inventory.
 
-Two tools check the front half of the pipeline, and neither has been the
-constraint for some time: `tools/framexml_compile_check.cpp` asks Lua whether
-every generated file compiles (140/140), and the emitter has unit tests in
+Two tools check the front half of the pipeline:
+`tools/framexml_compile_check.cpp` asks Lua whether generated files compile,
+and the emitter has unit tests in
 `tests/test_framexml.cpp` covering the XML features that were silently absent -
 template inheritance, `parentKey`, `id`, `<ScrollChild>`, button art, handler
 argument names, and `$parent` through unnamed frames.
 
 ## Replacing one element at a time
 
-This is how the interface was replaced, and it is finished: FrameXML draws all
-fifty-two elements. `WOWEE_FRAMEXML_UI`, which named them one at a time, has
+The source routes interface ownership through FrameXML.
+This does not certify all panels or their actions. `WOWEE_FRAMEXML_UI`, which
+named elements one at a time, has
 been removed along with the thing its other setting selected - the client's own
 version of nearly every element has been deleted, so `=none` stopped meaning
 "use this client's interface" and started meaning "draw nothing".
@@ -151,24 +167,31 @@ move is not visible.
 
 ## Known gaps
 
-- Type is drawn from the game's own faces - FRIZQT, MORPHEUS, SKURRI, ARIALN
-  and FRIENDS - at the size and colour FrameXML's 42 font objects specify. Each
-  face is built into the atlas at one size and scaled, so a heading is the right
-  face rather than the right rasterisation. Outlines are drawn by offsetting
-  copies of the glyphs, which is what the effect amounts to at these sizes.
-- `EditBox` takes text, keeps a caret and fires OnTextChanged, OnEnterPressed
-  and the focus handlers. It has no selection, no clipboard and no scrolling
-  past its own width. `Slider` drags and reports its value; `Cooldown` sweeps.
-- The texture cache never evicts, and cannot yet: `uploadImGuiTexture` has no
-  counterpart, so releasing one would mean tracking its image and memory and
-  destroying them only once the GPU is done. `Interface\` art is small, bounded
-  and reused, so this grows to a few hundred entries and stops; a session that
-  loaded art from many addons would keep growing.
+- Fonts are loaded in [`ui_manager.cpp`](../src/ui/ui_manager.cpp) and drawn
+  with an explicit size in [`widget_renderer.cpp`](../src/ui/widget_renderer.cpp).
+  Bundled ImGui is 1.92.6 WIP and supports baked data at multiple sizes; the
+  old claim that every face is only a scaled fixed-size atlas is obsolete.
+  Outlines still use offset glyph copies, and
+  [`interfaceTextWidth`](../src/ui/interface_fonts.cpp) estimates width from
+  character count when no font is available during startup. PORT-04 requires
+  visual/metric comparisons before choosing a replacement.
+- `EditBox` has selection via `lua_EditBox_HighlightText`, caret and keyboard
+  selection handling, and SDL clipboard copy/cut/paste in
+  [`lua_engine.cpp`](../src/addons/lua_engine.cpp). The previous absent-selection
+  and absent-clipboard claims were incorrect. Source presence does not
+  establish complete Unicode, focus or overflow behavior; input acceptance
+  remains under PORT-06 and TEST-06.
+- Widget textures remain cached in `WidgetRenderer::textures_`; the source
+  invalidates the cache when the context texture generation changes. No
+  bounded per-texture LRU policy was established by this review. PORT-11
+  requires measured budgets and GPU-safe lifetime checks; a few hundred
+  entries is not a demonstrated upper bound.
 - The widget method set in `lua_engine.cpp` is enumerated rather than derived.
   A method outside it answers nil instead of doing nothing, which for an addon
   is an error rather than a shrug. Every such name is recorded once as
   `widget:Name`, so the gap shows up in the shutdown report rather than as a
-  mystery; adding it to the set is a one-line fix.
+  mystery. Adding a name to the no-op set does not implement its contract;
+  verify the return value, state changes and events before closing a gap.
 - Blend modes are honoured only far enough to tell "added" apart from "drawn
   over". `alphaMode="ADD"` art carries no alpha channel of its own - it is a
   glow on black - so it is uploaded as a second copy of the image with its
@@ -193,7 +216,8 @@ unset.
   4 fills them solid, 5 also draws ImGui's own font atlas through the same call
   - which separates "AddImage does not work here" from "these textures are bad".
 - `WOWEE_LUA_API_FALLBACK=0` turns off the stub that answers unknown globals,
-  so the log names every API FrameXML actually reached.
+  exposing reached missing calls as Lua errors; it does not establish that
+  every panel or code path was exercised.
 - `WOWEE_EVENT_TRACE=UNIT_HEALTH,UNIT_MANA` reports each of those events and how
   many frames received it. An event that never arrives and an event nobody
   listens for look identical from outside - the frame simply does not change -
@@ -210,7 +234,7 @@ thing that looks wrong is rarely the thing you would have thought to check.
 The missing-API report at shutdown separates three things that are not the
 same, and writes the full list to `missing_api.txt` beside the log:
 
-- names still undefined, which is the real gap;
+- names still undefined, which are candidates requiring caller review;
 - names read before the file defining them had loaded, which is normal;
 - names built from an existing frame's, which are parts that frame may or may
   not have. FrameXML asks for these constantly and guards them properly.

@@ -1,6 +1,12 @@
 # Project Status
 
-**Last updated**: 2026-08-11
+**Last source review**: 2026-09-08, fork revision `51277f5f3`.
+
+This page is a source/historical inventory, not a release certification.
+The fork's initial target is WotLK 3.3.5a/build 12340; live gameplay, stock
+fallback-off UI and other expansion certification remain tracked in the
+[fork roadmap](fork-roadmap.md). The [capability ledger](capability-ledger.md)
+separates registrations, defaults, unresolved candidates and actual evidence.
 
 ## What This Repo Is
 
@@ -8,7 +14,8 @@ Wowee is a native C++ World of Warcraft client experiment focused on connecting 
 
 ## Current Code State
 
-Implemented (working in normal use):
+Historical implementation inventory (runtime claims below are unverified for
+the current fork and controlled server; retain them as navigation, not acceptance):
 
 - Auth flow: SRP6a auth + realm list + world connect with header encryption
 - Rendering: terrain, WMO/M2, water/magma/slime (FBM noise shaders), sky system, particles, shadow mapping, minimap/world map, loading video playback
@@ -43,7 +50,8 @@ Recent refactors (PRs #59-63, April 2026):
 - TransportManager decomposed: spline math extracted to `src/math/`, path data to TransportPathRepository, 7 duplicated spline parsers consolidated into `spline_packet.cpp`
 - Spell visual effects system with bone-tracked ribbons and particles
 - Entity movement improvements: multi-segment path interpolation, terrain height clamping, walk/run animation fix
-- 31 unit-test suites (up from 8), covering chat, world map, spline math, transport, and animation systems
+- Historical expansion of unit tests covering chat, world map, spline math,
+  transport and animation; current counts must come from configured CTest
 - Code quality fix pass: 7 issues resolved across hover detection, null safety, buffer bounds, and coordinate validation
 
 Recent fixes (July 2026):
@@ -59,10 +67,26 @@ Recent work (August 2026):
 - FrameXML interface transition: the original interface owns the chat window, and this client's own was removed along with the tab manager and completer that served it. The command registry, macro evaluation, and chat bubbles stay - FrameXML's edit box routes unknown slash commands into `runClientChatCommand`. See the Unreleased section of `CHANGELOG.md`
 - Warnings are errors: `WOWEE_WARNINGS_AS_ERRORS` (default ON) puts `-Werror` / `/WX` on the `wowee` target. Turn it off for a bisect or an unfamiliar compiler
 - AMD FidelityFX SDK backends are off by default (`WOWEE_ENABLE_AMD_FSR2`, `WOWEE_ENABLE_AMD_FSR3_FRAMEGEN`). This client's own FSR 1 and `fsr2_*` compute shaders are in-tree and unaffected
-- 89 test suites registered with CTest, up from the 31 noted above
+- Test registration expanded; the former fixed 89-suite count is historical.
+  Use `ctest --test-dir <build> -N` (plus `-C Debug` for a multi-configuration
+  build) for that configuration's manifest, then execute it to establish results
 - macOS: SIGPIPE is ignored at startup, so a send to a dropped connection no longer terminates the client; crash backtraces now work there as well as on Linux
 
 In progress / known gaps:
+
+- Source-verified corrections: FrameXML is enabled by default; explicit
+  `WOWEE_LUA_API_FALLBACK=0` overrides its implied fallback. EditBox selection
+  and SDL clipboard operations already exist. ImGui supports dynamic font
+  sizes; startup metrics still have a character-count fallback, and additive
+  UI textures still approximate blending with brightness-derived alpha.
+  See [widget source evidence](widget-system.md).
+- The static interface run reports 49 unresolved API candidates, including a
+  proven local-helper false positive. All 30 WotLK opcode-map warnings have
+  source dispositions, but this does not certify their live behavior.
+  Reproduction commands and remaining gates are in the [ledger](capability-ledger.md).
+- Pure tests now have a separate [headless configuration](headless-tests.md)
+  requiring no Vulkan SDK, SDL, game assets or server. Full-client and GPU
+  results remain separate; count and execute tests in the selected build.
 
 - World map: zone hover detection has edge cases with some zone boundaries; cosmic highlight sizing is approximate
 - Transports: M2 transports (trams) working with position-delta riding; WMO transports (ships, zeppelins) working with path following; some edge cases remain

@@ -2,6 +2,12 @@
 
 This document provides platform-specific build instructions for WoWee.
 
+Fork documentation review: 2026-09-08 at `51277f5f3`. Platform recipes are
+setup guidance; they do not certify a current build or live session. For
+packet, spline, widget and XML tests without a graphics SDK, use the
+[headless test configuration](docs/headless-tests.md). It still requires a
+C++20 toolchain, CMake and GLM. Full-client builds below require Vulkan.
+
 ---
 
 ## 🐧 Linux (Ubuntu / Debian)
@@ -250,12 +256,28 @@ cd WoWee
 ### Build
 
 Open the folder in Visual Studio (it will detect CMake automatically)
-or build from Developer PowerShell:
+or build from Developer PowerShell. Set the SDK and vcpkg paths to installed
+locations; an old CMake cache pointing to a removed toolchain is not usable.
+Use a fresh build directory when changing dependency providers. Visual
+Studio selects the build configuration at build time:
 
 ```powershell
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="[vcpkg root]/scripts/buildsystems/vcpkg.cmake"
-cmake --build build --config Release
+$env:VULKAN_SDK = 'C:/path/to/installed/VulkanSDK/version'
+cmake -S . -B build-msvc -G 'Visual Studio 17 2022' -A x64 `
+  '-DCMAKE_TOOLCHAIN_FILE=C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake' `
+  -DWOWEE_BUILD_TESTS=ON `
+  -DWOWEE_ENABLE_AMD_FSR2=OFF -DWOWEE_ENABLE_AMD_FSR3_FRAMEGEN=OFF `
+  -DWOWEE_BUILD_AMD_FSR3_RUNTIME=OFF
+cmake --build build-msvc --config Release
+ctest --test-dir build-msvc -C Release --output-on-failure
 ```
+
+`WOWEE_WARNINGS_AS_ERRORS` defaults to `ON`. If an unfamiliar compiler blocks
+evaluation on existing warnings, record use of
+`-DWOWEE_WARNINGS_AS_ERRORS=OFF`; this keeps warnings enabled and does not
+demonstrate a warnings-clean build. Save configure/build/CTest output and
+verify runtime DLLs before claiming ENV-01 completion. Headless test success
+does not validate the full executable or graphics paths.
 
 ---
 
