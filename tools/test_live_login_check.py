@@ -1,11 +1,12 @@
 import unittest
 import tempfile
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
 from live_login_check import (PREVIEW_ISOLATION_ENV, add_creation_trace, add_preview_retry_trace, classify,
                               classify_missing_fragment_failure, diagnostic_mode,
-                              make_trace, remove_character_fragment, run)
+                              make_trace, remove_character_fragment, require_private_output, run)
 
 
 GOOD = """[INFO ] Asset manager initialized successfully
@@ -24,6 +25,29 @@ GOOD = """[INFO ] Asset manager initialized successfully
 
 
 class LiveLoginTest(unittest.TestCase):
+    def test_external_private_output_requires_contained_fresh_child(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            root = base / "private"
+            root.mkdir()
+            output = root / "run-19"
+            require_private_output(output, root)
+            output.mkdir()
+            with self.assertRaisesRegex(ValueError, "fresh path"):
+                require_private_output(output, root)
+            with self.assertRaisesRegex(ValueError, "fresh child"):
+                require_private_output(base / "escaped", root)
+            with self.assertRaisesRegex(ValueError, "fresh child"):
+                require_private_output(root, root)
+
+    def test_external_private_output_rejects_enclosing_git_worktree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "private"
+            root.mkdir()
+            subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+            with self.assertRaisesRegex(ValueError, "Git worktree"):
+                require_private_output(root / "run-19", root)
+
     def test_missing_fragment_mutates_only_fresh_runtime_copy(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -194,8 +194,30 @@ def classify_missing_fragment_failure(returncode, log, updates, event_count=8,
     }
 
 
-def require_ignored(output):
+def require_private_output(output, private_output_root=None):
     repo = Path(__file__).resolve().parents[1]
+    output = output.resolve()
+    if private_output_root is not None:
+        root = private_output_root.resolve()
+        if not root.is_dir():
+            raise ValueError("private output root must be an existing directory")
+        if output == root or root not in output.parents:
+            raise ValueError("external output must be a fresh child inside the private output root")
+        if output == repo or repo in output.parents:
+            raise ValueError("external private output must be outside the repository")
+        parent = output.parent
+        while not parent.exists():
+            parent = parent.parent
+        worktree = subprocess.run(
+            ["git", "-C", str(parent), "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True)
+        if worktree.returncode == 0:
+            raise ValueError("external private output must be outside any Git worktree")
+        if output.exists():
+            raise ValueError("output must be a fresh path that does not exist")
+        return
+    if output.exists():
+        raise ValueError("output must be a fresh path that does not exist")
     result = subprocess.run(["git", "check-ignore", "--quiet", str(output / "input-trace.json")],
                             cwd=repo, capture_output=True)
     if result.returncode:
@@ -217,7 +239,7 @@ def run(args):
     binary_hash = sha256(args.binary)
     if binary_hash.lower() != args.expected_binary_sha256.lower():
         raise ValueError("executable hash does not match the separately validated build")
-    require_ignored(args.output)
+    require_private_output(args.output, args.private_output_root)
     secret = json.loads(args.secrets.read_text(encoding="utf-8"))["account_a_password"]
     trace = make_trace(secret, args.account_x, args.account_y, args.updates)
     if args.create_name:
@@ -361,6 +383,8 @@ def main():
     parser.add_argument("--layer-path", type=lambda value: Path(value).resolve())
     parser.add_argument("--expected-binary-sha256", required=True,
                         help="SHA-256 from the separately validated build/capture evidence")
+    parser.add_argument("--private-output-root", type=lambda value: Path(value).resolve(),
+                        help="explicit external private root; output must be a fresh child outside every Git worktree")
     parser.add_argument("--account-x", type=int, required=True)
     parser.add_argument("--account-y", type=int, required=True)
     parser.add_argument("--geometry-basis", choices=("source-hypothesis", "observed-capture"), required=True)
