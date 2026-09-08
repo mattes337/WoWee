@@ -28,6 +28,8 @@ def diagnostic_mode(args, fragment_override, vertex_override, missing_fragment=F
         modes.append(f"preview isolation: {args.preview_isolation}")
     if getattr(args, "preview_rasterizer_discard", False):
         modes.append("preview rasterizer discard")
+    if getattr(args, "preview_single_sample", False):
+        modes.append("preview single-sample target")
     if fragment_override or vertex_override:
         modes.append("shader override")
     if missing_fragment:
@@ -86,7 +88,8 @@ def add_preview_retry_trace(trace, x, y, after_updates):
 
 
 def classify(returncode, log, updates, event_count=8, created_name=None,
-             preview_isolation=None, preview_rasterizer_discard=False):
+             preview_isolation=None, preview_rasterizer_discard=False,
+             preview_single_sample=False):
     report = classify_smoke(returncode, log, updates)
     # Match complete production INFO messages, not arbitrary substrings or a
     # username prefix. Preserve log order; update counts alone prove no state.
@@ -144,6 +147,13 @@ def classify(returncode, log, updates, event_count=8, created_name=None,
             for line in log.splitlines())
         if not report["preview_rasterizer_discard_marker"]:
             failures.append("missing_preview_rasterizer_discard_marker")
+    if preview_single_sample:
+        marker = "CharacterPreview: preview single-sample diagnostic enabled"
+        report["preview_single_sample_marker"] = any(
+            re.fullmatch(r"(?:\[[^\]]+\]\s*)?\[WARN\s*\]\s*" + re.escape(marker), line)
+            for line in log.splitlines())
+        if not report["preview_single_sample_marker"]:
+            failures.append("missing_preview_single_sample_marker")
     if created_name:
         sent = position("CMSG_CHAR_CREATE sent for: " + created_name, positions["character_list"] + 1)
         created = position("Character created successfully (code=47)", sent + 1) if sent >= 0 else -1
@@ -311,6 +321,8 @@ def run(args):
         env[PREVIEW_ISOLATION_ENV[args.preview_isolation]] = "1"
     if args.preview_rasterizer_discard:
         env["WOWEE_TEST_PREVIEW_RASTERIZER_DISCARD"] = "1"
+    if args.preview_single_sample:
+        env["WOWEE_TEST_PREVIEW_SINGLE_SAMPLE"] = "1"
     if args.screenshot:
         env["WOWEE_TEST_SCREENSHOT_PATH"] = str(args.output / "screenshot.png")
         if args.screenshot_after_updates is not None:
@@ -344,7 +356,8 @@ def run(args):
         else:
             report = classify(code, log, args.updates, len(trace["events"]),
                               args.create_name, args.preview_isolation,
-                              args.preview_rasterizer_discard)
+                              args.preview_rasterizer_discard,
+                              args.preview_single_sample)
         if args.screenshot:
             capture = args.output / "screenshot.png"
             captured = capture.is_file() and f"Screenshot saved: {capture}" in log
@@ -371,11 +384,12 @@ def run(args):
                                                   bool(missing_fragment)),
                   preview_isolation=args.preview_isolation,
                   preview_rasterizer_discard=args.preview_rasterizer_discard,
+                  preview_single_sample=args.preview_single_sample,
                   sync_validation_requested=args.sync_validation,
                   character_fragment_override=fragment_override,
                   missing_character_fragment=missing_fragment,
                   character_vertex_override=vertex_override,
-                  default_preview_certified=False if (args.preview_isolation or args.preview_rasterizer_discard or fragment_override or
+                  default_preview_certified=False if (args.preview_isolation or args.preview_rasterizer_discard or args.preview_single_sample or fragment_override or
                                                        vertex_override or missing_fragment) else None,
                   scope="real SDL input, authentication, realm and character list; optional real character creation; no world entry or gameplay certification")
     (args.output / "result.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
@@ -404,6 +418,8 @@ def main():
                         help="diagnostic preview isolation; cannot certify default rendering")
     parser.add_argument("--preview-rasterizer-discard", action="store_true",
                         help="diagnostic preview pipelines with rasterization discarded")
+    parser.add_argument("--preview-single-sample", action="store_true",
+                        help="diagnostic preview target with MSAA and resolve disabled")
     parser.add_argument("--character-fragment-override", type=lambda value: Path(value).resolve(),
                         help="diagnostic SPIR-V copied only over the fresh fixture character fragment shader")
     parser.add_argument("--missing-character-fragment", action="store_true",

@@ -148,9 +148,11 @@ class LiveLoginTest(unittest.TestCase):
                          "missing character fragment expected failure; not normal-mode certification")
         combined = SimpleNamespace(gpu_validation=False,
                                    preview_isolation="non-indexed-draw",
-                                   preview_rasterizer_discard=True)
+                                   preview_rasterizer_discard=True,
+                                   preview_single_sample=True)
         self.assertEqual(diagnostic_mode(combined, None, None),
                          "preview isolation: non-indexed-draw; preview rasterizer discard; "
+                         "preview single-sample target; "
                          "not normal-mode certification")
 
     def test_non_indexed_preview_isolation_requires_production_marker(self):
@@ -179,6 +181,18 @@ class LiveLoginTest(unittest.TestCase):
         self.assertEqual(result["result"], "pass")
         self.assertTrue(result["preview_isolation_marker"])
         self.assertTrue(result["preview_rasterizer_discard_marker"])
+
+    def test_single_sample_requires_actual_target_marker(self):
+        missing = classify(0, GOOD, 1800, preview_single_sample=True)
+        self.assertEqual(missing["result"], "fail")
+        self.assertIn("missing_preview_single_sample_marker", missing["failure_reasons"])
+        marked = GOOD.replace(
+            "[INFO ] Ready to select character",
+            "[WARN ] CharacterPreview: preview single-sample diagnostic enabled\n"
+            "[INFO ] Ready to select character")
+        result = classify(0, marked, 1800, preview_single_sample=True)
+        self.assertEqual(result["result"], "pass")
+        self.assertTrue(result["preview_single_sample_marker"])
 
     def test_account_prefix_is_not_exact_test_account(self):
         self.assertEqual(classify(0, GOOD.replace("WOWEE_EVAL_A", "WOWEE_EVAL_A_OTHER"), 1800)["result"], "fail")
