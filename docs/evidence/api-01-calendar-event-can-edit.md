@@ -43,7 +43,26 @@ returning false before an event is opened. No fallback or unconditional
 permission was added.
 
 There is no natural public test seam for seeding the private open detail.
-Close and valid-open clearing are source-reviewed, with compilation still
-pending after the focused build ended in C1060 resource exhaustion. Their state
-transitions remain runtime-unverified; no test-only setter, runner command, or
-private-state hook was added to manufacture that evidence.
+Close and valid-open clearing are source-reviewed. Their state transitions
+remain runtime-unverified; no test-only setter, runner command, or private-state
+hook was added to manufacture that evidence.
+
+## Focused build and test
+
+An isolated worktree at `D:/wowee-calendar-edit` used detached base
+`be5b5e28f140b78c1aa5d7a17207fead908d1659` with the exact Calendar source and
+test changes committed as
+`073afd80c30eb4fc72c931f72a822a4ab60833d2` applied. The existing
+`test_calendar_packet` target was built serially with MSBuild `/m:1`; the build
+passed. Direct execution passed **859 assertions in 11 test cases**.
+
+The build log is `D:/wowee-calendar-edit-build-retry.log`, SHA-256
+`7c11e1553964f60f9c292c228ac84da17a5e109bbf445e9f0c6e8d78556f880c`.
+The test log is `D:/wowee-calendar-edit-test-retry.log`, SHA-256
+`504a306034a280f21a54bcc3bbd229fa6023c650069147ea5d36e30de6793a03`.
+
+This target compiles `calendar_data.cpp` and the packet regression. It does not
+compile `lua_system_api.cpp`, link the full client, or execute the new Lua
+binding. Full-client compilation and the post-fix runner check remain pending;
+the focused pass is evidence only for the shared permission predicate and its
+packet fixture.
