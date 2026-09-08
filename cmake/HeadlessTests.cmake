@@ -6,6 +6,10 @@ wowee_add_test(test_input_trace SOURCES test_input_trace.cpp
 target_include_directories(test_input_trace SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/extern)
 set_tests_properties(input_trace PROPERTIES LABELS "headless")
 
+wowee_add_test(test_server_message SOURCES test_server_message.cpp
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp)
+set_tests_properties(server_message PROPERTIES LABELS "headless;packet")
+
 if(TARGET SDL2::SDL2)
     wowee_add_test(test_input_trace_sdl SOURCES test_input_trace_sdl.cpp
         ${CMAKE_SOURCE_DIR}/src/core/test_input_trace.cpp

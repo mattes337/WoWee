@@ -1,4 +1,5 @@
 #include "game/chat_handler.hpp"
+#include "game/server_message.hpp"
 
 #include <set>
 #include "addons/lua_api_registrations.hpp"
@@ -240,31 +241,16 @@ void ChatHandler::registerOpcodes(DispatchTable& table) {
             if (!defMsg.empty()) addSystemChatMessage("[Defense] " + defMsg);
         }
     };
-    // Server messages
-    table[Opcode::SMSG_SERVER_MESSAGE] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(4)) {
-            uint32_t msgType = packet.readUInt32();
-            std::string msg = packet.readString();
-            if (!msg.empty()) {
-                std::string prefix;
-                switch (msgType) {
-                    case 1: prefix = "[Shutdown] ";   owner_.addUIError("Server shutdown: " + msg);  break;
-                    case 2: prefix = "[Restart] ";    owner_.addUIError("Server restart: " + msg);   break;
-                    case 4: prefix = "[Shutdown cancelled] "; break;
-                    case 5: prefix = "[Restart cancelled] ";  break;
-                    default: prefix = "[Server] "; break;
-                }
-                addSystemChatMessage(prefix + msg);
-            }
-        }
+    // WotLK names the wire opcode SMSG_CHAT_SERVER_MESSAGE. Keep the legacy
+    // logical alias on the same decoder for profiles that may map it.
+    const auto serverMessage = [this](network::Packet& packet) {
+        const auto message = parseServerMessage(packet);
+        if (!message) return;
+        if (!message->uiError.empty()) owner_.addUIError(message->uiError);
+        addSystemChatMessage(message->chat);
     };
-    table[Opcode::SMSG_CHAT_SERVER_MESSAGE] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(4)) {
-            /*uint32_t msgType =*/ packet.readUInt32();
-            std::string msg = packet.readString();
-            if (!msg.empty()) addSystemChatMessage("[Announcement] " + msg);
-        }
-    };
+    table[Opcode::SMSG_SERVER_MESSAGE] = serverMessage;
+    table[Opcode::SMSG_CHAT_SERVER_MESSAGE] = serverMessage;
     table[Opcode::SMSG_AREA_TRIGGER_MESSAGE] = [this](network::Packet& packet) {
         if (packet.hasRemaining(4)) {
             /*uint32_t len =*/ packet.readUInt32();

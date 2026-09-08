@@ -163,10 +163,10 @@
       "validation": "static source/map review; live protocol scenario pending"
     },
     "SMSG_SERVER_MESSAGE": {
-      "disposition": "required behavior review",
+      "disposition": "intentional alternate registration",
       "owner": "EVAL-05",
-      "reason": "SMSG_CHAT_SERVER_MESSAGE is mapped and separately handled, but it discards message type while the unmapped SMSG_SERVER_MESSAGE handler uses shutdown/restart types. Confirm original behavior and consolidate with a regression; map absence alone is not proof of a missing packet.",
-      "validation": "static source/map review; live protocol scenario pending"
+      "reason": "WotLK maps SMSG_CHAT_SERVER_MESSAGE at 0x291. Pinned AzerothCore 798d08c58 writes the ServerMessages.dbc type as int32 followed by a C string only for types 1-3; types 4-5 are four-byte cancellation packets. Both logical registrations now share that typed decoder, while no duplicate WotLK opcode mapping is invented for SMSG_SERVER_MESSAGE.",
+      "validation": "pinned AzerothCore source audit; synthetic wire-packet regression covers types 1-5, truncation, and missing timer text"
     },
     "SMSG_SET_EXTRA_AURA_INFO_NEED_UPDATE": {
       "disposition": "intentional alternate registration",
