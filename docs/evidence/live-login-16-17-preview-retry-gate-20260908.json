@@ -1,0 +1,54 @@
+{
+  "schema": "wowee.preview-retry-gate-evidence.v1",
+  "result": "pass",
+  "binary_sha256": "020e331e21498249a93b8df61eda211aeffe98e7a84ab484a25f32b4e5bbcc85",
+  "source_marker": "72a2d495318006a739206fb3060d108055f815a4-dirty",
+  "source_marker_note": "Exact marker from each stdout; the executable hash is the immutable identity because the source tree was dirty.",
+  "fixture_manifest_sha256": "58e341e61011ef21d7faa5caaba4d2e4fee9eb6b4b17651592332a7d2fc74f90",
+  "runs": [
+    {
+      "name": "live-login-16",
+      "artifact_base": "logs/fork-baseline/emulator/wowee-eval-20260908-af5200/live-login-16",
+      "result_json_sha256": "142b720be5bef19e4117a91bae31f81afca13c3d92d359ceb6c1fe2d651127e7",
+      "stdout_sha256": "20eb7c13a0b6b0da5328483c3c80ab2700902dc75174c577262fc6abd333bafa",
+      "runtime_log_sha256": "866b68c91650ca35eb79101f15a6d0ab57a051d851cc3db3bd1fc9d05f6d555c",
+      "trace_event_count": 8,
+      "explicit_retry": null,
+      "expected_attempts": 1,
+      "intentional_error_counts": [1, 1, 1]
+    },
+    {
+      "name": "live-login-17",
+      "artifact_base": "logs/fork-baseline/emulator/wowee-eval-20260908-af5200/live-login-17",
+      "result_json_sha256": "61ba4c0f109225d37758b999621de478b34cbd93aa1bad70af71c0c6fc113b7f",
+      "stdout_sha256": "dd3d3eb47dfafe6faee6972b54b286ad3992b7e9c1229b980fc49cccd856f5b7",
+      "runtime_log_sha256": "b3b6964be67b788450eeb1386ac792474969f07031cf75a465d1fc95be2a67b1",
+      "trace_event_count": 11,
+      "explicit_retry": {"x": 400, "y": 198, "mouse_down_after_updates": 900, "mouse_up_after_updates": 902},
+      "expected_attempts": 2,
+      "intentional_error_counts": [2, 2, 2]
+    }
+  ],
+  "common_observations": {
+    "exit_code": 0,
+    "asset_manager_initialized": true,
+    "vulkan_validation_enabled": true,
+    "protocol_order_verified": true,
+    "character_list_received": true,
+    "lifecycle_order_verified": true,
+    "world_entry_started": false,
+    "unexpected_error_or_fatal_lines": 0,
+    "shutdown_vma_allocations": 0,
+    "shutdown_vma_blocks": 3
+  },
+  "intentional_error_kinds": [
+    "Failed to open shader file: assets/shaders/character.frag.spv",
+    "CharacterRenderer: failed to create character fragment shader (vk=-3)",
+    "CharacterPreview: failed to initialize CharacterRenderer"
+  ],
+  "limits": [
+    "The pair proves one automatic attempt for the selected GUID and one additional attempt after an explicit same-row click.",
+    "It does not exercise another GUID, Refresh, allocator or Vulkan creation failures, world-renderer ownership, or successful preview rendering.",
+    "Zero VMA allocations is a final shutdown observation and does not exclude transient allocations during either attempt."
+  ]
+}

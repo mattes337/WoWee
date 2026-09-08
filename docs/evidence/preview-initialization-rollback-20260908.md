@@ -52,6 +52,17 @@ after `CharacterPreview::initialize` fails for the currently selected nonzero
 character GUID. Selecting a different character permits one attempt; clicking
 the selected row again, refreshing the list, resetting the screen, or replacing
 the asset manager explicitly permits another. Healthy preview reuse and model
-load failures are outside this gate. A later missing-shader run must establish
-the expected reduction from repeated per-frame failures to one attempt; this
-source note does not claim that runtime result yet.
+load failures are outside this gate.
+
+The paired runs in `live-login-16-17-preview-retry-gate-20260908.json` execute
+that contract on one immutable client binary. Run 16 produced one occurrence of
+each expected shader-initialization error across 1,800 updates. Run 17 used one
+explicit click on the selected Woweetrial row at update 900 and produced exactly
+two of each. Both completed the ordered authentication, character-list, input,
+and shutdown lifecycle without starting world entry or reporting another error
+kind, and both ended with zero live VMA allocations in three blocks. This proves
+the selected-GUID suppression and explicit same-row retry paths for this shader
+failure. It does not exercise another GUID, either Refresh path, allocator or
+Vulkan creation failures, world-renderer ownership, or successful preview
+rendering. The binary's source marker ends in `-dirty`, so its SHA-256 is the
+immutable identity for these runs.
