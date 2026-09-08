@@ -1,0 +1,55 @@
+{
+  "date": "2026-09-08",
+  "scope": "paired preview rasterizer-discard diagnostic; not normal-preview or gameplay certification",
+  "binary_sha256": "014c5317e5a261d4c8efe0ab0a6a2a6294270199784004e57ce7e6678bd6d817",
+  "source_revision_reported_by_binary": "2e8d6a92e5dca18ddffdd6ba8824c48d7b7b1b35",
+  "source_identity_note": "The embedded revision is configure-time identity; the exact shared binary hash binds this pair more strongly.",
+  "common": {
+    "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
+    "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
+    "vertex_override_sha256": "5c7c0578893be500c1e10e1fd839e03108225a4155ef1e6b4d69c0f37f4a4d7c",
+    "fragment_override_sha256": "2698110bcbab8004a4038b55c5df87ddfde98b7a7655a612759d6fce9b805c84",
+    "preview_non_indexed_draw": true,
+    "validation": "core Vulkan validation enabled",
+    "requested_updates": 1800,
+    "screenshot_after_updates": 600,
+    "world_entry_started": false
+  },
+  "discard_run_19": {
+    "artifact_root": "D:/wowee-private-live-login/live-login-19",
+    "result": "pass",
+    "artifact_hashes": {
+      "result.json": "995ac26b9b1bc2782cc3fc4fbc58688991ca8e8f3f6c9441d84eb856452fb007",
+      "stdout.log": "1b37bdf3ebb2aa453006d87547384549102d83f16d430df8067aace4ea2ecc1a",
+      "screenshot.png": "4cba22c4b8f60436276b23e9b63bc4e651f99c5d35161a1f7afb82815b422e20"
+    },
+    "non_indexed_marker": true,
+    "rasterizer_discard_marker": true,
+    "validation_errors": [],
+    "completed_updates": 1800,
+    "trace_events": 8,
+    "exit_code": 0,
+    "clean_shutdown": true,
+    "vma_allocations_at_shutdown": 0,
+    "vma_blocks_at_shutdown": 4,
+    "screenshot_inspection": "1280x720 Choose a Hero with Woweetrial selected and the preview blank as expected when rasterization is discarded"
+  },
+  "nondiscard_run_20": {
+    "artifact_root": "D:/wowee-private-live-login/live-login-20",
+    "result": "device-loss-fail",
+    "artifact_hashes": {
+      "result.json": "dc76dc39bdc45a4fa6f133e011c9c5d915652dcdd1d30715772d5b4c07d3305f",
+      "stdout.log": "2d0aaf622ee320bc31dcde4318d2ff07100290a2ccf071dede5cd4f0351a8832"
+    },
+    "non_indexed_marker": true,
+    "rasterizer_discard_marker": false,
+    "first_failure": "endFrame[62] vkQueueSubmit returned VK_ERROR_DEVICE_LOST",
+    "device_fault": "invalid write at 0x0 within 0x1000",
+    "capture_completed": false,
+    "trace_completed": false,
+    "clean_shutdown": false,
+    "vma_allocations_during_failure_shutdown": 0,
+    "vma_blocks_during_failure_shutdown": 3
+  },
+  "interpretation": "With one exact binary and otherwise matched fixtures, static rasterizer discard completed while nondiscard lost the device. Vulkan requires the discard pipeline to omit its fragment stage, so the pair narrows the failure boundary to rasterization or later fragment/output work but cannot distinguish those stages or prove an MSAA/resolve cause. It does not certify the default preview."
+}
