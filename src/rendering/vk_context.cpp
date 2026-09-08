@@ -396,11 +396,24 @@ bool VkContext::createInstance(SDL_Window* window) {
     // Khronos validation layer's messages (e.g. the exact VK error behind an
     // FSR3 pipeline-creation failure) get routed to our log via debugCallback.
     bool enableValidationEffective = enableValidation;
+    bool requireValidation = false;
     if (const char* v = std::getenv("WOWEE_VULKAN_VALIDATION")) {
-        if (v[0] && v[0] != '0') enableValidationEffective = true;
+        if (v[0] && v[0] != '0') {
+            enableValidationEffective = true;
+            requireValidation = true;
+        }
+    }
+    // Preserve optional validation for ordinary debug builds. An explicit
+    // diagnostic request must fail if the layer is absent, never silently pass.
+    if (enableValidationEffective && !requireValidation) {
+        const auto systemInfo = vkb::SystemInfo::get_system_info();
+        enableValidationEffective = systemInfo && systemInfo.value().validation_layers_available;
+        if (!enableValidationEffective) {
+            LOG_WARNING("Optional Vulkan validation layers unavailable");
+        }
     }
     if (enableValidationEffective) {
-        builder.request_validation_layers(true)
+        builder.enable_validation_layers(true)
                .set_debug_callback(debugCallback);
         LOG_INFO("Vulkan validation layers requested");
 
@@ -420,7 +433,7 @@ bool VkContext::createInstance(SDL_Window* window) {
             LOG_INFO("Vulkan GPU-assisted validation requested (expect a large slowdown)");
         }
     }
-    validationActive_ = enableValidationEffective;
+    validationActive_ = false;
 
     auto instRet = builder.build();
     if (!instRet) {
@@ -431,6 +444,10 @@ bool VkContext::createInstance(SDL_Window* window) {
     vkbInstance_ = instRet.value();
     instance = vkbInstance_.instance;
     debugMessenger = vkbInstance_.debug_messenger;
+    validationActive_ = enableValidationEffective;
+    if (validationActive_) {
+        LOG_INFO("Vulkan validation layers enabled");
+    }
 
     // Query the actual instance API version for gating core 1.2+ calls
     uint32_t instVer = VK_API_VERSION_1_1;
