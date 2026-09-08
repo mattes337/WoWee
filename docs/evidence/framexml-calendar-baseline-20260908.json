@@ -1,0 +1,32 @@
+{
+  "command": [
+    "G:\\WoW Projects\\wowee\\build-fork-windows\\bin\\Debug\\framexml_run.exe",
+    "G:\\WoW Projects\\wowee\\logs\\fork-baseline\\calendar-baseline\\assets",
+    "--script:G:\\WoW Projects\\wowee\\logs\\fork-baseline\\calendar-baseline\\calendar-loaded.lua"
+  ],
+  "binary_sha256": "3c064d2ab17a9db7e3b7ba9cedb3c20b671946d2dd8a1295578148283d93b904",
+  "script_sha256": "04661f083e1e259e184262e45349191e54220069cfab8c4d5560a557ca9ab0d1",
+  "identity": {
+    "asset_root": "G:\\WoW Projects\\wowee\\logs\\fork-baseline\\calendar-baseline\\assets",
+    "manifest_sha256": "278ea8084737c328e4928ccef6dce7addf95f381714c8f9c6214d0d54f3ab861",
+    "manifest_base_path": "../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "exit_code": 0,
+  "duration_seconds": 22.421,
+  "stdout": "G:\\WoW Projects\\wowee\\logs\\fork-baseline\\calendar-baseline\\stdout.log",
+  "summary_lines": [
+    "== source: 846300085db1f090dd07d5b2a4cb83ab3f49e3da-dirty; built 2026-09-08",
+    "== setup: assets=G:\\WoW Projects\\wowee\\logs\\fork-baseline\\calendar-baseline\\assets viewport=1920x1080 server=none expression-timeout-ms=5000 fallback=0",
+    "== identity: G:\\WoW Projects\\wowee\\logs\\fork-baseline\\calendar-baseline\\assets/interface/FrameXML/FrameXML.toc sha256=3158bea13225ae51137a389f0f3ab8566e94b6be84196dd2c1fda27024677754",
+    "== load: 0 error(s), result=loaded",
+    "== addons: 0 of 22 load-on-demand failed",
+    "== login events: 0 error(s)",
+    "== fonts: 5 of 5 of the game's own faces",
+    "== identity: G:\\WoW Projects\\wowee\\logs\\fork-baseline\\calendar-baseline\\assets/manifest.json sha256=278ea8084737c328e4928ccef6dce7addf95f381714c8f9c6214d0d54f3ab861",
+    "== --script:G:\\WoW Projects\\wowee\\logs\\fork-baseline\\calendar-baseline\\calendar-loaded.lua",
+    "== identity: G:\\WoW Projects\\wowee\\logs\\fork-baseline\\calendar-baseline\\calendar-loaded.lua sha256=04661f083e1e259e184262e45349191e54220069cfab8c4d5560a557ca9ab0d1"
+  ],
+  "pass": true,
+  "scope": "Original interface and all 22 local load-on-demand addons loaded offline with API fallback disabled; no Calendar gameplay/server writes exercised."
+}

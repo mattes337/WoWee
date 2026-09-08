@@ -74,6 +74,16 @@ full stock-addon coverage. The old guard at `tools/framexml_run.cpp:269` claimed
 the client also refused it, but `lua_LoadAddOn` in
 `src/addons/lua_system_api.cpp:3647-3669` explicitly allows it now and describes
 the earlier restriction as obsolete. The runner's stale special case has been
-removed; a fresh runner build and follow-up baseline must cover all 22 LoD
-addons before claiming that broader loader coverage. Calendar gameplay and
-server-backed write behavior remain untested.
+removed. A fresh runner build then passed a new isolated fallback-off baseline:
+all 22 LoD addons loaded, zero load/login errors, five fonts loaded, and the
+explicit assertion in `framexml-calendar-loaded.lua` confirmed
+`IsAddOnLoaded("Blizzard_Calendar")`. Exit was 0 after 22.421 seconds. Its binary
+SHA256 was `3c064d2ab17a9db7e3b7ba9cedb3c20b671946d2dd8a1295578148283d93b904`;
+the reported revision was `846300085db1f090dd07d5b2a4cb83ab3f49e3da-dirty`.
+The complete record is `framexml-calendar-baseline-20260908.json`, with raw output
+under `logs/fork-baseline/calendar-baseline`.
+
+This closes the stale runner-exclusion defect for the tested local interface.
+Calendar gameplay/server-backed writes and EVAL-01's broader rendered panel,
+login, logout/reconnect and character scenarios remain untested. The original
+16-case matrix above remains attributed to its original binary and scope.
