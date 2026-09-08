@@ -4,7 +4,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from live_login_check import (PREVIEW_ISOLATION_ENV, add_creation_trace, classify,
-                              diagnostic_mode, make_trace, run)
+                              classify_missing_fragment_failure, diagnostic_mode,
+                              make_trace, remove_character_fragment, run)
 
 
 GOOD = """[INFO ] Asset manager initialized successfully
@@ -23,6 +24,41 @@ GOOD = """[INFO ] Asset manager initialized successfully
 
 
 class LiveLoginTest(unittest.TestCase):
+    def test_missing_fragment_mutates_only_fresh_runtime_copy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.frag.spv"
+            source.write_bytes(b"shader")
+            runtime = root / "runtime"
+            target = runtime / "assets/shaders/character.frag.spv"
+            target.parent.mkdir(parents=True)
+            target.write_bytes(source.read_bytes())
+            identity = remove_character_fragment(runtime)
+            self.assertFalse(target.exists())
+            self.assertEqual(source.read_bytes(), b"shader")
+            self.assertTrue(identity["removed"])
+            self.assertEqual(identity["scope"], "fresh runtime/assets/shaders/character.frag.spv only")
+
+    def test_missing_fragment_requires_exact_errors_and_zero_allocations(self):
+        failure = GOOD.replace(
+            "[INFO ] Ready to select character",
+            "[ERROR] Failed to open shader file: assets/shaders/character.frag.spv "
+            "(No such file or directory; working directory C:/fixture)\n"
+            "[ERROR] CharacterRenderer: failed to create character fragment shader (vk=-3)\n"
+            "[ERROR] CharacterPreview: failed to initialize CharacterRenderer\n"
+            "[INFO ] shutdown: VMA still holds 0 allocations in 3 blocks (0 MB)\n"
+            "[INFO ] Ready to select character")
+        result = classify_missing_fragment_failure(0, failure, 1800)
+        self.assertEqual(result["result"], "expected-failure-pass")
+        self.assertEqual(result["vma_allocation_count"], 0)
+        self.assertEqual(result["vma_block_count"], 3)
+        self.assertEqual(
+            classify_missing_fragment_failure(0, failure.replace("0 allocations", "1 allocations"), 1800)["result"],
+            "fail")
+        self.assertEqual(
+            classify_missing_fragment_failure(0, failure + "\n[ERROR] Device lost", 1800)["result"],
+            "fail")
+
     def test_non_indexed_preview_isolation_is_default_off_and_uncertified(self):
         self.assertEqual(PREVIEW_ISOLATION_ENV["non-indexed-draw"],
                          "WOWEE_TEST_PREVIEW_NON_INDEXED_DRAW")

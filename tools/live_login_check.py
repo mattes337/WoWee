@@ -134,12 +134,48 @@ def classify(returncode, log, updates, event_count=8, created_name=None,
     return report
 
 
+def classify_missing_fragment_failure(returncode, log, updates, event_count=8):
+    """Accept only the intentional preview shader failure and clean rollback."""
+    base = classify(returncode, log, updates, event_count)
+    errors = [line for line in log.splitlines() if re.search(r"\[(?:ERROR|FATAL)\s*\]", line)]
+    allowed = (
+        re.compile(r".*\[ERROR\s*\]\s*Failed to open shader file: assets/shaders/character\.frag\.spv \(.*\)$"),
+        re.compile(r".*\[ERROR\s*\]\s*CharacterRenderer: failed to create character fragment shader \(vk=-3\)$"),
+        re.compile(r".*\[ERROR\s*\]\s*CharacterPreview: failed to initialize CharacterRenderer$"),
+    )
+    unexpected = [line for line in errors if not any(pattern.fullmatch(line) for pattern in allowed)]
+    required = [any(pattern.fullmatch(line) for line in errors) for pattern in allowed]
+    match = re.search(r"shutdown: VMA still holds (\d+) allocations in (\d+) blocks", log)
+    clean_vma = bool(match and int(match.group(1)) == 0)
+    lifecycle = base["quit_dispatched"] and base["trace_completed"] and base["shutdown_completed"]
+    passed = returncode == 0 and all(required) and not unexpected and clean_vma and lifecycle
+    return {
+        **base,
+        "result": "expected-failure-pass" if passed else "fail",
+        "intentional_errors_observed": all(required),
+        "unexpected_errors": unexpected,
+        "vma_allocation_count": int(match.group(1)) if match else None,
+        "vma_block_count": int(match.group(2)) if match else None,
+    }
+
+
 def require_ignored(output):
     repo = Path(__file__).resolve().parents[1]
     result = subprocess.run(["git", "check-ignore", "--quiet", str(output / "input-trace.json")],
                             cwd=repo, capture_output=True)
     if result.returncode:
         raise ValueError("output must be inside a Git-ignored private evidence directory")
+
+
+def remove_character_fragment(runtime):
+    target = runtime / "assets/shaders/character.frag.spv"
+    if not target.is_file():
+        raise ValueError("missing-fragment fixture needs an existing copied character fragment shader")
+    identity = {"original_sha256": sha256(target),
+                "scope": "fresh runtime/assets/shaders/character.frag.spv only",
+                "removed": True}
+    target.unlink()
+    return identity
 
 
 def run(args):
@@ -159,6 +195,9 @@ def run(args):
         if source.is_dir():
             shutil.copytree(source, runtime / name,
                             ignore=shutil.ignore_patterns("*.saved", "SavedVariables"))
+    missing_fragment = None
+    if args.missing_character_fragment:
+        missing_fragment = remove_character_fragment(runtime)
     fragment_override = None
     if args.character_fragment_override:
         source = args.character_fragment_override
@@ -230,8 +269,11 @@ def run(args):
         log = redact(log_path.read_text(encoding="utf-8", errors="replace")) if log_path.is_file() else ""
         if log_path.is_file():
             log_path.write_text(log, encoding="utf-8")
-        report = classify(code, log, args.updates, len(trace["events"]),
-                          args.create_name, args.preview_isolation)
+        if args.missing_character_fragment:
+            report = classify_missing_fragment_failure(code, log, args.updates, len(trace["events"]))
+        else:
+            report = classify(code, log, args.updates, len(trace["events"]),
+                              args.create_name, args.preview_isolation)
         if args.screenshot:
             capture = args.output / "screenshot.png"
             captured = capture.is_file() and f"Screenshot saved: {capture}" in log
@@ -255,8 +297,10 @@ def run(args):
                   preview_isolation=args.preview_isolation,
                   sync_validation_requested=args.sync_validation,
                   character_fragment_override=fragment_override,
+                  missing_character_fragment=missing_fragment,
                   character_vertex_override=vertex_override,
-                  default_preview_certified=False if args.preview_isolation or fragment_override or vertex_override else None,
+                  default_preview_certified=False if (args.preview_isolation or fragment_override or
+                                                       vertex_override or missing_fragment) else None,
                   scope="real SDL input, authentication, realm and character list; optional real character creation; no world entry or gameplay certification")
     (args.output / "result.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
@@ -282,6 +326,8 @@ def main():
                         help="diagnostic preview isolation; cannot certify default rendering")
     parser.add_argument("--character-fragment-override", type=lambda value: Path(value).resolve(),
                         help="diagnostic SPIR-V copied only over the fresh fixture character fragment shader")
+    parser.add_argument("--missing-character-fragment", action="store_true",
+                        help="remove only the copied fixture fragment shader to verify rollback")
     parser.add_argument("--character-vertex-override", type=lambda value: Path(value).resolve(),
                         help="diagnostic SPIR-V copied only over the fresh fixture character vertex shader")
     parser.add_argument("--screenshot-after-updates", type=int,
@@ -295,12 +341,14 @@ def main():
         parser.error("updates must be 46..1000000 and timeout positive and at most 3600")
     if args.create_name and (args.newhero_x is None or args.newhero_y is None):
         parser.error("character creation requires explicit New Hero coordinates")
+    if args.missing_character_fragment and args.character_fragment_override:
+        parser.error("missing fragment and fragment override are mutually exclusive")
     if args.screenshot_after_updates is not None and (not args.screenshot or
             not 0 <= args.screenshot_after_updates < args.updates):
         parser.error("delayed capture requires --screenshot and an update count before shutdown")
     report = run(args)
     print(json.dumps({key: report[key] for key in ("result", "account", "auth_endpoint")}))
-    return 0 if report["result"] in ("pass", "prepared-not-run") else 1
+    return 0 if report["result"] in ("pass", "prepared-not-run", "expected-failure-pass") else 1
 
 
 if __name__ == "__main__":
