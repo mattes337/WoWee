@@ -3,8 +3,8 @@
   "result": "expected-failure-pass",
   "scope": "fixture-local missing character fragment shader after authentication and character-list receipt",
   "binary_sha256": "83a2e425dd6031ad2c3af882590642d00837408b984e061d03d01916013fe867",
-  "source_revision": null,
-  "source_revision_note": "The persisted client result did not emit a source revision; this evidence binds the run to the executable hash only.",
+  "source_revision": "f0411db78b04bddfe0b77a8a26f3251389a2eadf",
+  "source_revision_source": "persisted stdout.log structured Source revision marker",
   "artifacts": {
     "base": "logs/fork-baseline/emulator/wowee-eval-20260908-af5200/live-login-15",
     "result_json_sha256": "2f78d58fe4bf1fdb9703d9e844ceca45e833325ee6e83170b3acd7062422a61",

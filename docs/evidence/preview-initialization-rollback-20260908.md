@@ -43,5 +43,6 @@ no other ERROR or FATAL kind occurred. This validates final cleanup for the
 shader-load failure and repeated preview retry path on the executable identified
 by its SHA-256. It does not cover injected allocator/Vulkan creation failures,
 the world-renderer owner branch, or successful preview rendering. The persisted
-client result did not emit a source revision, so the run is not claimed as a
-source-revision binding.
+stdout binds the executable to source revision
+`f0411db78b04bddfe0b77a8a26f3251389a2eadf`; the compact evidence also records
+the executable and stdout SHA-256 values.
