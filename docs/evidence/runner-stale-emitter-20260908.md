@@ -92,15 +92,42 @@ the runner object timestamp is newer than the source mtime, a later ordinary
 incremental build can validly skip that object even though the linked behavior
 shows it lacks the final edit.
 
-## Conclusion and pending verification
+## Conclusion and forced-rebuild verification
 
 The failed assertion exercised an executable with stale FrameXML emitter code.
 It does not disprove the focused generated-Lua tests and requires no additional
 source fix. The runner emitter object completed before the OnLoad commit landed,
 but the available evidence does not establish the exact build-race mechanism.
 
-Runtime verification remains pending. Force-rebuild the relevant emitter
-translation unit from stable source containing `16c377939`, capture the emitted
-stock Lua again, and rerun the original pre-tick `IsPlaying()` assertion. The
-new dump must contain the group OnLoad invocation before that runtime result is
-credited to PORT07.
+The required forced rebuild was then performed. The replacement runner has
+SHA-256
+`716ab029949ec60eb4e07a7b4fde726b4aa459d41789370bcc12693c630f6534`
+and reports source `2e8d6a92e5dca18ddffdd6ba8824c48d7b7b1b35`. It used a fresh
+fixture-local config and the same manifest identity
+`cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de`.
+
+The new emitted stock file is
+`C:/wowee-runner-input-animation-02/emit/AnimTimerFrame.xml.lua`, SHA-256
+`14141bb0c183f3a374d668995f26e757407e104db146d4dc3feeb8ca1153a6fe`.
+It contains the missing group call after construction of
+`AutoCompleteInfoDelayer` and its `OnFinished`, and before the owning frame's
+`__WoweeFireOnLoad`:
+
+```lua
+if __w[2].OnLoad then __w[2]:OnLoad() end
+__WoweeFireOnLoad(__w[1])
+```
+
+The original integration assertions then passed without an intervening runner
+tick: the Calendar animation retained `OUT` smoothing and the stock countdown
+group was playing. After an explicit 15.1-second animation tick, the group was
+stopped, the generic child reported progress 1, and the owning frame retained
+the externally assigned alpha 0.37. The log is
+`C:/wowee-runner-input-animation-02/stock_and_valid.log`, SHA-256
+`5199bc8ad33608d295127443a42798a775b27267b79da05783f0b9f9e97fe06e`.
+The complete result manifest reports pass and has SHA-256
+`addac7dc5038d9d8aadc8b2c4f542975e41fc8d97d4dfc55bd78b000a082a19f`.
+
+This verifies the stock group OnLoad through the forced runner and retains the
+first failed run as evidence of stale-object risk. The correction was a rebuild;
+no additional source repair was needed.

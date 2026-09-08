@@ -274,9 +274,13 @@ proving that the frozen executable carried a stale emitter object. Runtime
 state showed `runId=nil`; directly invoking the installed handler changed it to
 1 and registered the group as playing. The binary, stock XML, dump and logs are
 identified in [the stale-emitter evidence](runner-stale-emitter-20260908.md).
-A forced rebuild and repetition of the original pre-tick assertion remain
-pending, so OnLoad is focused-test verified but is not yet claimed as verified
-through the runner.
+A forced rebuild produced the required group invocation after the child was
+fully constructed. Repeating the original integration passed the pre-tick
+`IsPlaying()` assertion, then completed the stock 15-second child after an
+explicit 15.1-second tick while retaining the frame's externally assigned
+alpha. The linked evidence preserves both runner identities and emitted-Lua
+dumps. Stock group OnLoad is therefore verified through the rebuilt runner as
+well as the focused generated-Lua test.
 
 ## Focused Linux sanitizer validation
 
