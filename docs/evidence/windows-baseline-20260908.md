@@ -59,3 +59,34 @@ player settings were not copied into evidence or changed.
 ENV-01 remains open until fresh client/runtime packaging evidence is complete;
 ENV-03 remains open for pinned data origin/locale, prepared dedicated accounts,
 real server identity and fresh login. GPU and multiplayer checks remain unverified.
+
+## Follow-up: fresh executable and bounded runtime checks
+
+The observations above are the initial attempts. The fresh MSVC Debug client
+and FrameXML runner subsequently build successfully with `/W4` retained and
+`WOWEE_WARNINGS_AS_ERRORS=OFF`, using the retained dependency prefix. Build
+fixes and individually verified regressions are recorded in
+[the roadmap progress](../fork-roadmap.md#implementation-progress--2026-09-08).
+This does not establish a clean default `/WX` build or clean-machine package.
+
+The actual isolated client selects WotLK, indexes 199,468 assets and initializes
+the RTX 2070 SUPER. The original 45-second hidden-window run needed a forced
+stop. The later bounded 120-update run dispatches SDL_QUIT and completes
+normal teardown. It initially exposed a Vulkan diagnostic-command scope defect;
+after its fix and a stricter required-layer contract, the same startup/shutdown
+scenario passes with confirmed validation activation and no logged errors.
+A paired run with an empty layer directory fails startup with exit 1 and
+`requested_layers_not_present`, as required. Binary and log hashes, exact scope
+and both outcomes are recorded in [DEF-001](../vulkan-validation-defects.md).
+Neither this check nor an update count certifies image fidelity or presented
+frame count.
+
+The real FrameXML runner passes the 16-case positive/negative matrix. A later
+baseline removes its stale Calendar exclusion and verifies 22 load-on-demand
+addons with fallback disabled. See [matrix evidence](test-01-cli-matrix.md).
+
+A separately owned real emulator now runs on loopback with new dedicated
+accounts and a new database; [server evidence](emulator-readiness-20260908.md)
+records pinned images and actual runtime revision. Its read-only movement maps
+are generator v19 while the server expects v20. Login and character checks can
+proceed, but full pathfinding/gameplay validation remains blocked by that mismatch.
