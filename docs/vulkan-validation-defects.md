@@ -72,3 +72,42 @@ and wrapper cannot silently pass without the requested validation layer.
 This closes DEF-001 for the tested startup path with the renderer fix
 `7ab2f5a7d`; it does not certify world rendering or alternative post-process
 settings. Evidence JSON preserves exact source identity and binary/log hashes.
+
+## DEF-002 - P0 - Screenshot reads outside the acquired frame lifetime
+
+Status: source fix and queue regression pass; real GPU capture checks pending.
+Parent: EVAL-01; related tasks: TEST-04, QUALITY-04.
+
+Source audit found `Renderer::captureScreenshot` immediately copying the image
+indexed by `currentImageIndex` through an unrelated immediate submission.
+GameScreen PrintScreen and slash-command callers run during UI construction,
+while the current frame is still being recorded; Lua callers can also request
+between frames, after the previous image was presented. `vkDeviceWaitIdle` does
+not submit the current recording or reacquire a presented image. The
+[Vulkan presentation contract](https://docs.vulkan.org/refpages/latest/refpages/source/vkQueuePresentKHR.html)
+requires reacquisition before using an image released for presentation. This
+is a source-confirmed ownership defect; no pre-fix visual comparison is claimed.
+
+Requests now retain their path and Pending status across skipped frames. The
+renderer records the copy after its final overlay pass in the acquired frame's
+own command buffer, before normal submission/presentation. Only an explicit
+screenshot stalls for completion. Staging memory stays alive through that wait;
+host-read visibility, allocation invalidation, supported RGBA/BGRA conversion,
+map/allocation failures and PNG failure are checked. A scoped staging owner
+releases mapped memory and the buffer. `VkContext::endFrame` now reports command
+end, submission, or presentation failure so a failed frame cannot produce a
+successful capture result. A pending request is cancelled during shutdown.
+
+`captureScreenshot` now returns request acceptance. Chat says Screenshot queued;
+only the completed PNG write logs Screenshot saved. The bounded
+`WOWEE_TEST_SCREENSHOT_PATH` hook queues a capture at run start and requires
+Succeeded at loop completion, otherwise the application exits with failure.
+The caller supplies the destination; the hook has no default screenshot path.
+
+The real production queue helper has two Catch2 cases covering accepted/rejected
+requests, path preservation, terminal completion, failure and cancellation.
+`ctest --test-dir build-headless-ci-final -C Debug -R '^screenshot_request$'
+passes. Required live checks: layer-enabled startup with a fresh capture path,
+PNG decode/extent and completion assertion, then an unwritable destination that
+must fail without claiming saved. This establishes capture mechanics only;
+reference-image parity and authenticated world captures remain open.

@@ -243,3 +243,7 @@ set_tests_properties(framexml_run_contract PROPERTIES LABELS "headless")
 # Opt-in real-client smoke loop limit and successful SDL quit contract.
 wowee_add_test(test_update_limit SOURCES test_update_limit.cpp)
 set_tests_properties(update_limit PROPERTIES LABELS "headless")
+
+# Deferred screenshot acceptance/completion contract; no graphics dependency.
+wowee_add_test(test_screenshot_request SOURCES test_screenshot_request.cpp)
+set_tests_properties(screenshot_request PROPERTIES LABELS "headless")

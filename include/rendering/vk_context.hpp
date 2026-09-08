@@ -87,7 +87,7 @@ public:
 
     // Frame operations
     VkCommandBuffer beginFrame(uint32_t& imageIndex);
-    void endFrame(VkCommandBuffer cmd, uint32_t imageIndex);
+    bool endFrame(VkCommandBuffer cmd, uint32_t imageIndex);
 
     // Single-time command buffer helpers
     VkCommandBuffer beginSingleTimeCommands();

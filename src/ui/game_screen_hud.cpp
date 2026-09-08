@@ -1713,7 +1713,7 @@ void GameScreen::takeScreenshot() {
         game::MessageChatData sysMsg;
         sysMsg.type = game::ChatType::SYSTEM;
         sysMsg.language = game::ChatLanguage::UNIVERSAL;
-        sysMsg.message = "Screenshot saved: " + path;
+        sysMsg.message = "Screenshot queued: " + path;
         services_.gameHandler->addLocalChatMessage(sysMsg);
     }
 }

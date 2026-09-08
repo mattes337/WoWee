@@ -2809,13 +2809,17 @@ VkCommandBuffer VkContext::beginFrame(uint32_t& imageIndex) {
     return frame.commandBuffer;
 }
 
-void VkContext::endFrame(VkCommandBuffer cmd, uint32_t imageIndex) {
+bool VkContext::endFrame(VkCommandBuffer cmd, uint32_t imageIndex) {
     static int endFrameCounter = 0;
     endFrameCounter++;
 
     VkResult endResult = vkEndCommandBuffer(cmd);
     if (endResult != VK_SUCCESS) {
         LOG_ERROR("endFrame[", endFrameCounter, "] vkEndCommandBuffer FAILED: ", static_cast<int>(endResult));
+        noteDeviceLost("endFrame command end", endResult);
+        resetFrameSyncState();
+        swapchainDirty = true;
+        return false;
     }
 
     auto& frame = frames[currentFrame];
@@ -2903,7 +2907,7 @@ void VkContext::endFrame(VkCommandBuffer cmd, uint32_t imageIndex) {
         // advancing past this one was for.
         resetFrameSyncState();
         swapchainDirty = true;
-        return;
+        return false;
     }
 
     VkPresentInfoKHR presentInfo{};
@@ -2926,6 +2930,8 @@ void VkContext::endFrame(VkCommandBuffer cmd, uint32_t imageIndex) {
     }
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    noteDeviceLost("endFrame present", result);
+    return result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR;
 }
 
 VkCommandBuffer VkContext::beginSingleTimeCommands() {

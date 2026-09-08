@@ -12,6 +12,7 @@
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 #include "rendering/vk_frame_data.hpp"
+#include "rendering/screenshot_request.hpp"
 #include "rendering/vk_utils.hpp"
 #include "rendering/sky_system.hpp"
 #include "pipeline/custom_zone_discovery.hpp"
@@ -165,7 +166,9 @@ public:
     void setCharacterYaw(float yawDeg) { characterYaw = yawDeg; }
 
     // Screenshot capture - copies swapchain image to PNG file
+    // Queues the next complete frame; true means accepted, not saved.
     bool captureScreenshot(const std::string& outputPath);
+    ScreenshotResult getScreenshotResult() const { return screenshotRequest_.result(); }
 
     // Spell visual effects (SMSG_PLAY_SPELL_VISUAL / SMSG_PLAY_SPELL_IMPACT)
     // Delegates to SpellVisualSystem (owned by Renderer)
@@ -397,6 +400,8 @@ private:
 
     // Vulkan frame state
     VkContext* vkCtx = nullptr;
+    ScreenshotRequest screenshotRequest_;
+    void capturePendingScreenshot();
     VkCommandBuffer currentCmd = VK_NULL_HANDLE;
     uint32_t currentImageIndex = 0;
 

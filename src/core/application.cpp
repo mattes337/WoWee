@@ -1182,6 +1182,9 @@ void Application::run() {
         throw std::invalid_argument("WOWEE_TEST_INPUT_TRACE: stop count conflicts with WOWEE_TEST_MAX_UPDATES");
     if (testInputTrace.enabled())
         LOG_INFO("SDL input trace enabled: ", testInputTrace.size(), " events; payloads omitted");
+    const char* screenshotPath = std::getenv("WOWEE_TEST_SCREENSHOT_PATH");
+    if (screenshotPath && (!*screenshotPath || !renderer || !renderer->captureScreenshot(screenshotPath)))
+        throw std::invalid_argument("WOWEE_TEST_SCREENSHOT_PATH: request rejected");
     bool testQuitDispatched = false;
     if (testUpdateLimit.enabled()) {
         LOG_INFO("Unattended smoke limit: ", testUpdateLimit.limit(),
@@ -1734,6 +1737,8 @@ void Application::run() {
         }
     }
 
+    if (screenshotPath && renderer->getScreenshotResult() != rendering::ScreenshotResult::Succeeded)
+        throw std::runtime_error("Unattended screenshot did not complete successfully");
     testUpdateLimit.requireCompletedQuit(testQuitDispatched);
     testInputTrace.requireComplete(testUpdateLimit.completed());
     if (testInputTrace.enabled())

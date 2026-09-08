@@ -704,6 +704,10 @@ bool Renderer::initialize(core::Window* win) {
 }
 
 void Renderer::shutdown() {
+    if (screenshotRequest_.result() == ScreenshotResult::Pending) {
+        screenshotRequest_.cancel();
+        LOG_WARNING("Screenshot cancelled during shutdown: ", screenshotRequest_.path());
+    }
     destroySecondaryCommandResources();
 
     LOG_DEBUG("Renderer::shutdown - terrainManager stopWorkers...");
@@ -1235,7 +1239,11 @@ void Renderer::endFrame() {
     // Water now renders in the main pass (renderWorld), no separate 1x pass needed.
 
     // Submit and present
-    vkCtx->endFrame(currentCmd, currentImageIndex);
+    if (screenshotRequest_.result() == ScreenshotResult::Pending) {
+        capturePendingScreenshot();
+    } else {
+        vkCtx->endFrame(currentCmd, currentImageIndex);
+    }
     currentCmd = VK_NULL_HANDLE;
 }
 
@@ -1248,46 +1256,57 @@ void Renderer::setCharacterFollow(uint32_t instanceId) {
 }
 
 bool Renderer::captureScreenshot(const std::string& outputPath) {
-    if (!vkCtx) return false;
+    return vkCtx && screenshotRequest_.queue(outputPath);
+}
 
-    VkDevice device     = vkCtx->getDevice();
-    VmaAllocator alloc  = vkCtx->getAllocator();
-    VkExtent2D extent   = vkCtx->getSwapchainExtent();
-    const auto& images  = vkCtx->getSwapchainImages();
-
-    if (images.empty() || currentImageIndex >= images.size()) return false;
-
-    VkImage srcImage = images[currentImageIndex];
-    uint32_t w = extent.width;
-    uint32_t h = extent.height;
-    VkDeviceSize bufSize = static_cast<VkDeviceSize>(w) * h * 4;
-
-    // Stall GPU so the swapchain image is idle
-    vkDeviceWaitIdle(device);
-
-    // Create staging buffer
-    VkBufferCreateInfo bufInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    bufInfo.size  = bufSize;
-    bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-    VmaAllocationCreateInfo allocCI{};
-    allocCI.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-
+void Renderer::capturePendingScreenshot() {
+    // Called after all render passes, before this acquired image is presented.
+    // The copy participates in the frame's acquire wait and normal submission.
+    VmaAllocator alloc = vkCtx->getAllocator();
+    VkExtent2D extent = vkCtx->getSwapchainExtent();
+    const uint32_t w = extent.width, h = extent.height;
+    const VkFormat format = vkCtx->getSwapchainFormat();
+    const bool bgra = format == VK_FORMAT_B8G8R8A8_UNORM || format == VK_FORMAT_B8G8R8A8_SRGB;
+    const bool rgba = format == VK_FORMAT_R8G8B8A8_UNORM || format == VK_FORMAT_R8G8B8A8_SRGB;
+    const auto& images = vkCtx->getSwapchainImages();
+    if (!w || !h || currentImageIndex >= images.size() || (!bgra && !rgba)) {
+        screenshotRequest_.complete(false);
+        LOG_WARNING("Screenshot failed: unsupported image extent or format");
+        vkCtx->endFrame(currentCmd, currentImageIndex);
+        return;
+    }
     VkBuffer stagingBuf = VK_NULL_HANDLE;
     VmaAllocation stagingAlloc = VK_NULL_HANDLE;
+    VkBufferCreateInfo bufInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    bufInfo.size = static_cast<VkDeviceSize>(w) * h * 4;
+    bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    VmaAllocationCreateInfo allocCI{};
+    allocCI.usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
     if (vmaCreateBuffer(alloc, &bufInfo, &allocCI, &stagingBuf, &stagingAlloc, nullptr) != VK_SUCCESS) {
-        LOG_WARNING("Screenshot: failed to create staging buffer");
-        return false;
+        screenshotRequest_.complete(false);
+        LOG_WARNING("Screenshot failed: staging allocation");
+        vkCtx->endFrame(currentCmd, currentImageIndex);
+        return;
     }
-
-    // Record copy commands
-    VkCommandBuffer cmd = vkCtx->beginSingleTimeCommands();
-
+    struct StagingCleanup {
+        VmaAllocator allocator;
+        VkBuffer buffer;
+        VmaAllocation allocation;
+        bool mapped = false;
+        ~StagingCleanup() {
+            if (mapped) vmaUnmapMemory(allocator, allocation);
+            vmaDestroyBuffer(allocator, buffer, allocation);
+        }
+    } cleanup{alloc, stagingBuf, stagingAlloc};
+    VkImage srcImage = images[currentImageIndex];
+    VkCommandBuffer cmd = currentCmd;
     // Transition swapchain image: PRESENT_SRC → TRANSFER_SRC
     VkImageMemoryBarrier2 toTransfer{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    toTransfer.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    toTransfer.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
     toTransfer.dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    toTransfer.srcAccessMask       = VK_ACCESS_MEMORY_READ_BIT;
+    toTransfer.srcAccessMask       = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+    toTransfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    toTransfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     toTransfer.dstAccessMask       = VK_ACCESS_TRANSFER_READ_BIT;
     toTransfer.oldLayout           = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     toTransfer.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -1319,34 +1338,46 @@ bool Renderer::captureScreenshot(const std::string& outputPath) {
     toPresentDep.pImageMemoryBarriers = &toPresent;
     cmdPipelineBarrier2(cmd, toPresentDep);
 
-    vkCtx->endSingleTimeCommands(cmd);
 
-    // Map and convert BGRA → RGBA
-    void* mapped = nullptr;
-    vmaMapMemory(alloc, stagingAlloc, &mapped);
-    auto* pixels = static_cast<uint8_t*>(mapped);
-    for (uint32_t i = 0; i < w * h; ++i) {
-        std::swap(pixels[i * 4 + 0], pixels[i * 4 + 2]); // B ↔ R
+    // Make transfer writes visible to host reads after the completion wait.
+    VkMemoryBarrier2 hostBarrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
+    hostBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    hostBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    hostBarrier.dstStageMask = VK_PIPELINE_STAGE_2_HOST_BIT;
+    hostBarrier.dstAccessMask = VK_ACCESS_2_HOST_READ_BIT;
+    VkDependencyInfo hostDep{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    hostDep.memoryBarrierCount = 1;
+    hostDep.pMemoryBarriers = &hostBarrier;
+    cmdPipelineBarrier2(cmd, hostDep);
+
+    const bool submitted = vkCtx->endFrame(currentCmd, currentImageIndex);
+    // Even a failed present may follow a successful submit: always wait before
+    // freeing staging. This stall is limited to an explicit screenshot request.
+    const VkResult waited = vkCtx->waitIdle("screenshot completion");
+    bool ok = false;
+    if (submitted && waited == VK_SUCCESS) {
+        void* mapped = nullptr;
+        if (vmaMapMemory(alloc, stagingAlloc, &mapped) == VK_SUCCESS) {
+            cleanup.mapped = true;
+            if (vmaInvalidateAllocation(alloc, stagingAlloc, 0, VK_WHOLE_SIZE) == VK_SUCCESS) {
+                auto* pixels = static_cast<uint8_t*>(mapped);
+                if (bgra) {
+                    for (size_t i = 0; i < static_cast<size_t>(w) * h; ++i)
+                        std::swap(pixels[i * 4], pixels[i * 4 + 2]);
+                }
+                const std::filesystem::path outPath(screenshotRequest_.path());
+                std::error_code error;
+                if (outPath.has_parent_path())
+                    std::filesystem::create_directories(outPath.parent_path(), error);
+                if (!error) ok = stbi_write_png(outPath.string().c_str(),
+                    static_cast<int>(w), static_cast<int>(h), 4, pixels,
+                    static_cast<int>(w * 4)) != 0;
+            }
+        }
     }
-
-    // Ensure output directory exists
-    std::filesystem::path outPath(outputPath);
-    if (outPath.has_parent_path())
-        std::filesystem::create_directories(outPath.parent_path());
-
-    int ok = stbi_write_png(outputPath.c_str(),
-                            static_cast<int>(w), static_cast<int>(h),
-                            4, pixels, static_cast<int>(w * 4));
-
-    vmaUnmapMemory(alloc, stagingAlloc);
-    vmaDestroyBuffer(alloc, stagingBuf, stagingAlloc);
-
-    if (ok) {
-        LOG_INFO("Screenshot saved: ", outputPath);
-    } else {
-        LOG_WARNING("Screenshot: stbi_write_png failed for ", outputPath);
-    }
-    return ok != 0;
+    screenshotRequest_.complete(ok);
+    if (ok) LOG_INFO("Screenshot saved: ", screenshotRequest_.path());
+    else LOG_WARNING("Screenshot failed: ", screenshotRequest_.path());
 }
 
 void Renderer::resetCombatVisualState() {
