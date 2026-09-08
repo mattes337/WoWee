@@ -44,6 +44,11 @@ PipelineBuilder& PipelineBuilder::setRasterization(VkPolygonMode polygonMode,
     return *this;
 }
 
+PipelineBuilder& PipelineBuilder::setRasterizerDiscard(bool enable) {
+    rasterizerDiscardEnable_ = enable;
+    return *this;
+}
+
 PipelineBuilder& PipelineBuilder::setDepthTest(bool enable, bool writeEnable,
     VkCompareOp compareOp)
 {
@@ -143,7 +148,7 @@ VkPipeline PipelineBuilder::build(VkDevice device, VkPipelineCache cache) const 
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterizer.depthClampEnable = VK_FALSE;
-    rasterizer.rasterizerDiscardEnable = VK_FALSE;
+    rasterizer.rasterizerDiscardEnable = rasterizerDiscardEnable_ ? VK_TRUE : VK_FALSE;
     rasterizer.polygonMode = polygonMode_;
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = cullMode_;

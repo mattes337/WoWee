@@ -26,6 +26,8 @@ def diagnostic_mode(args, fragment_override, vertex_override, missing_fragment=F
         modes.append("GPU-assisted validation requested")
     if args.preview_isolation:
         modes.append(f"preview isolation: {args.preview_isolation}")
+    if getattr(args, "preview_rasterizer_discard", False):
+        modes.append("preview rasterizer discard")
     if fragment_override or vertex_override:
         modes.append("shader override")
     if missing_fragment:
@@ -84,7 +86,7 @@ def add_preview_retry_trace(trace, x, y, after_updates):
 
 
 def classify(returncode, log, updates, event_count=8, created_name=None,
-             preview_isolation=None):
+             preview_isolation=None, preview_rasterizer_discard=False):
     report = classify_smoke(returncode, log, updates)
     # Match complete production INFO messages, not arbitrary substrings or a
     # username prefix. Preserve log order; update counts alone prove no state.
@@ -135,6 +137,13 @@ def classify(returncode, log, updates, event_count=8, created_name=None,
             for line in log.splitlines())
         if not report["preview_isolation_marker"]:
             failures.append("missing_preview_isolation_marker")
+    if preview_rasterizer_discard:
+        marker = "CharacterRenderer: preview rasterizer-discard diagnostic enabled"
+        report["preview_rasterizer_discard_marker"] = any(
+            re.fullmatch(r"(?:\[[^\]]+\]\s*)?\[WARN\s*\]\s*" + re.escape(marker), line)
+            for line in log.splitlines())
+        if not report["preview_rasterizer_discard_marker"]:
+            failures.append("missing_preview_rasterizer_discard_marker")
     if created_name:
         sent = position("CMSG_CHAR_CREATE sent for: " + created_name, positions["character_list"] + 1)
         created = position("Character created successfully (code=47)", sent + 1) if sent >= 0 else -1
@@ -272,6 +281,8 @@ def run(args):
         env["VK_KHRONOS_VALIDATION_SYNCVAL_SUBMIT_TIME_VALIDATION"] = "true"
     if args.preview_isolation:
         env[PREVIEW_ISOLATION_ENV[args.preview_isolation]] = "1"
+    if args.preview_rasterizer_discard:
+        env["WOWEE_TEST_PREVIEW_RASTERIZER_DISCARD"] = "1"
     if args.screenshot:
         env["WOWEE_TEST_SCREENSHOT_PATH"] = str(args.output / "screenshot.png")
         if args.screenshot_after_updates is not None:
@@ -304,7 +315,8 @@ def run(args):
                                                        len(trace["events"]), expected)
         else:
             report = classify(code, log, args.updates, len(trace["events"]),
-                              args.create_name, args.preview_isolation)
+                              args.create_name, args.preview_isolation,
+                              args.preview_rasterizer_discard)
         if args.screenshot:
             capture = args.output / "screenshot.png"
             captured = capture.is_file() and f"Screenshot saved: {capture}" in log
@@ -330,11 +342,12 @@ def run(args):
                   diagnostic_mode=diagnostic_mode(args, fragment_override, vertex_override,
                                                   bool(missing_fragment)),
                   preview_isolation=args.preview_isolation,
+                  preview_rasterizer_discard=args.preview_rasterizer_discard,
                   sync_validation_requested=args.sync_validation,
                   character_fragment_override=fragment_override,
                   missing_character_fragment=missing_fragment,
                   character_vertex_override=vertex_override,
-                  default_preview_certified=False if (args.preview_isolation or fragment_override or
+                  default_preview_certified=False if (args.preview_isolation or args.preview_rasterizer_discard or fragment_override or
                                                        vertex_override or missing_fragment) else None,
                   scope="real SDL input, authentication, realm and character list; optional real character creation; no world entry or gameplay certification")
     (args.output / "result.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
@@ -359,6 +372,8 @@ def main():
     parser.add_argument("--sync-validation", action="store_true", help="request synchronization and submit-time diagnostic validation")
     parser.add_argument("--preview-isolation", choices=tuple(PREVIEW_ISOLATION_ENV),
                         help="diagnostic preview isolation; cannot certify default rendering")
+    parser.add_argument("--preview-rasterizer-discard", action="store_true",
+                        help="diagnostic preview pipelines with rasterization discarded")
     parser.add_argument("--character-fragment-override", type=lambda value: Path(value).resolve(),
                         help="diagnostic SPIR-V copied only over the fresh fixture character fragment shader")
     parser.add_argument("--missing-character-fragment", action="store_true",
@@ -383,6 +398,8 @@ def main():
         parser.error("character creation requires explicit New Hero coordinates")
     if args.missing_character_fragment and args.character_fragment_override:
         parser.error("missing fragment and fragment override are mutually exclusive")
+    if args.missing_character_fragment and args.preview_rasterizer_discard:
+        parser.error("missing fragment cannot reach the rasterizer-discard diagnostic")
     retry_coordinates = (args.preview_retry_x, args.preview_retry_y)
     if (retry_coordinates[0] is None) != (retry_coordinates[1] is None):
         parser.error("preview retry requires both x and y")

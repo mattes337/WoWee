@@ -112,6 +112,12 @@ class LiveLoginTest(unittest.TestCase):
         missing = SimpleNamespace(gpu_validation=False, preview_isolation=None)
         self.assertEqual(diagnostic_mode(missing, None, None, True),
                          "missing character fragment expected failure; not normal-mode certification")
+        combined = SimpleNamespace(gpu_validation=False,
+                                   preview_isolation="non-indexed-draw",
+                                   preview_rasterizer_discard=True)
+        self.assertEqual(diagnostic_mode(combined, None, None),
+                         "preview isolation: non-indexed-draw; preview rasterizer discard; "
+                         "not normal-mode certification")
 
     def test_non_indexed_preview_isolation_requires_production_marker(self):
         missing = classify(0, GOOD, 1800, preview_isolation="non-indexed-draw")
@@ -124,6 +130,21 @@ class LiveLoginTest(unittest.TestCase):
         result = classify(0, marked, 1800, preview_isolation="non-indexed-draw")
         self.assertEqual(result["result"], "pass")
         self.assertTrue(result["preview_isolation_marker"])
+
+    def test_combined_preview_diagnostics_require_both_production_markers(self):
+        nonindexed = "[WARN ] CharacterRenderer: preview non-indexed draw diagnostic enabled\n"
+        discard = "[WARN ] CharacterRenderer: preview rasterizer-discard diagnostic enabled\n"
+        for markers in ("", nonindexed, discard):
+            result = classify(0, GOOD + markers, 1800,
+                              preview_isolation="non-indexed-draw",
+                              preview_rasterizer_discard=True)
+            self.assertEqual(result["result"], "fail")
+        result = classify(0, GOOD + nonindexed + discard, 1800,
+                          preview_isolation="non-indexed-draw",
+                          preview_rasterizer_discard=True)
+        self.assertEqual(result["result"], "pass")
+        self.assertTrue(result["preview_isolation_marker"])
+        self.assertTrue(result["preview_rasterizer_discard_marker"])
 
     def test_account_prefix_is_not_exact_test_account(self):
         self.assertEqual(classify(0, GOOD.replace("WOWEE_EVAL_A", "WOWEE_EVAL_A_OTHER"), 1800)["result"], "fail")

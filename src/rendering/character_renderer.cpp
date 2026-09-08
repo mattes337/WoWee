@@ -305,6 +305,8 @@ void CharacterRenderer::buildMainPassPipelines(VkDevice device, VkRenderPass mai
     };
 
     // --- Build pipelines ---
+    const bool previewRasterizerDiscard = renderPassOverride_ != VK_NULL_HANDLE &&
+        core::envFlagEnabled("WOWEE_TEST_PREVIEW_RASTERIZER_DISCARD");
     auto buildCharPipeline = [&](VkPipelineColorBlendAttachmentState blendState,
                                   bool depthWrite, bool alphaToCoverage = false) -> VkPipeline {
         auto builder = PipelineBuilder()
@@ -313,6 +315,7 @@ void CharacterRenderer::buildMainPassPipelines(VkDevice device, VkRenderPass mai
             .setVertexInput({charBinding}, charAttrs)
             .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+            .setRasterizerDiscard(previewRasterizerDiscard)
             .setDepthTest(true, depthWrite, VK_COMPARE_OP_LESS)
             .setDepthBias(0.0f, 0.0f)
             .setColorBlendAttachment(blendState)
@@ -2531,7 +2534,15 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
         std::chrono::steady_clock::now().time_since_epoch()).count();
     const bool previewNonIndexedDraw = renderPassOverride_ != VK_NULL_HANDLE &&
         core::envFlagEnabled("WOWEE_TEST_PREVIEW_NON_INDEXED_DRAW");
+    const bool previewRasterizerDiscard = renderPassOverride_ != VK_NULL_HANDLE &&
+        core::envFlagEnabled("WOWEE_TEST_PREVIEW_RASTERIZER_DISCARD");
     auto draw = [&](uint32_t indexCount, uint32_t firstIndex) {
+        if (previewRasterizerDiscard) {
+            static std::once_flag markerOnce;
+            std::call_once(markerOnce, [] {
+                LOG_WARNING("CharacterRenderer: preview rasterizer-discard diagnostic enabled");
+            });
+        }
         if (previewNonIndexedDraw) {
             static std::once_flag markerOnce;
             std::call_once(markerOnce, [] {

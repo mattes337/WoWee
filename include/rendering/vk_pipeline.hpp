@@ -44,6 +44,7 @@ public:
     PipelineBuilder& setRasterization(VkPolygonMode polygonMode,
         VkCullModeFlags cullMode,
         VkFrontFace frontFace = VK_FRONT_FACE_CLOCKWISE);
+    PipelineBuilder& setRasterizerDiscard(bool enable);
 
     // Depth test/write
     PipelineBuilder& setDepthTest(bool enable, bool writeEnable,
@@ -96,6 +97,7 @@ private:
     VkPolygonMode polygonMode_ = VK_POLYGON_MODE_FILL;
     VkCullModeFlags cullMode_ = VK_CULL_MODE_NONE;
     VkFrontFace frontFace_ = VK_FRONT_FACE_CLOCKWISE;
+    bool rasterizerDiscardEnable_ = false;
     bool depthTestEnable_ = false;
     bool depthWriteEnable_ = false;
     VkCompareOp depthCompareOp_ = VK_COMPARE_OP_LESS;
