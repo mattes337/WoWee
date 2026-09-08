@@ -75,8 +75,8 @@ settings. Evidence JSON preserves exact source identity and binary/log hashes.
 
 ## DEF-002 - P0 - Screenshot reads outside the acquired frame lifetime
 
-Status: source fix, queue regression and positive GPU capture pass; negative
-destination and final follow-up build verification pending.
+Status: fixed and verified for bounded startup capture ownership/completion;
+same-tick script mutation/wait contract remains open.
 Parent: EVAL-01; related tasks: TEST-04, QUALITY-04.
 
 Source audit found `Renderer::captureScreenshot` immediately copying the image
@@ -154,5 +154,28 @@ Shutdown closes requests and drains cancellation before UI/renderer teardown;
 requests from teardown callbacks are rejected without creating recursive events.
 Lua Screenshot still returns zero values. Three helper cases verify request
 states, cancellation and consume-once event ordering; real Lua/GPU event delivery
-verification remains pending. These asynchronous events do not change the
+verification is recorded below. These asynchronous events do not change the
 same-tick mutation gap above.
+
+### Final paired capture and completion-event verification
+
+The rebuilt executable SHA-256
+`a319fbc1bd3c2be83338e74e87b56858a023bf8801709e4294c387e8232ab7f7`
+passed the [positive event capture](evidence/smoke-capture-events.json): normal
+120-update quit, exit 0, exactly one SCREENSHOT_SUCCEEDED and no failure event
+or ERROR/FATAL entry. Pillow verified and fully decoded the PNG as 1280x720
+RGBA with nonblank RGB extrema; the sanitized result preserves the pixel, log
+and binary hashes. The [blocked-destination control](evidence/smoke-capture-unwritable.json)
+used an existing regular file as the requested parent directory. It exited 1
+with exactly one SCREENSHOT_FAILED, no success event or saved marker, and no
+Vulkan validation errors. Both runs enabled the required validation layer and
+used the same binary, including completion events and output failure handling.
+Original logs remain under `logs/fork-baseline/` in those named directories.
+
+The latest queue helper also passes standalone GCC AddressSanitizer and
+UndefinedBehaviorSanitizer in minimal Ubuntu 24.04 with
+`UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`: 31 assertions in three cases,
+matching Windows. These results close DEF-002's acquired-image lifetime and
+reported readback/write outcome defect. They do not close TEST-04's separate
+same-tick hide/move and deterministic script-wait requirements or certify
+reference visual parity.

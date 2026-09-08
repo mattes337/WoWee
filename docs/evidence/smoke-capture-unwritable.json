@@ -1,0 +1,37 @@
+{
+  "result": "fail",
+  "exit_code": 1,
+  "quit_dispatched": true,
+  "shutdown_completed": false,
+  "errors": [
+    "[2026-09-08 18:48:14.852] [FATAL] Unhandled exception: Unattended screenshot did not complete successfully"
+  ],
+  "screenshot": {
+    "extent": [
+      0,
+      0
+    ],
+    "bytes": 0,
+    "sha256": null,
+    "completion_logged": false
+  },
+  "binary_sha256": "a319fbc1bd3c2be83338e74e87b56858a023bf8801709e4294c387e8232ab7f7",
+  "input": {
+    "asset_root": "runtime/Data",
+    "manifest_sha256": "2a42c12bf244bfb6b23d97324f7d9cfa51f36281506922860636c812af6d8e91",
+    "manifest_base_path": "../../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 120,
+  "timeout_seconds": 90,
+  "layer_path": "VulkanSDK/1.4.357.0/Bin",
+  "source_revision": "a8a18a7d1464066df8f1fc72411b5e20df3c0044-dirty",
+  "log_sha256": "5a4be95c06460286fbf8266576488a9a5ea69477af114517defa78c221ced4be",
+  "scope": "offline startup and normal shutdown; no visual/presented-frame/gameplay certification",
+  "outcome_checks": {
+    "success_events": 0,
+    "failure_events": 1,
+    "vulkan_errors": 0
+  },
+  "negative_control": "Existing regular file blocks destination parent; expected process exit1, no saved marker or success event."
+}

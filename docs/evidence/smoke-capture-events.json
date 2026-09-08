@@ -1,0 +1,60 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "quit_dispatched": true,
+  "shutdown_completed": true,
+  "errors": [],
+  "screenshot": {
+    "extent": [
+      1280,
+      720
+    ],
+    "bytes": 90965,
+    "sha256": "90d5a4335ebb9517c4c4a74c2c7d0fc39f4f745b08c434db367892d518c08202",
+    "completion_logged": true
+  },
+  "binary_sha256": "a319fbc1bd3c2be83338e74e87b56858a023bf8801709e4294c387e8232ab7f7",
+  "input": {
+    "asset_root": "runtime/Data",
+    "manifest_sha256": "2a42c12bf244bfb6b23d97324f7d9cfa51f36281506922860636c812af6d8e91",
+    "manifest_base_path": "../../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 120,
+  "timeout_seconds": 90.0,
+  "layer_path": "VulkanSDK/1.4.357.0/Bin",
+  "source_revision": "a8a18a7d1464066df8f1fc72411b5e20df3c0044-dirty",
+  "log_sha256": "b96639836c1419897c3eeffc58ceaea18b5e90fd6d12d08efa911e78375aae6a",
+  "scope": "offline startup and normal shutdown; no visual/presented-frame/gameplay certification",
+  "outcome_checks": {
+    "success_events": 1,
+    "failure_events": 0,
+    "vulkan_errors": 0
+  },
+  "pixel_decode": {
+    "tool": "Pillow verify then load",
+    "extent": [
+      1280,
+      720
+    ],
+    "mode": "RGBA",
+    "extrema": [
+      [
+        0,
+        255
+      ],
+      [
+        0,
+        251
+      ],
+      [
+        0,
+        243
+      ],
+      [
+        255,
+        255
+      ]
+    ]
+  }
+}
