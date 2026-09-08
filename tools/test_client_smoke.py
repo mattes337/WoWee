@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 import subprocess
+import struct
 
 from client_smoke import classify, run
 
@@ -52,6 +53,59 @@ class ClientSmokeTest(unittest.TestCase):
                     patch("client_smoke.subprocess.run", side_effect=fake_process):
                 result = run(binary, assets, profiles, root / "result", 120, 90)
             self.assertEqual(result["result"], "fail")  # Missing runtime log.
+
+    def run_artifact_fixture(self, *, trace=False, trace_complete=False,
+                             png=None, saved=False):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binary = root / "wowee.exe"
+            binary.write_bytes(b"fixture")
+            assets = root / "source"
+            assets.mkdir()
+            (assets / "manifest.json").write_text('{"basePath":"."}')
+            profiles = root / "profiles"
+            profiles.mkdir()
+            trace_path = root / "trace.json"
+            trace_path.write_bytes(b'{"fixture":"payload"}')
+            def fake_process(command, **kwargs):
+                log = GOOD
+                if trace:
+                    copied = Path(kwargs["env"]["WOWEE_TEST_INPUT_TRACE"])
+                    self.assertEqual(copied.parent, root / "result")
+                    self.assertEqual(copied.read_bytes(), trace_path.read_bytes())
+                if trace_complete:
+                    log += "[INFO ] SDL input trace completed: 2 events\n"
+                capture = Path(kwargs["env"]["WOWEE_TEST_SCREENSHOT_PATH"])
+                self.assertEqual(capture, root / "result/screenshot.png")
+                if png is not None:
+                    capture.write_bytes(png)
+                if saved:
+                    log += f"[INFO ] Screenshot saved: {capture}\n"
+                logs = kwargs["cwd"] / "logs"
+                logs.mkdir()
+                (logs / "smoke.log").write_text(log)
+                return subprocess.CompletedProcess(command, 0, b"")
+            with patch("client_smoke.subprocess.run", side_effect=fake_process):
+                return run(binary, assets, profiles, root / "result", 120, 90,
+                           input_trace=trace_path if trace else None, screenshot=True)
+
+    def test_trace_requires_completion_in_addition_to_clean_shutdown(self):
+        # Deliberately just header metadata, not a decodable PNG fixture.
+        header = b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR" + struct.pack(">II", 2, 3)
+        missing = self.run_artifact_fixture(trace=True, png=header, saved=True)
+        self.assertEqual(missing["result"], "fail")
+        self.assertFalse(missing["input_trace_completed"])
+        complete = self.run_artifact_fixture(trace=True, trace_complete=True, png=header, saved=True)
+        self.assertEqual(complete["result"], "pass")
+        self.assertEqual(complete["screenshot"]["extent"], (2, 3))
+
+    def test_capture_requires_file_metadata_and_matching_completion(self):
+        header = b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR" + struct.pack(">II", 2, 3)
+        for data, saved in ((None, True), (b"not a PNG", True),
+                            (header[:20], True), (header[:-4] + b"\0" * 4, True),
+                            (header, False)):
+            with self.subTest(data=data, saved=saved):
+                self.assertEqual(self.run_artifact_fixture(png=data, saved=saved)["result"], "fail")
 
     def test_validation_or_other_errors_cannot_hide_behind_zero_exit(self):
         result = classify(0, GOOD + "[ERROR] Vulkan: invalid command\n", 120)

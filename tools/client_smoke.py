@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import struct
 import subprocess
 
 from framexml_run_matrix import prepare_assets, sha256
@@ -27,7 +28,8 @@ def classify(returncode, log, updates):
             "errors": errors}
 
 
-def run(binary, assets, profiles, output, updates, timeout, layer_path=None):
+def run(binary, assets, profiles, output, updates, timeout, layer_path=None, input_trace=None,
+        screenshot=False):
     output.mkdir(parents=True, exist_ok=False)
     runtime = output / "runtime"
     runtime.mkdir()
@@ -51,6 +53,15 @@ def run(binary, assets, profiles, output, updates, timeout, layer_path=None):
                WOWEE_TEST_MAX_UPDATES=str(updates), WOWEE_VULKAN_VALIDATION="1")
     if layer_path:
         env["VK_LAYER_PATH"] = str(layer_path)
+    if input_trace:
+        # The application validates the schema and completion contract. Keep
+        # payloads out of command lines and reports (they may contain secrets).
+        trace_copy = output / "input-trace.json"
+        shutil.copyfile(input_trace, trace_copy)
+        env["WOWEE_TEST_INPUT_TRACE"] = str(trace_copy)
+    screenshot_path = output / "screenshot.png"
+    if screenshot:
+        env["WOWEE_TEST_SCREENSHOT_PATH"] = str(screenshot_path)
     env["PATH"] = str(binary.parent) + os.pathsep + env.get("PATH", "")
     options = {}
     if os.name == "nt":
@@ -69,6 +80,20 @@ def run(binary, assets, profiles, output, updates, timeout, layer_path=None):
     log_path = runtime / "logs/smoke.log"
     log = log_path.read_text(encoding="utf-8", errors="replace") if log_path.is_file() else ""
     report = classify(returncode, log, updates)
+    if input_trace:
+        report["input_trace_completed"] = "SDL input trace completed: " in log
+        if not report["input_trace_completed"]:
+            report["result"] = "fail"
+    if screenshot:
+        # Check PNG header metadata only; a real image decoder must separately
+        # validate compressed pixels for capture evidence.
+        data = screenshot_path.read_bytes() if screenshot_path.is_file() else b""
+        extent = struct.unpack(">II", data[16:24]) if len(data) >= 24 and data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR" else (0, 0)
+        report["screenshot"] = {"extent": extent, "bytes": len(data),
+            "sha256": sha256(screenshot_path) if data else None,
+            "completion_logged": f"Screenshot saved: {screenshot_path}" in log}
+        if not all(extent) or not report["screenshot"]["completion_logged"]:
+            report["result"] = "fail"
     report.update(binary_sha256=sha256(binary), input=identity, updates=updates,
                   timeout_seconds=timeout, layer_path=str(layer_path) if layer_path else None,
                   source_revision=next((line.split("Source revision: ", 1)[1] for line in log.splitlines()
@@ -88,12 +113,15 @@ def main():
     parser.add_argument("--updates", type=int, default=120)
     parser.add_argument("--timeout", type=float, default=90)
     parser.add_argument("--layer-path", type=Path)
+    parser.add_argument("--input-trace", type=Path, help="SDL trace; stop_after_updates must match --updates")
+    parser.add_argument("--screenshot", action="store_true", help="require completed isolated PNG capture")
     args = parser.parse_args()
     if not 1 <= args.updates <= 1000000 or not 0 < args.timeout <= 3600:
         parser.error("updates must be 1..1000000 and timeout must be positive and at most 3600 seconds")
     report = run(args.binary.resolve(), args.assets.resolve(), args.profiles.resolve(),
                  args.output.resolve(), args.updates, args.timeout,
-                 args.layer_path.resolve() if args.layer_path else None)
+                 args.layer_path.resolve() if args.layer_path else None,
+                 args.input_trace.resolve() if args.input_trace else None, args.screenshot)
     print(json.dumps({key: report[key] for key in ("result", "exit_code", "quit_dispatched", "shutdown_completed")}))
     return 0 if report["result"] == "pass" else 1
 
