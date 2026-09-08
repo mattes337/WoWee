@@ -192,3 +192,49 @@ image frames. The existing run-end check still requires actual PNG success.
 This enables a later character-list capture without claiming a server-state or
 presented-frame condition wait. Three focused helper cases cover default/later
 scheduling, one-shot behavior, skipped iterations and invalid/unreachable bounds.
+
+## DEF-004 - P0 - Device loss when opening the character-creation preview
+
+Status: observed, unresolved; no source cause or fix verified. Parent: EVAL-01;
+related tasks: QUALITY-04, TEST-04, EVAL character creation/world entry.
+
+The [normal and GPU-assisted run record](evidence/emulator-readiness-20260908.md)
+contains the controlled setup and outcomes. Both runs used executable SHA-256
+`4b4c8c78559e3aab51015652a9db2015de704cf48cc5f60c00a4d1e9dd355005`
+and the same new test account/database. Authentication, world authentication
+and an empty character list succeeded. In normal-mode `live-login-05`, clicking
+New Hero at (780,425) at completed update 300 loaded the HumanMale character,
+composite skin and racial backdrop. Frame 306 then failed vkQueueSubmit with
+VK_ERROR_DEVICE_LOST (-4); the driver reported an invalid write at address zero.
+Later command-buffer reset validation messages followed the loss and are not
+established as its initiating cause. No name submission, creation success,
+completed trace or scheduled update-900 capture occurred. Read-only verification
+of the new database found zero characters.
+
+`live-login-06` repeated the same input with explicit GPU-assisted validation.
+It exited 3 before normal shutdown, reporting GPU-AV internal disablement and
+Failed to wait for fence. This is a failed diagnostic run, not useful evidence
+of a specific shader instruction, descriptor fault or bounds violation. The
+new database again contained zero characters. It did not exhaust its timeout.
+
+Original results, stdout, client logs and character-count.log are retained at
+`logs/fork-baseline/emulator/wowee-eval-20260908-af5200/live-login-05/` and
+`live-login-06/`. Client log hashes are respectively
+`8b9a49a7dc4232c659c57a41226f78141fc2918c5c2ff43d478f987c2cef711e` and
+`6fa4db4e95597dda3e099a5b1d7d06b308cb199805d7222e8b3aff823cd94ac3`.
+
+Independent source audit found matching preview descriptor layouts, bounded
+material ring offsets, matching 4x color/depth pipeline samples and 1x resolve,
+correct framebuffer attachment order and an explicit color-write to sampling
+dependency. These checks narrow inspection but do not prove the path correct
+or identify the device-loss cause. The shader loops are finite: the preview
+key-color search has at most 80 neighboring texel fetches, POM at most 64 steps,
+local lighting at most 64 entries, and shadow filtering nine taps. Material
+ring exhaustion skips draws rather than wrapping over earlier allocations.
+No unbounded loop or demonstrated in-flight ring overwrite was found.
+
+Default-off no-backdrop and no-model-draw switches are diagnostic isolation
+controls only. No outcome from a later isolation replay is asserted here, and
+no control is a fix or replacement for normal-mode acceptance. Creation,
+world entry and normal preview rendering remain blocked pending a reproducible
+root cause and a validated correction.
