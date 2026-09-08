@@ -18,6 +18,7 @@
 #include "pipeline/item_textures.hpp"
 #include "pipeline/m2_asset_loader.hpp"
 #include "core/logger.hpp"
+#include "core/env_flag.hpp"
 #include "core/application.hpp"
 #include <imgui.h>
 #include <backends/imgui_impl_vulkan.h>
@@ -1223,6 +1224,11 @@ void CharacterPreview::attachWeaponEnchantVisual(uint32_t attachmentId, uint32_t
 }
 
 void CharacterPreview::loadRacialBackdrop(game::Race race) {
+    // Explicit diagnostic isolation only; never enabled by a graphics preset.
+    if (core::envFlagEnabled("WOWEE_TEST_PREVIEW_NO_BACKDROP")) {
+        LOG_WARNING("Preview diagnostic: racial backdrop disabled");
+        return;
+    }
     // Nothing to stand in front of when the background is meant to show
     // through. Skipped here rather than removed afterwards, so a portrait does
     // not read and build a scene on every rebuild only to discard it.
@@ -1377,7 +1383,9 @@ void CharacterPreview::compositePass(VkCommandBuffer cmd, uint32_t frameIndex) {
     charRenderer_->prepareRender(fi);
 
     // Render the character model
-    charRenderer_->render(cmd, previewPerFrameSet_[fi], *camera_);
+    if (!core::envFlagEnabled("WOWEE_TEST_PREVIEW_NO_MODEL_DRAW")) {
+        charRenderer_->render(cmd, previewPerFrameSet_[fi], *camera_);
+    }
 
     renderTarget_->endPass(cmd);
 
