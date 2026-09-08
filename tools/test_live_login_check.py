@@ -8,6 +8,8 @@ from live_login_check import add_creation_trace, classify, make_trace, run
 
 GOOD = """[INFO ] Asset manager initialized successfully
 [INFO ] Vulkan validation layers enabled
+[INFO ] Connecting to auth server: 127.0.0.1:3724
+[INFO ] Starting authentication for user: WOWEE_EVAL_A
 [INFO ]    AUTHENTICATION SUCCESSFUL!
 [INFO ] REALM LIST RECEIVED!
 [INFO ] AUTH_RESPONSE OK - world authentication successful
@@ -36,7 +38,7 @@ class LiveLoginTest(unittest.TestCase):
 
     def test_protocol_markers_out_of_order_do_not_pass(self):
         lines = GOOD.splitlines()
-        lines[2], lines[3] = lines[3], lines[2]
+        lines[4], lines[5] = lines[5], lines[4]
         self.assertFalse(classify(0, "\n".join(lines), 1800)["protocol_order_verified"])
 
     def test_trace_preserves_separate_input_frames_and_payload(self):
@@ -51,7 +53,7 @@ class LiveLoginTest(unittest.TestCase):
         self.assertLess(times[-1], trace["stop_after_updates"])
 
     def test_password_utf8_bound_and_stop_validation(self):
-        for password in ("", "x" * 32, "\0", "ÃƒÂ©" * 16):
+        for password in ("", "x" * 32, "\0", "ÃƒÆ’Ã‚Â©" * 16):
             with self.assertRaises(ValueError):
                 make_trace(password, 1, 1, 1800)
         with self.assertRaises(ValueError):
@@ -69,9 +71,11 @@ class LiveLoginTest(unittest.TestCase):
     def test_creation_requires_success_then_named_character_in_refresh(self):
         log = GOOD.replace("8 events", "16 events")
         self.assertEqual(classify(0, log, 1800, 16, "Woweetrial")["result"], "fail")
-        suffix = "[INFO ] Character created successfully (code=47)\n[INFO ]   [1] Woweetrial\n"
+        suffix = "[INFO ] Character created successfully (code=47)\n[INFO ] CHARACTER LIST RECEIVED\n[INFO ]   [1] Woweetrial\n[INFO ] Ready to select character\n"
         self.assertEqual(classify(0, log.replace("[INFO ] SDL input", suffix + "[INFO ] SDL input"), 1800, 16, "Woweetrial")["result"], "pass")
         self.assertEqual(classify(0, log.replace("[INFO ] SDL input", suffix + "[INFO ] SDL input"), 1800, 16, "Wrongname")["result"], "fail")
+        for invalid in (suffix.replace("code=47", "code=46"), suffix.replace("CHARACTER LIST RECEIVED", ""), suffix.replace("Ready to select character", "")):
+            self.assertEqual(classify(0, log.replace("[INFO ] SDL input", invalid + "[INFO ] SDL input"), 1800, 16, "Woweetrial")["result"], "fail")
 
 
 if __name__ == "__main__":

@@ -55,6 +55,8 @@ def add_creation_trace(trace, name, x, y, after_updates):
 def classify(returncode, log, updates, event_count=8, created_name=None):
     report = classify_smoke(returncode, log, updates)
     markers = {
+        "intended_account": "Starting authentication for user: WOWEE_EVAL_A",
+        "intended_auth_endpoint": "Connecting to auth server: 127.0.0.1:3724",
         "auth_success": "   AUTHENTICATION SUCCESSFUL!",
         "realm_list": "REALM LIST RECEIVED!",
         "world_auth_success": "AUTH_RESPONSE OK - world authentication successful",
@@ -68,9 +70,13 @@ def classify(returncode, log, updates, event_count=8, created_name=None):
     report["result"] = "pass" if (report["result"] == "pass"
         and all(report[key] for key in markers) and report["protocol_order_verified"]) else "fail"
     if created_name:
-        created = log.find("Character created successfully (code=")
-        listed = re.search(r"\[\d+\] " + re.escape(created_name) + r"(?:\r?\n|$)", log[created:]) if created >= 0 else None
-        report["creation_response_and_refreshed_list"] = created > positions[-1] and listed is not None and (created + listed.end()) < log.find(markers["trace_completed"])
+        created = log.find("Character created successfully (code=47)")
+        refreshed = log.find("CHARACTER LIST RECEIVED", created) if created >= 0 else -1
+        listed = re.search(r"\[\d+\] " + re.escape(created_name) + r"(?:\r?\n|$)", log[refreshed:]) if refreshed >= 0 else None
+        ready = log.find("Ready to select character", refreshed + listed.end()) if listed else -1
+        report["creation_response_and_refreshed_list"] = (
+            created > positions[-1] and refreshed > created and listed is not None
+            and ready > refreshed and ready < log.find(markers["trace_completed"]))
         if not report["creation_response_and_refreshed_list"]:
             report["result"] = "fail"
     return report
