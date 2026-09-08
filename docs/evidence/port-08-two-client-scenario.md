@@ -49,13 +49,13 @@ B must not be required to receive confirmations or converge its cached response
 status. Assert response state on leader A. Dismissing B's popup is local and
 must not be treated as a server confirmation.
 
-**Current finish gap:** AzerothCore emits FINISHED only after a leader/assistant
-sends `MSG_RAID_READY_CHECK_FINISHED`. No outgoing sender or ready-check deadline
-was found in WoWee's current sources; only the incoming handler and opcode
-names exist. The server's start handler does not arrange an automatic timer or
+**Original finish gap (now partially fixed):** AzerothCore emits FINISHED only
+after a leader/assistant sends `MSG_RAID_READY_CHECK_FINISHED`. The source audit
+initially found no outgoing sender or deadline. A bounded all-confirmations
+sender is now implemented; see validation below. There is still no timeout policy. The server's start handler does not arrange an automatic timer or
 finish after collecting answers. Waiting longer or seeing both replies cannot
 stand in for FINISHED. Timeout, finish and icon-fade acceptance remain blocked
-until a production finish policy/sender exists and is independently validated.
+until the production path is exercised live; timeout still needs a policy.
 Do not insert packets or call handlers directly to make this scenario green.
 
 ## Repeatable execution plan (not executed)
@@ -136,7 +136,7 @@ No tests were rerun for this preparation, and those pure tests do not prove the
 two-client protocol, popup dismissal, event delivery, timeout or icon fade.
 
 
-## Finish emission design after flow audit (proposal only)
+## Finish emission design after flow audit
 
 No `FinishReadyCheck` Lua binding or call was found in the current client or
 extracted stock Interface tree. `ShowReadyCheck(initiator, timeLeft)` accepts
@@ -170,5 +170,45 @@ This would cover the all-answered yes/no case, but not unanswered timeouts.
 Timeout behavior needs additional primary protocol/client evidence or an
 explicit documented product policy before implementation. Read-only observers
 and synthetic state regressions should also reject duplicate finish sends,
-foreign initiators, stale epochs, unmatched GUIDs and failed queues. No code
-for this proposal was implemented here.
+foreign initiators, stale epochs, unmatched GUIDs and failed queues. The all-answered portion is now implemented as described below; timeout remains
+open.
+
+
+## Bounded all-answered implementation and regression
+
+`ReadyCheckCompletion` now snapshots expected GUIDs on the real incoming start
+and belongs only to its initiator. The live social handler feeds it only incoming
+confirmations. It sends one empty FINISHED packet through the existing socket
+when every expected member, including self, has answered and the initiator still
+has leader/assistant authority. Unsupported opcode mappings do not send.
+Incoming FINISHED remains the only path that finishes visible ready-check state;
+answers remain retained for fade. Group teardown, disconnect and a new start
+reset completion. Roster membership change or lost authority invalidates it,
+without silently shrinking the snapshot or manufacturing a finished event.
+
+Neither AzerothCore's start handler nor the inspected stock Lua automatically
+answers for the initiator. The stock initiator hides `ReadyCheckListenerFrame`,
+which contains Yes/No, so this bounded path requires the real `/ready` command
+from the initiator as well as B's response. Automatic self-answer behavior was
+not introduced. This is a remaining UX constraint, not a claimed complete check
+flow. The one-byte response still travels to the server and back before counting.
+
+The socket send interface returns void. The helper records the send after its
+callback returns and permits another attempt after an exception; it cannot prove
+that the socket accepted or delivered the bytes. Actual incoming FINISHED is
+required for live success. The wire carries no epoch identifier, so resetting
+local counters cannot distinguish a late old wire response from a new one;
+never overlap ready checks in the scenario.
+
+MSVC Debug `ready_check_state` passed **48 assertions in 6 cases**, including
+partial/duplicate/foreign GUIDs, non-initiators, group/role/reset changes, retained
+state, unsupported opcode and throwing-send cases. Its callback receives the
+production `network::Packet` serializer and checks WotLK opcode 0x3C6 with an
+empty body. An isolated no-send mutation reproducing the former missing sender
+failed 2 cases (35/37 assertions passed); restoring the helper passed all 48.
+This is a mutation regression, not a claim that a full older client was run.
+Local evidence: `build-input-ci-validation/ready-nosend-ctest.txt`,
+`ready-finish-restored-build.txt` and `ready-finish-restored-ctest.txt`.
+No two-client live scenario, timeout, icon-fade or production full build is
+certified by this focused test. No new headless target was added; the existing
+ready-check test now also compiles `src/network/packet.cpp`.

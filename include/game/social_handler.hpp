@@ -6,6 +6,7 @@
 #include "game/handler_types.hpp"
 #include "game/calendar_data.hpp"
 #include "game/ready_check_state.hpp"
+#include "game/ready_check_completion.hpp"
 #include "network/packet.hpp"
 #include <array>
 #include <chrono>
@@ -438,6 +439,7 @@ public:
     // Utility methods for delegation from GameHandler
     void updateLogoutCountdown(float deltaTime);
     void resetTransferState();
+    void resetReadyCheckSession() { resetReadyCheck(); }
     GroupListData& mutablePartyData() { return partyData; }
     InspectResult& mutableInspectResult() { return inspectResult_; }
     void setRaidTargetGuid(uint8_t icon, uint64_t guid) {
@@ -660,11 +662,14 @@ private:
     // Ready check
     bool        pendingReadyCheck_       = false;
     ReadyCheckState readyCheckState_;
+    ReadyCheckCompletion readyCheckCompletion_;
+    void tryFinishReadyCheck();
     std::string readyCheckInitiator_;
     std::vector<ReadyCheckResult> readyCheckResults_;
     void resetReadyCheck() {
         pendingReadyCheck_ = false;
         readyCheckState_.reset();
+        readyCheckCompletion_.reset();
         readyCheckInitiator_.clear();
         readyCheckResults_.clear();
     }

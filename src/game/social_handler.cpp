@@ -580,6 +580,9 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         const uint64_t initiatorGuid = packet.readUInt64();
         pendingReadyCheck_ = true;
         readyCheckState_.start();
+        std::vector<uint64_t> readyRoster;
+        for (const auto& member : partyData.members) readyRoster.push_back(member.guid);
+        readyCheckCompletion_.start(owner_.getPlayerGuid(), initiatorGuid, readyRoster);
         readyCheckInitiator_ = readyCheckMember(partyData, owner_.getPlayerGuid(), initiatorGuid).name;
         readyCheckResults_.clear();
         if (readyCheckInitiator_.empty()) {
@@ -602,6 +605,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         uint64_t respGuid = packet.readUInt64();
         uint8_t  isReady  = packet.readUInt8();
         readyCheckState_.confirm(respGuid, isReady);
+        readyCheckCompletion_.confirm(respGuid);
         const bool ready = isReady == 1;
         const auto responder = readyCheckMember(partyData, owner_.getPlayerGuid(), respGuid);
         auto nit = owner_.getPlayerNameCache().find(respGuid);
@@ -627,6 +631,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         if (owner_.addonEventCallbackRef()) {
             owner_.addonEventCallbackRef()("READY_CHECK_CONFIRM", {responder.unit, ready ? "1" : "0"});
         }
+        tryFinishReadyCheck();
     };
     table[Opcode::MSG_RAID_READY_CHECK_FINISHED] = [this](network::Packet& /*packet*/) {
         char fbuf[128];
@@ -635,6 +640,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         owner_.addSystemChatMessage(fbuf);
         pendingReadyCheck_ = false;
         readyCheckState_.finish();
+        readyCheckCompletion_.reset();
         if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("READY_CHECK_FINISHED", {});
     };
     table[Opcode::SMSG_RAID_INSTANCE_INFO] = [this](network::Packet& packet) { handleRaidInstanceInfo(packet); };
@@ -1709,6 +1715,21 @@ void SocialHandler::offerPetition(uint64_t petitionGuid, uint64_t targetGuid) {
 // Ready Check
 // ============================================================
 
+void SocialHandler::tryFinishReadyCheck() {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() ||
+        !owner_.getSocket()->isConnected() || !isInGroup()) return;
+    std::vector<uint64_t> roster;
+    for (const auto& member : partyData.members) roster.push_back(member.guid);
+    const bool authorized = partyData.leaderGuid == owner_.getPlayerGuid() ||
+                            (partyData.flags & 0x01) != 0;
+    readyCheckCompletion_.validateRoster(owner_.getPlayerGuid(), roster, authorized);
+    readyCheckCompletion_.sendIfComplete(wireOpcode(Opcode::MSG_RAID_READY_CHECK_FINISHED),
+        [this](const network::Packet& packet) {
+            owner_.getSocket()->send(packet);
+            LOG_DEBUG("Sent all-answered MSG_RAID_READY_CHECK_FINISHED request");
+        });
+}
+
 void SocialHandler::initiateReadyCheck() {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     if (!isInGroup()) { owner_.raiseUiError("You must be in a group to initiate a ready check."); return; }
@@ -2206,6 +2227,10 @@ void SocialHandler::handleGroupList(network::Packet& packet) {
         if (m.isOnline) m.onlineStatus |= 0x0001;
     }
 
+    std::vector<uint64_t> readyRoster;
+    for (const auto& member : partyData.members) readyRoster.push_back(member.guid);
+    readyCheckCompletion_.validateRoster(owner_.getPlayerGuid(), readyRoster,
+        partyData.leaderGuid == owner_.getPlayerGuid() || (partyData.flags & 0x01) != 0);
     const bool nowInGroup = !partyData.isEmpty();
     if (!nowInGroup) resetReadyCheck();
     if (!nowInGroup && wasInGroup) {

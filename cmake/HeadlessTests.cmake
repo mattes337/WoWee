@@ -138,7 +138,8 @@ set_tests_properties(
     PROPERTIES LABELS "headless")
 
 # Ready-check state used by the live social handler and Lua API.
-wowee_add_test(test_ready_check_state SOURCES test_ready_check_state.cpp)
+wowee_add_test(test_ready_check_state SOURCES test_ready_check_state.cpp
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp)
 set_tests_properties(ready_check_state PROPERTIES LABELS "headless")
 
 # ── test_settings_panel_layout ───────────────────────────────

@@ -175,6 +175,7 @@ bool GameHandler::connect(const std::string& host,
 }
 
 void GameHandler::disconnect() {
+    if (socialHandler_) socialHandler_->resetReadyCheckSession();
     taxiRecoverPending_ = onTaxiFlight_;
     if (socket) {
         socket->disconnect();
