@@ -1,0 +1,21 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "quit_dispatched": true,
+  "shutdown_completed": true,
+  "errors": [],
+  "input_trace_completed": true,
+  "binary_sha256": "52dd280eebba5ef2d471ed2a8abccf1a0fa06cf56042ed9df98ba09e5296c3af",
+  "input": {
+    "asset_root": "G:\\WoW Projects\\wowee\\logs\\fork-baseline\\input-poll-integration-smoke\\runtime\\Data",
+    "manifest_sha256": "2a42c12bf244bfb6b23d97324f7d9cfa51f36281506922860636c812af6d8e91",
+    "manifest_base_path": "../../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 12,
+  "timeout_seconds": 90.0,
+  "layer_path": "G:\\Dev\\VulkanSDK\\1.4.357.0\\Bin",
+  "source_revision": "cd4d477a79b564b7bec602f73c269121f1eb9cbd-dirty",
+  "log_sha256": "40691145f7ab938c352d66187fbe5af2a348db6c404f65e771949e2353df77f3",
+  "scope": "offline startup and normal shutdown; no visual/presented-frame/gameplay certification"
+}
