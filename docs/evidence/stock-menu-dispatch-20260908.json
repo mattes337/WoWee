@@ -1,0 +1,76 @@
+{
+  "result": "pass",
+  "positive_runs": 3,
+  "negative_control": "OnMouseUp replaced by no-op; real menu-open assertion fails, exit4",
+  "cases": [
+    {
+      "fixture": "wowee-stock-menu-04",
+      "result": "pass",
+      "exit_code": 0,
+      "handler_disabled": false,
+      "binary_sha256": "f715ef0880b85fb798a1b4a30ec403d8426253d0fa62f74611d32a3ec0e599f0",
+      "source": "== source: f0411db78b04bddfe0b77a8a26f3251389a2eadf; built 2026-09-08",
+      "stdout_sha256": "1c5dda0c506e94c6d1c062150c300fc1192a542b0a4c1b38c327bd947687d35d",
+      "result_sha256": "0b7123e5d03176fd34e993fcebc61b04d661bbd09c85e8320a2806dd46aff3f2",
+      "input": {
+        "asset_root": "C:\\wowee-stock-menu-04\\assets",
+        "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
+        "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
+        "saved_variables": "fresh, fixture-local"
+      },
+      "hit_checks": 2
+    },
+    {
+      "fixture": "wowee-stock-menu-05",
+      "result": "pass",
+      "exit_code": 0,
+      "handler_disabled": false,
+      "binary_sha256": "f715ef0880b85fb798a1b4a30ec403d8426253d0fa62f74611d32a3ec0e599f0",
+      "source": "== source: f0411db78b04bddfe0b77a8a26f3251389a2eadf; built 2026-09-08",
+      "stdout_sha256": "c2e0307206241e6a9fbf357c1aa10185e6f8337f5ed2f5b2757533219656420e",
+      "result_sha256": "2bebcb3c74b7a4d5218f0aa685d90686fa65959a22362bd87aedeac2a022e345",
+      "input": {
+        "asset_root": "C:\\wowee-stock-menu-05\\assets",
+        "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
+        "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
+        "saved_variables": "fresh, fixture-local"
+      },
+      "hit_checks": 2
+    },
+    {
+      "fixture": "wowee-stock-menu-06",
+      "result": "pass",
+      "exit_code": 0,
+      "handler_disabled": false,
+      "binary_sha256": "f715ef0880b85fb798a1b4a30ec403d8426253d0fa62f74611d32a3ec0e599f0",
+      "source": "== source: f0411db78b04bddfe0b77a8a26f3251389a2eadf; built 2026-09-08",
+      "stdout_sha256": "0f550208be6681386ab1f1c324bafcbfe466fb2f0b76226d6afde8fe7d1ff199",
+      "result_sha256": "1f7c9bf304f206c51a0bc860588323c8f16364f95d192cb0c91efc42ab2cd716",
+      "input": {
+        "asset_root": "C:\\wowee-stock-menu-06\\assets",
+        "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
+        "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
+        "saved_variables": "fresh, fixture-local"
+      },
+      "hit_checks": 2
+    },
+    {
+      "fixture": "wowee-stock-menu-disabled-01",
+      "result": "fail",
+      "exit_code": 4,
+      "handler_disabled": true,
+      "binary_sha256": "f715ef0880b85fb798a1b4a30ec403d8426253d0fa62f74611d32a3ec0e599f0",
+      "source": "== source: f0411db78b04bddfe0b77a8a26f3251389a2eadf; built 2026-09-08",
+      "stdout_sha256": "1b3a3b29041e118e92da5e362d886709d2bfa13aa672b0df6f15b71c6023ef08",
+      "result_sha256": "0e8117fb76db11dea95c56bc95aeb95a1713ec73e7d3404d85d8dcf055f4881b",
+      "input": {
+        "asset_root": "C:\\wowee-stock-menu-disabled-01\\assets",
+        "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
+        "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
+        "saved_variables": "fresh, fixture-local"
+      },
+      "hit_checks": 2
+    }
+  ],
+  "scope": "Real stock handlers through LuaEngine mouse dispatch with test-positioned stock button; localized visible FontString reaches drawOrder. No SDL/GPU capture/EditBox/world certification."
+}
