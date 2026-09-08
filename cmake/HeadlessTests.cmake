@@ -251,3 +251,11 @@ set_tests_properties(screenshot_request PROPERTIES LABELS "headless")
 
 wowee_add_test(test_screenshot_schedule SOURCES test_screenshot_schedule.cpp)
 set_tests_properties(screenshot_schedule PROPERTIES LABELS "headless")
+
+# Execute the same animation clock/bootstrap used by LuaEngine.
+wowee_add_test(test_animation_group_lua SOURCES test_animation_group_lua.cpp)
+target_link_libraries(test_animation_group_lua PRIVATE lua51)
+set_tests_properties(animation_group_lua PROPERTIES LABELS "headless")
+
+wowee_add_test(test_model_replacement SOURCES test_model_replacement.cpp)
+set_tests_properties(model_replacement PROPERTIES LABELS "headless")
