@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise a stock menu through LuaEngine mouse dispatch in a fresh fixture.
+"""Exercise stock menu and EditBox input through LuaEngine dispatch.
 
 This is an offline dispatch regression, not SDL/GPU/gameplay certification.
 The stock button is placed at a known test coordinate; its handlers are retained.
@@ -30,6 +30,20 @@ MainMenuMicroButton:SetFrameStrata('TOOLTIP')
 MainMenuMicroButton:Show()
 assert(MainMenuMicroButton:IsVisible(), 'BUTTON_HIDDEN')
 assert(not GameMenuFrame:IsShown(), 'MENU_ALREADY_OPEN')
+assert(ChatFrame1EditBox, 'STOCK_EDITBOX_MISSING')
+ChatFrame1EditBox:ClearFocus()
+ChatFrame1EditBox:ClearAllPoints()
+ChatFrame1EditBox:SetPoint('BOTTOMLEFT', UIParent, 'BOTTOMLEFT', 300, 80)
+ChatFrame1EditBox:SetSize(220, 30)
+ChatFrame1EditBox:SetFrameStrata('TOOLTIP')
+ChatFrame1EditBox:SetText('')
+ChatFrame1EditBox:Show()
+__woweeTextChanges=0
+local oldTextChanged=ChatFrame1EditBox:GetScript('OnTextChanged')
+ChatFrame1EditBox:SetScript('OnTextChanged', function(self, ...)
+  __woweeTextChanges=__woweeTextChanges+1
+  if oldTextChanged then oldTextChanged(self, ...) end
+end)
 """
     if disable_handler:
         setup += "MainMenuMicroButton:SetScript('OnMouseUp', function() end)\n"
@@ -38,7 +52,16 @@ assert(not GameMenuFrame:IsShown(), 'MENU_ALREADY_OPEN')
                "--lua:assert(GameMenuFrame:IsShown(), 'STOCK_MENU_DID_NOT_OPEN'); "
                "assert(GameMenuButtonContinueText:GetText() == RETURN_TO_GAME, 'MENU_LABEL'); "
                "assert(GameMenuButtonContinueText:IsVisible(), 'MENU_LABEL_HIDDEN')",
-               "--draw", "--drawn:GameMenuButtonContinueText", "--hit:96,672",
+               "--draw", "--drawn:GameMenuButtonContinueText",
+               "--hit:320,672", "--mouse:320,672,L", "--mouse:320,672,",
+               "--lua:assert(ChatFrame1EditBox:HasFocus(), 'TEXT_FOCUS')",
+               "--text:hé ",
+               "--lua:assert(ChatFrame1EditBox:GetText() == 'hé ' and "
+               "__woweeTextChanges == 1, 'TEXT_INSERT')",
+               "--key:BACKSPACE", "--key:BACKSPACE",
+               "--lua:assert(ChatFrame1EditBox:GetText() == 'h' and "
+               "__woweeTextChanges == 3, 'TEXT_BACKSPACE')",
+               "--hit:96,672",
                "--mouse:96,672,L", "--mouse:96,672,",
                "--lua:assert(not GameMenuFrame:IsShown(), 'STOCK_MENU_DID_NOT_CLOSE')"]
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith("WOWEE_")}
@@ -54,14 +77,19 @@ assert(not GameMenuFrame:IsShown(), 'MENU_ALREADY_OPEN')
     (output / "stdout.log").write_bytes(raw)
     log = raw.decode("utf-8", errors="replace")
     hit = log.count("hit at 96,672 -> MainMenuMicroButton") == 2
+    edit_hit = "hit at 320,672 -> ChatFrame1EditBox" in log
+    text_changed = "text dispatched (4 UTF-8 bytes)" in log and log.count("key dispatched: BACKSPACE") == 2
     drawn = "GameMenuButtonContinueText: DRAWN" in log
-    passed = code == 0 and hit and drawn
+    passed = code == 0 and hit and edit_hit and text_changed and drawn
     report = dict(result="pass" if passed else "fail", exit_code=code,
                   binary_sha256=sha256(binary), stdout_sha256=sha256(output / "stdout.log"),
                   source=next((x for x in log.splitlines() if x.startswith("== source:")), None),
                   stock_button_hit=hit, panel_button_in_draw_order=drawn,
+                  stock_editbox_hit=edit_hit, text_edit_events=text_changed,
+                  text_change_event_count=3 if code == 0 and text_changed else None,
+                  final_editbox_text="h" if code == 0 and text_changed else None,
                   handler_disabled=disable_handler, input=identity, command=command,
-                  scope="Offline stock panel through LuaEngine mouse dispatch; test button position; no SDL, GPU capture or gameplay claim")
+                  scope="Offline stock panel and focused EditBox through LuaEngine dispatch; test widget positions; no SDL, GPU capture or gameplay claim")
     (output / "result.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
 
@@ -74,5 +102,7 @@ if __name__ == "__main__":
     parser.add_argument("--disable-handler", action="store_true")
     args = parser.parse_args()
     result = run(args.binary.resolve(), args.assets.resolve(), args.output.resolve(), args.disable_handler)
-    print(json.dumps({k: result[k] for k in ("result", "exit_code", "stock_button_hit", "panel_button_in_draw_order")}))
+    print(json.dumps({k: result[k] for k in ("result", "exit_code", "stock_button_hit",
+                                             "stock_editbox_hit", "text_edit_events",
+                                             "panel_button_in_draw_order")}))
     raise SystemExit(0 if result["result"] == "pass" else 1)
