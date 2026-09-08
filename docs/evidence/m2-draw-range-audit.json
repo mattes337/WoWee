@@ -1,12 +1,77 @@
 {
-  "schema": 1,
-  "scope": "read-only model indices; no GPU execution",
+  "schema": 2,
+  "scope": "read-only model indices and raw vertices; no GPU execution",
   "pairs": [
     {
       "model": "Data\\extracted\\character\\human\\male\\humanmale.m2",
       "skin": "Data\\extracted\\character\\human\\male\\humanmale00.skin",
       "model_sha256": "b22478c1ab8d1e9bb7542f686e60e4e665a510d11b5360109a3e9e46d5bf91d2",
       "skin_sha256": "cfc65fba893f05335bbd054b083b910455ef852c57ca8094ff4549741596ed0e",
+      "raw_vertex_sanity": {
+        "raw_bone_count": 138,
+        "shader_bone_capacity": 240,
+        "position": {
+          "nonfinite_components": 0,
+          "nonfinite_vertices": 0,
+          "finite_min": [
+            -0.49025699496269226,
+            -0.6228092312812805,
+            -0.0006938276928849518
+          ],
+          "finite_max": [
+            0.2857080101966858,
+            0.6228087544441223,
+            2.127354860305786
+          ],
+          "finite_max_abs_component": 2.127354860305786,
+          "finite_max_magnitude": 2.144689599076036
+        },
+        "normal": {
+          "nonfinite_components": 0,
+          "nonfinite_vertices": 0,
+          "finite_min": [
+            -0.9999898672103882,
+            -0.999474287033081,
+            -1.0
+          ],
+          "finite_max": [
+            0.9999796748161316,
+            0.9994743466377258,
+            0.9999849200248718
+          ],
+          "finite_max_abs_component": 1.0,
+          "finite_max_magnitude": 1.0000001462135373
+        },
+        "uv": {
+          "nonfinite_components": 0,
+          "nonfinite_vertices": 0,
+          "finite_min": [
+            0.0004999041557312012,
+            0.00048476457595825195,
+            0.0,
+            0.0
+          ],
+          "finite_max": [
+            1.0745348930358887,
+            0.9995006322860718,
+            0.0,
+            0.0
+          ],
+          "finite_max_abs_component": 1.0745348930358887,
+          "finite_max_magnitude": 1.4135057060533103
+        },
+        "weight_sum_histogram": {
+          "255": 5264
+        },
+        "zero_weight_vertices": 0,
+        "weight_sum_not_255_vertices": 0,
+        "max_raw_bone_index": 61,
+        "max_weighted_bone_index": 61,
+        "raw_bone_index_oob_components": 0,
+        "weighted_bone_index_oob_components": 0,
+        "shader_clamped_index_components": 0,
+        "passes": true
+      },
       "version": 264,
       "vertices": 5264,
       "disk_vertex_stride": 48,
@@ -945,6 +1010,71 @@
       "skin": "Data\\extracted\\interface\\GLUES\\MODELS\\UI_Human\\UI_Human00.skin",
       "model_sha256": "1aa7299a6c99fdc733c2e62cd6d74af8357045f29ff96abf3c46767bbc2ddde7",
       "skin_sha256": "f93ecae326e01dbb382ce604e7a528148e751c2e45a13a0cd6e59bcde3cf0bd6",
+      "raw_vertex_sanity": {
+        "raw_bone_count": 6,
+        "shader_bone_capacity": 240,
+        "position": {
+          "nonfinite_components": 0,
+          "nonfinite_vertices": 0,
+          "finite_min": [
+            -526.985595703125,
+            -171.3987579345703,
+            -14.094231605529785
+          ],
+          "finite_max": [
+            -210.8155975341797,
+            174.1175537109375,
+            147.16110229492188
+          ],
+          "finite_max_abs_component": 526.985595703125,
+          "finite_max_magnitude": 573.3652782727146
+        },
+        "normal": {
+          "nonfinite_components": 0,
+          "nonfinite_vertices": 0,
+          "finite_min": [
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "finite_max": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "finite_max_abs_component": 1.0,
+          "finite_max_magnitude": 1.0000000430934266
+        },
+        "uv": {
+          "nonfinite_components": 0,
+          "nonfinite_vertices": 0,
+          "finite_min": [
+            -3.3027737140655518,
+            -48.587303161621094,
+            0.0,
+            0.0
+          ],
+          "finite_max": [
+            40.81549072265625,
+            5.605865001678467,
+            0.0,
+            0.0
+          ],
+          "finite_max_abs_component": 48.587303161621094,
+          "finite_max_magnitude": 57.783416425141674
+        },
+        "weight_sum_histogram": {
+          "255": 9892
+        },
+        "zero_weight_vertices": 0,
+        "weight_sum_not_255_vertices": 0,
+        "max_raw_bone_index": 0,
+        "max_weighted_bone_index": 0,
+        "raw_bone_index_oob_components": 0,
+        "weighted_bone_index_oob_components": 0,
+        "shader_clamped_index_components": 0,
+        "passes": true
+      },
       "version": 264,
       "vertices": 9892,
       "disk_vertex_stride": 48,

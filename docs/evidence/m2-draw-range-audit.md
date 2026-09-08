@@ -48,3 +48,40 @@ exclude obvious source-array/remap/draw-range violations for the selected files.
 They do not establish runtime buffer contents/size, upload success, vertex
 attribute layout, descriptor bounds, bone matrices, shader correctness,
 synchronization or GPU lifetime safety, and do not identify the TDR cause.
+
+
+## Raw vertex extension
+
+The same read-only report now includes raw vertex sanity, following the packed
+48-byte `M2VertexDisk`: float3 position at byte 0, four byte weights at 12, four
+byte bone indices at 16, float3 normal at 20 and four UV floats at 32. The raw bone
+count comes from the M2 header at 44. This matches the loader's direct copies;
+no runtime animation matrices are evaluated.
+
+| Check | HumanMale | UI_Human |
+|---|---:|---:|
+| Raw bone count | 138 | 6 |
+| Maximum raw / weighted bone index | 61 / 61 | 0 / 0 |
+| Indices beyond raw bone count | 0 | 0 |
+| Indices at or above shader capacity 240 | 0 | 0 |
+| Vertices with weight sum 255 | 5,264 (all) | 9,892 (all) |
+| Zero-weight vertices | 0 | 0 |
+| Nonfinite position / normal / UV components | 0 / 0 / 0 | 0 / 0 / 0 |
+| Maximum absolute position component | 2.12735486 | 526.98559570 |
+| Maximum position length | 2.14468960 | 573.36527827 |
+| Maximum normal length | 1.00000015 | 1.00000004 |
+
+The complete per-axis finite extrema and weight histograms are in JSON schema 2.
+UI_Human has finite UV coordinates with maximum absolute component 48.5873;
+UVs outside 0..1 can represent tiling and are not classified as invalid floats.
+No selected bone index reaches the character shader's 240-entry capacity
+(`assets/shaders/character.vert.glsl`, `MAX_BONES`); this does not verify a
+runtime SSBO descriptor, bone upload or matrix contents.
+
+`python tools/test_audit_m2_draw_ranges.py` passes 3 synthetic tests: a valid
+vertex, nonfinite position/normal/UV variants, and a weighted bone index beyond
+the raw count/shader capacity. Invalid floats are counted and excluded from
+finite extrema, so report JSON never needs NaN/Infinity numbers. Both real asset
+pairs were rerun with the extension and passed. Only numeric/hash reports were
+updated; no asset files were written. CPU animation and GPU lifetime safety
+remain outside this evidence.

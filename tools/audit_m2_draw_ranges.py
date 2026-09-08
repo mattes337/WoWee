@@ -3,6 +3,8 @@
 import argparse
 import hashlib
 import json
+import math
+from collections import Counter
 import struct
 from pathlib import Path
 
@@ -14,6 +16,40 @@ def array(data, offset, count, fmt):
     return list(struct.iter_unpack(fmt, data[offset:offset + count * stride]))
 
 
+def vertex_sanity(model, vertex_offset, vertices):
+    raw_bones = struct.unpack_from("<I", model, 44)[0]
+    rows = array(model, vertex_offset, vertices, "<3f4B4B3f4f")
+    positions = [row[:3] for row in rows]
+    normals = [row[11:14] for row in rows]
+    uvs = [row[14:18] for row in rows]
+    weights = [row[3:7] for row in rows]
+    indices = [row[7:11] for row in rows]
+    def floats(values):
+        finite_rows = [row for row in values if all(math.isfinite(v) for v in row)]
+        return {"nonfinite_components": sum(not math.isfinite(v) for row in values for v in row),
+                "nonfinite_vertices": len(values) - len(finite_rows),
+                "finite_min": [min((row[i] for row in finite_rows), default=None)
+                               for i in range(len(values[0]) if values else 0)],
+                "finite_max": [max((row[i] for row in finite_rows), default=None)
+                               for i in range(len(values[0]) if values else 0)],
+                "finite_max_abs_component": max((abs(v) for row in finite_rows for v in row), default=None),
+                "finite_max_magnitude": max((math.hypot(*row) for row in finite_rows), default=None)}
+    stats = {"raw_bone_count": raw_bones, "shader_bone_capacity": 240,
+             "position": floats(positions), "normal": floats(normals), "uv": floats(uvs),
+             "weight_sum_histogram": dict(sorted(Counter(sum(w) for w in weights).items())),
+             "zero_weight_vertices": sum(sum(w) == 0 for w in weights),
+             "weight_sum_not_255_vertices": sum(sum(w) != 255 for w in weights),
+             "max_raw_bone_index": max((i for row in indices for i in row), default=None),
+             "max_weighted_bone_index": max((i for ids, ws in zip(indices, weights)
+                                             for i, w in zip(ids, ws) if w), default=None),
+             "raw_bone_index_oob_components": sum(i >= raw_bones for row in indices for i in row),
+             "weighted_bone_index_oob_components": sum(i >= raw_bones and w > 0
+                  for ids, ws in zip(indices, weights) for i, w in zip(ids, ws)),
+             "shader_clamped_index_components": sum(i >= 240 for row in indices for i in row)}
+    stats["passes"] = all(stats[k]["nonfinite_components"] == 0 for k in ("position", "normal", "uv")) and stats["weighted_bone_index_oob_components"] == 0 and stats["weight_sum_not_255_vertices"] == 0
+    return stats
+
+
 def audit(model_path, skin_path):
     model = model_path.read_bytes()
     skin = skin_path.read_bytes()
@@ -22,7 +58,7 @@ def audit(model_path, skin_path):
     if skin[:4] != b"SKIN":
         raise ValueError("expected SKIN header")
     vertices, vertex_offset = struct.unpack_from("<II", model, 60)
-    array(model, vertex_offset, vertices, "<48s")
+    raw_vertex_stats = vertex_sanity(model, vertex_offset, vertices)
     lookup_n, lookup_offset, triangle_n, triangle_offset, _, _, section_n, section_offset, batch_n, batch_offset, _ = struct.unpack_from("<11I", skin, 4)
     lookup = [x[0] for x in array(skin, lookup_offset, lookup_n, "<H")]
     triangles = [x[0] for x in array(skin, triangle_offset, triangle_n, "<H")]
@@ -52,6 +88,7 @@ def audit(model_path, skin_path):
     return {"model": str(model_path), "skin": str(skin_path),
             "model_sha256": hashlib.sha256(model).hexdigest(),
             "skin_sha256": hashlib.sha256(skin).hexdigest(),
+            "raw_vertex_sanity": raw_vertex_stats,
             "version": 264, "vertices": vertices, "disk_vertex_stride": 48,
             "lookup_count": len(lookup), "index_count": len(resolved),
             "index_buffer_bytes": len(resolved) * 2,
@@ -61,7 +98,7 @@ def audit(model_path, skin_path):
             "out_of_bounds_lookup_count": bad_lookup, "out_of_bounds_vertex_count": bad_vertex,
             "section_count": len(sections), "draw_batch_count": len(draws),
             "base_vertex": 0, "draws": draws,
-            "passes": bad_lookup == 0 and bad_vertex == 0 and
+            "passes": raw_vertex_stats["passes"] and bad_lookup == 0 and bad_vertex == 0 and
                 all(d["end_within_index_buffer"] and d["all_resolved_vertices_in_buffer"] and
                     not d["fallback"] for d in draws)}
 
@@ -73,7 +110,7 @@ def main():
     args = p.parse_args()
     if any(args.output.resolve() == source.resolve() for pair in args.pair for source in pair):
         p.error("output must not replace an input asset")
-    result = {"schema": 1, "scope": "read-only model indices; no GPU execution",
+    result = {"schema": 2, "scope": "read-only model indices and raw vertices; no GPU execution",
               "pairs": [audit(*pair) for pair in args.pair]}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
