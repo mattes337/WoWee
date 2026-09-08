@@ -187,7 +187,7 @@ def run(args):
                   input_geometry={"account_x": args.account_x, "account_y": args.account_y,
                                   "basis": args.geometry_basis},
                   requested_character=args.create_name,
-                  diagnostic_mode="GPU-assisted validation requested; not normal-mode certification" if args.gpu_validation else "normal validation",
+                  diagnostic_mode="GPU-assisted validation requested; not normal-mode certification" if args.gpu_validation else ("fragment shader override; not normal-mode certification" if fragment_override else "normal validation"),
                   preview_isolation=args.preview_isolation,
                   character_fragment_override=fragment_override,
                   default_preview_certified=False if args.preview_isolation or fragment_override else None,

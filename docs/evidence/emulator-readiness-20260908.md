@@ -402,3 +402,20 @@ certified default renderer**. The driver reports `no-model-draw` and
 `default_preview_certified=false`. Account A now has a character; future
 traces must not assume its earlier empty-list state. World entry/gameplay
 and the movement-map compatibility gate remain unverified.
+
+## Constant fragment isolation: live-login-09
+
+The `860f0b...97a57c` binary logged into account A with its existing character,
+normal model/backdrop draws, normal validation and GPU-AV off. Only the fresh
+runtime's `assets/shaders/character.frag.spv` was replaced with the compiled
+constant-color diagnostic fragment SHA-256
+`2698110bcbab8004a4038b55c5df87ddfde98b7a7655a612759d6fce9b805c84`.
+The driver records original and replacement hashes; a post-run comparison
+confirms the production shader remained unchanged.
+
+Auth/world/list receipt succeeded, then opening Woweetrial's preview failed
+at frame 55 with the same device-loss/invalid-write-at-zero signature. The
+driver reported **fail** and no update-600 screenshot was produced. No
+character creation was requested. A constant fragment alone does not avoid
+the fault, narrowing the diagnosis beyond fragment lighting/material logic
+without proving a vertex, index, descriptor or pass-lifecycle root cause.
