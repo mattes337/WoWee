@@ -2,7 +2,7 @@
 
 `WOWEE_HEADLESS_TESTS_ONLY=ON` builds the real Catch2 packet, bit-packet,
 spline interpolation/body/facing, widget layout, text-edit, escape-action and
-XML parser/emitter/takeover tests. These same targets remain in normal client
+XML parser/emitter/takeover and settings-panel layout tests. These same targets remain in normal client
 builds; their shared definition is `cmake/HeadlessTests.cmake`.
 
 Only a C++20 toolchain, CMake 3.15+ and GLM are required. Catch2 is vendored.
@@ -42,6 +42,8 @@ Vulkan headers, shader compiler, DLLs from SDL/OpenSSL, game data or GPU context
 The original spline-body fixture included an unused Application singleton stub;
 removing that dead dependency lets its real parsing assertions compile headlessly.
 
-The full Windows client remains outside this validation. In particular, the
-settings-panel layout fixture still has an existing MSVC C2026 oversized-string
-failure through `addon_lua_snippets.hpp`; it remains in the normal build.
+The full Windows client remains outside this validation. A follow-up fix splits
+the oversized raw literals in `addon_lua_snippets.hpp` into adjacent tokens to
+avoid MSVC C2026 while preserving all 16 concatenated snippet strings byte for
+byte. The settings-panel layout fixture now builds and passes in headless MSVC
+Debug as well; it failed to compile before that fix.

@@ -14,6 +14,9 @@
  * mistake in them is found before a player finds it.
  */
 
+// Keep each raw literal below MSVC's 16 KB token limit. Adjacent literals
+// concatenate without adding bytes to the Lua program.
+
 namespace wowee {
 namespace addons {
 
@@ -345,7 +348,8 @@ local function addDropdown(layout, panel, setting, onChanged)
     -- The dropdown template carries about sixteen units of its own inset on the
     -- left, so it is anchored back by that much to line its box up with the
     -- checkboxes above it.
-    local dropdown = CreateFrame("Frame", name, panel, "UIDropDownMenuTemplate")
+)LUA"
+R"LUA(    local dropdown = CreateFrame("Frame", name, panel, "UIDropDownMenuTemplate")
     dropdown:SetPoint("TOPLEFT", x - 14, y - 16)
     -- UIDropDownMenu_SetWidth swapped its arguments at 2.0: 1.12 takes
     -- (width, frame) and everything after takes (frame, width). Called the
@@ -655,7 +659,8 @@ WOWEE_SETTINGS_ELSEWHERE = {
     -- brightness, and SetGamma is what both of them end up in. A player who
     -- knows it by either word finds it.
     -- View distance, ground clutter and gamma were named here and are not
-    -- any more: they are rows on this client's own Graphics, Detail and
+)LUA"
+R"LUA(    -- any more: they are rows on this client's own Graphics, Detail and
     -- Display pages, along with everything else the retired Effects panel
     -- used to carry. What is left of the game's Video options is the
     -- window itself.
@@ -1331,7 +1336,8 @@ local kMoved = {
 }
 
 -- Resolved by name once, like kRemoved: a move that silently anchors nothing is
--- the same rot, and it would leave the frame stacked where it was. Reported
+)LUA"
+R"LUA(-- the same rot, and it would leave the frame stacked where it was. Reported
 -- here rather than on every refresh, so the list is not repeated per pass.
 local moves = {}
 for _, m in ipairs(kMoved) do
