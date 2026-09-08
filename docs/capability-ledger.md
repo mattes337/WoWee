@@ -103,3 +103,5 @@ other profiles and unresolved behavior evidence. API-01 remains open for
 pinned stock/LoD input, dynamic-registration review, fallback-off runtime
 reports and return/state/event contracts. No generated row is a completed
 feature merely because its registration exists.
+
+The refreshed scanner reports 48 current unresolved candidates (60 calls). The ledger retains 49 reviewed historical entries: `LOCAL_Function_Environment_Manager` now has zero candidate calls after its [lexical-local proof](evidence/api-01-local-function-environment-manager.md). Removing this false positive does not establish runtime API completeness.

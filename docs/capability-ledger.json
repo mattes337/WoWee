@@ -7,7 +7,7 @@
     "result": "not runtime verified",
     "interface_path": "Data/extracted/interface/FrameXML",
     "stock_provenance": "unverified",
-    "input_sha256": "dcff7e0ee57635e98bd323ebbd1032f9eb2b1b82f136704294eb2d3d53f94c59",
+    "input_sha256": "2f5e4e1d3a7171030bdbde18e1075da4c7db292d0dd8dbd0f1b87b23d653f636",
     "limitations": "Regex detections overlap and include defaults, comments and unreachable code. No coverage percentage or functional completion is implied."
   },
   "wotlk_opcode_warnings": [
@@ -856,7 +856,7 @@
     },
     {
       "name": "LOCAL_Function_Environment_Manager",
-      "candidate_calls": 2,
+      "candidate_calls": 0,
       "evidence": [
         "FrameXML/RestrictedExecution.lua:777",
         "FrameXML/RestrictedExecution.lua:824"
