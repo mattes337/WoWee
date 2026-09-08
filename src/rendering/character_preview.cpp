@@ -200,8 +200,7 @@ bool CharacterPreview::initialize(pipeline::AssetManager* am, int width, int hei
     }
 
     // Create off-screen render target first (need its render pass for pipeline creation)
-    createFBO();
-    if (!renderTarget_ || !renderTarget_->isValid()) {
+    if (!createFBO()) {
         LOG_ERROR("CharacterPreview: failed to create off-screen render target");
         return false;
     }
@@ -247,8 +246,8 @@ void CharacterPreview::shutdown() {
     instanceId_ = 0;
 }
 
-void CharacterPreview::createFBO() {
-    if (!vkCtx_) return;
+bool CharacterPreview::createFBO() {
+    if (!vkCtx_) return false;
     VkDevice device = vkCtx_->getDevice();
     VmaAllocator allocator = vkCtx_->getAllocator();
 
@@ -258,7 +257,7 @@ void CharacterPreview::createFBO() {
                                VK_SAMPLE_COUNT_4_BIT)) {
         LOG_ERROR("CharacterPreview: failed to create render target");
         renderTarget_.reset();
-        return;
+        return false;
     }
 
     // 1b. Transition the color image from UNDEFINED to SHADER_READ_ONLY_OPTIMAL
@@ -306,7 +305,8 @@ void CharacterPreview::createFBO() {
         if (vmaCreateImage(vkCtx_->getAllocator(), &imgCI, &allocCI,
                 &dummyShadowImage_, &dummyShadowAlloc_, nullptr) != VK_SUCCESS) {
             LOG_ERROR("CharacterPreview: failed to create dummy shadow image");
-            return;
+            destroyFBO();
+            return false;
         }
         VkImageViewCreateInfo viewCI{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
         viewCI.image = dummyShadowImage_;
@@ -315,7 +315,8 @@ void CharacterPreview::createFBO() {
         viewCI.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
         if (vkCreateImageView(device, &viewCI, nullptr, &dummyShadowView_) != VK_SUCCESS) {
             LOG_ERROR("CharacterPreview: failed to create dummy shadow image view");
-            return;
+            destroyFBO();
+            return false;
         }
         // Clear to depth 1.0 and transition to shader-read layout
         vkCtx_->immediateSubmit([&](VkCommandBuffer cmd) {
@@ -370,7 +371,8 @@ void CharacterPreview::createFBO() {
         ci.pPoolSizes = sizes;
         if (vkCreateDescriptorPool(device, &ci, nullptr, &previewDescPool_) != VK_SUCCESS) {
             LOG_ERROR("CharacterPreview: failed to create descriptor pool");
-            return;
+            destroyFBO();
+            return false;
         }
     }
 
@@ -390,9 +392,11 @@ void CharacterPreview::createFBO() {
 
         VmaAllocationInfo mapInfo{};
         if (vmaCreateBuffer(allocator, &bufInfo, &allocInfo,
-                &previewUBO_[i], &previewUBOAlloc_[i], &mapInfo) != VK_SUCCESS) {
+                &previewUBO_[i], &previewUBOAlloc_[i], &mapInfo) != VK_SUCCESS ||
+            mapInfo.pMappedData == nullptr) {
             LOG_ERROR("CharacterPreview: failed to create UBO ", i);
-            return;
+            destroyFBO();
+            return false;
         }
         previewUBOMapped_[i] = mapInfo.pMappedData;
 
@@ -403,7 +407,8 @@ void CharacterPreview::createFBO() {
         setAlloc.pSetLayouts = &perFrameLayout;
         if (vkAllocateDescriptorSets(device, &setAlloc, &previewPerFrameSet_[i]) != VK_SUCCESS) {
             LOG_ERROR("CharacterPreview: failed to allocate descriptor set ", i);
-            return;
+            destroyFBO();
+            return false;
         }
 
         // Write UBO binding (0) and shadow sampler binding (1) using dummy white texture
@@ -440,8 +445,14 @@ void CharacterPreview::createFBO() {
         renderTarget_->getSampler(),
         renderTarget_->getColorImageView(),
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    if (!imguiTextureId_) {
+        LOG_ERROR("CharacterPreview: failed to register ImGui texture");
+        destroyFBO();
+        return false;
+    }
 
     LOG_INFO("CharacterPreview: off-screen FBO created (", fboWidth_, "x", fboHeight_, ")");
+    return true;
 }
 
 void CharacterPreview::destroyFBO() {
@@ -456,6 +467,8 @@ void CharacterPreview::destroyFBO() {
 
     for (uint32_t i = 0; i < MAX_FRAMES; i++) {
         destroy(allocator, previewUBO_[i], previewUBOAlloc_[i]);
+        previewUBOMapped_[i] = nullptr;
+        previewPerFrameSet_[i] = VK_NULL_HANDLE;
     }
 
     destroy(device, previewDescPool_);

@@ -108,7 +108,7 @@ private:
         uint16_t geoset200 = 0;
     };
 
-    void createFBO();
+    [[nodiscard]] bool createFBO();
     void destroyFBO();
     void ensureAppearanceGeosetsLoaded();
     std::unordered_set<uint16_t> buildBaseGeosets();
