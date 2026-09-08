@@ -72,6 +72,17 @@ def add_creation_trace(trace, name, x, y, after_updates):
     ])
 
 
+def add_preview_retry_trace(trace, x, y, after_updates):
+    """Single-click the selected character row without creating a double-click."""
+    if after_updates <= 45 or after_updates + 2 >= trace["stop_after_updates"]:
+        raise ValueError("preview retry must follow login and precede shutdown")
+    trace["events"].extend([
+        {"after_updates": after_updates, "type": "mouse_move", "x": x, "y": y},
+        {"after_updates": after_updates, "type": "mouse_down", "x": x, "y": y, "button": 1},
+        {"after_updates": after_updates + 2, "type": "mouse_up", "x": x, "y": y, "button": 1},
+    ])
+
+
 def classify(returncode, log, updates, event_count=8, created_name=None,
              preview_isolation=None):
     report = classify_smoke(returncode, log, updates)
@@ -138,8 +149,11 @@ def classify(returncode, log, updates, event_count=8, created_name=None,
     return report
 
 
-def classify_missing_fragment_failure(returncode, log, updates, event_count=8):
+def classify_missing_fragment_failure(returncode, log, updates, event_count=8,
+                                      expected_attempts=1):
     """Accept only the intentional preview shader failure and clean rollback."""
+    if expected_attempts <= 0:
+        raise ValueError("expected preview initialization attempts must be positive")
     base = classify(returncode, log, updates, event_count)
     errors = [line for line in log.splitlines() if re.search(r"\[(?:ERROR|FATAL)\s*\]", line)]
     allowed = (
@@ -148,7 +162,8 @@ def classify_missing_fragment_failure(returncode, log, updates, event_count=8):
         re.compile(r".*\[ERROR\s*\]\s*CharacterPreview: failed to initialize CharacterRenderer$"),
     )
     unexpected = [line for line in errors if not any(pattern.fullmatch(line) for pattern in allowed)]
-    required = [any(pattern.fullmatch(line) for line in errors) for pattern in allowed]
+    counts = [sum(pattern.fullmatch(line) is not None for line in errors) for pattern in allowed]
+    required = [count == expected_attempts for count in counts]
     match = re.search(r"shutdown: VMA still holds (\d+) allocations in (\d+) blocks", log)
     clean_vma = bool(match and int(match.group(1)) == 0)
     startup = base["asset_manager_initialized"] and base["vulkan_validation_enabled"]
@@ -159,6 +174,8 @@ def classify_missing_fragment_failure(returncode, log, updates, event_count=8):
         **base,
         "result": "expected-failure-pass" if passed else "fail",
         "intentional_errors_observed": all(required),
+        "expected_preview_init_attempts": expected_attempts,
+        "intentional_error_counts": counts,
         "unexpected_errors": unexpected,
         "vma_allocation_count": int(match.group(1)) if match else None,
         "vma_block_count": int(match.group(2)) if match else None,
@@ -193,6 +210,9 @@ def run(args):
     trace = make_trace(secret, args.account_x, args.account_y, args.updates)
     if args.create_name:
         add_creation_trace(trace, args.create_name, args.newhero_x, args.newhero_y, args.creation_after_updates)
+    if args.preview_retry_x is not None:
+        add_preview_retry_trace(trace, args.preview_retry_x, args.preview_retry_y,
+                                args.preview_retry_after_updates)
     args.output.mkdir(parents=True, exist_ok=False)
     runtime = args.output / "runtime"
     runtime.mkdir()
@@ -276,7 +296,9 @@ def run(args):
         if log_path.is_file():
             log_path.write_text(log, encoding="utf-8")
         if args.missing_character_fragment:
-            report = classify_missing_fragment_failure(code, log, args.updates, len(trace["events"]))
+            expected = args.expected_preview_init_attempts or 1
+            report = classify_missing_fragment_failure(code, log, args.updates,
+                                                       len(trace["events"]), expected)
         else:
             report = classify(code, log, args.updates, len(trace["events"]),
                               args.create_name, args.preview_isolation)
@@ -299,6 +321,9 @@ def run(args):
                   input_geometry={"account_x": args.account_x, "account_y": args.account_y,
                                   "basis": args.geometry_basis},
                   requested_character=args.create_name,
+                  preview_retry=({"x": args.preview_retry_x, "y": args.preview_retry_y,
+                                  "after_updates": args.preview_retry_after_updates}
+                                 if args.preview_retry_x is not None else None),
                   diagnostic_mode=diagnostic_mode(args, fragment_override, vertex_override,
                                                   bool(missing_fragment)),
                   preview_isolation=args.preview_isolation,
@@ -335,6 +360,11 @@ def main():
                         help="diagnostic SPIR-V copied only over the fresh fixture character fragment shader")
     parser.add_argument("--missing-character-fragment", action="store_true",
                         help="remove only the copied fixture fragment shader to verify rollback")
+    parser.add_argument("--expected-preview-init-attempts", type=int,
+                        help="exact expected missing-fragment initialization attempt count (default: 1)")
+    parser.add_argument("--preview-retry-x", type=int)
+    parser.add_argument("--preview-retry-y", type=int)
+    parser.add_argument("--preview-retry-after-updates", type=int, default=900)
     parser.add_argument("--character-vertex-override", type=lambda value: Path(value).resolve(),
                         help="diagnostic SPIR-V copied only over the fresh fixture character vertex shader")
     parser.add_argument("--screenshot-after-updates", type=int,
@@ -350,6 +380,22 @@ def main():
         parser.error("character creation requires explicit New Hero coordinates")
     if args.missing_character_fragment and args.character_fragment_override:
         parser.error("missing fragment and fragment override are mutually exclusive")
+    retry_coordinates = (args.preview_retry_x, args.preview_retry_y)
+    if (retry_coordinates[0] is None) != (retry_coordinates[1] is None):
+        parser.error("preview retry requires both x and y")
+    if args.expected_preview_init_attempts is not None and args.expected_preview_init_attempts <= 0:
+        parser.error("expected preview initialization attempts must be positive")
+    if any(value is not None for value in retry_coordinates):
+        if not args.missing_character_fragment:
+            parser.error("preview retry is only supported for the missing-fragment check")
+        if args.create_name:
+            parser.error("preview retry cannot be combined with character creation")
+        if args.expected_preview_init_attempts != 2:
+            parser.error("one explicit preview retry requires --expected-preview-init-attempts 2")
+        if not 46 <= args.preview_retry_after_updates + 2 < args.updates:
+            parser.error("preview retry must follow login and precede shutdown")
+    elif args.expected_preview_init_attempts is not None and not args.missing_character_fragment:
+        parser.error("expected preview attempts is only supported for the missing-fragment check")
     if args.screenshot_after_updates is not None and (not args.screenshot or
             not 0 <= args.screenshot_after_updates < args.updates):
         parser.error("delayed capture requires --screenshot and an update count before shutdown")

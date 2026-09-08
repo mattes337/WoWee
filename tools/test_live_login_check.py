@@ -3,7 +3,7 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from live_login_check import (PREVIEW_ISOLATION_ENV, add_creation_trace, classify,
+from live_login_check import (PREVIEW_ISOLATION_ENV, add_creation_trace, add_preview_retry_trace, classify,
                               classify_missing_fragment_failure, diagnostic_mode,
                               make_trace, remove_character_fragment, run)
 
@@ -52,6 +52,19 @@ class LiveLoginTest(unittest.TestCase):
         self.assertEqual(result["result"], "expected-failure-pass")
         self.assertEqual(result["vma_allocation_count"], 0)
         self.assertEqual(result["vma_block_count"], 3)
+        self.assertEqual(result["intentional_error_counts"], [1, 1, 1])
+        doubled = failure.replace(
+            "[INFO ] shutdown: VMA still holds",
+            "[ERROR] Failed to open shader file: assets/shaders/character.frag.spv (missing)\n"
+            "[ERROR] CharacterRenderer: failed to create character fragment shader (vk=-3)\n"
+            "[ERROR] CharacterPreview: failed to initialize CharacterRenderer\n"
+            "[INFO ] shutdown: VMA still holds")
+        self.assertEqual(classify_missing_fragment_failure(0, doubled, 1800)["result"], "fail")
+        twice = classify_missing_fragment_failure(0, doubled, 1800, expected_attempts=2)
+        self.assertEqual(twice["result"], "expected-failure-pass")
+        self.assertEqual(twice["intentional_error_counts"], [2, 2, 2])
+        with self.assertRaises(ValueError):
+            classify_missing_fragment_failure(0, failure, 1800, expected_attempts=0)
         self.assertEqual(
             classify_missing_fragment_failure(0, failure.replace("0 allocations", "1 allocations"), 1800)["result"],
             "fail")
@@ -74,6 +87,17 @@ class LiveLoginTest(unittest.TestCase):
         reversed_shutdown = failure.replace(quit_line, "").replace(
             shutdown_line, shutdown_line + quit_line)
         self.assertEqual(classify_missing_fragment_failure(0, reversed_shutdown, 1800)["result"], "fail")
+
+    def test_preview_retry_trace_is_one_click_inside_run(self):
+        trace = make_trace("fixture-only-password", 640, 306, 1800)
+        add_preview_retry_trace(trace, 400, 198, 900)
+        self.assertEqual(trace["events"][-3:], [
+            {"after_updates": 900, "type": "mouse_move", "x": 400, "y": 198},
+            {"after_updates": 900, "type": "mouse_down", "x": 400, "y": 198, "button": 1},
+            {"after_updates": 902, "type": "mouse_up", "x": 400, "y": 198, "button": 1},
+        ])
+        with self.assertRaises(ValueError):
+            add_preview_retry_trace(trace, 400, 198, 1798)
 
     def test_non_indexed_preview_isolation_is_default_off_and_uncertified(self):
         self.assertEqual(PREVIEW_ISOLATION_ENV["non-indexed-draw"],
