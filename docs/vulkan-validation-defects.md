@@ -277,6 +277,21 @@ local lighting at most 64 entries, and shadow filtering nine taps. Material
 ring exhaustion skips draws rather than wrapping over earlier allocations.
 No unbounded loop or demonstrated in-flight ring overwrite was found.
 
+A read-only ownership audit also found no render-target lifetime defect on the
+first preview frame. `CharacterPreview` creates and retains the MSAA color,
+single-sample resolve and depth images, their views, the framebuffer and render
+pass before registering the preview. A request made while the UI is built is
+not consumed until the following `beginFrame`, and the off-screen pass plus the
+later ImGui sample are recorded into that frame's single primary command buffer.
+There is no resize or recreation between them. Destruction orders the framebuffer
+and render pass before their attachment views and VMA images. Preview shutdown
+is also covered: `CharacterRenderer::shutdown` waits for background preparation
+and device completion before `CharacterPreview` destroys its remaining target,
+descriptor and uniform resources. Therefore the earlier suspected teardown gap
+was not established, and this audit supplies no DEF-004 fix. The no-model-draw
+control exercising the same target, resolve and submission path further narrows
+the unresolved fault to work introduced by the indexed model draw.
+
 Default-off no-backdrop and no-model-draw switches are diagnostic isolation
 controls only. No outcome from a later isolation replay is asserted here, and
 no control is a fix or replacement for normal-mode acceptance. Creation,
