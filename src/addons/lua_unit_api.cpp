@@ -2078,8 +2078,11 @@ static int lua_GetThreatStatusColor(lua_State* L) {
 
 // GetReadyCheckStatus(unit) → status string
 static int lua_GetReadyCheckStatus(lua_State* L) {
-    (void)L;
-    lua_pushnil(L); // No ready check in progress
+    const char* unit = luaL_checkstring(L, 1);
+    auto* gh = getGameHandler(L);
+    const char* status = gh ? gh->getReadyCheckStatus(resolveUnitGuid(gh, unit)) : nullptr;
+    if (status) lua_pushstring(L, status);
+    else lua_pushnil(L);
     return 1;
 }
 

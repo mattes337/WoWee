@@ -3627,6 +3627,10 @@ bool GameHandler::hasPendingReadyCheck() const {
     return socialHandler_ ? socialHandler_->hasPendingReadyCheck() : false;
 }
 
+const char* GameHandler::getReadyCheckStatus(uint64_t guid) const {
+    return socialHandler_ ? socialHandler_->getReadyCheckStatus(guid) : nullptr;
+}
+
 void GameHandler::dismissReadyCheck() {
     if (socialHandler_) socialHandler_->dismissReadyCheck();
 }

@@ -5,6 +5,7 @@
 #include "game/group_defines.hpp"
 #include "game/handler_types.hpp"
 #include "game/calendar_data.hpp"
+#include "game/ready_check_state.hpp"
 #include "network/packet.hpp"
 #include <array>
 #include <chrono>
@@ -284,6 +285,7 @@ public:
     void respondToReadyCheck(bool ready);
     [[nodiscard]] bool hasPendingReadyCheck() const { return pendingReadyCheck_; }
     void dismissReadyCheck() { pendingReadyCheck_ = false; }
+    [[nodiscard]] const char* getReadyCheckStatus(uint64_t guid) const { return readyCheckState_.status(guid); }
     [[nodiscard]] const std::string& getReadyCheckInitiator() const { return readyCheckInitiator_; }
     [[nodiscard]] const std::vector<ReadyCheckResult>& getReadyCheckResults() const { return readyCheckResults_; }
 
@@ -657,10 +659,15 @@ private:
 
     // Ready check
     bool        pendingReadyCheck_       = false;
-    uint32_t    readyCheckReadyCount_    = 0;
-    uint32_t    readyCheckNotReadyCount_ = 0;
+    ReadyCheckState readyCheckState_;
     std::string readyCheckInitiator_;
     std::vector<ReadyCheckResult> readyCheckResults_;
+    void resetReadyCheck() {
+        pendingReadyCheck_ = false;
+        readyCheckState_.reset();
+        readyCheckInitiator_.clear();
+        readyCheckResults_.clear();
+    }
 
     // Instance
     std::vector<InstanceLockout> instanceLockouts_;

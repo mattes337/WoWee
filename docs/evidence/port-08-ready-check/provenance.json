@@ -1,0 +1,30 @@
+{
+  "captured_date": "2026-09-08",
+  "donor_commit": "9ee0a1610cfb83292d14e806a5a469d0870fc1d3",
+  "donor_worktree": "../wow-client (read-only; uncommitted source included in snapshots)",
+  "donor_license_declaration": "Cargo.toml workspace.package.license = MIT; no LICENSE or NOTICE file found by rg --files search",
+  "sources": [
+    {
+      "source": "crates/wow-lua/src/api/social.rs",
+      "lines": [
+        276,
+        308
+      ],
+      "source_sha256": "8adc7d6f71774e3ce6398673a158bf33fdceb8e93dcfa0f5c9743635f1711570",
+      "snapshot": "social-excerpt.rs.txt",
+      "snapshot_sha256": "9a29d5aa5ffedf897ddde766ce56ea5c295989117707fc76d1a18658b09d7944",
+      "git_status": ""
+    },
+    {
+      "source": "crates/wow-engine/src/logic_thread/mod.rs",
+      "lines": [
+        785,
+        808
+      ],
+      "source_sha256": "01f4e1a4536ebac1858b0cc0a24783f15b524d327d6bd33509ae3c1c7157b36e",
+      "snapshot": "mod-excerpt.rs.txt",
+      "snapshot_sha256": "96e6473893ac2fd2129ad7af9880efc3a52387e6d23f3be1d94280e1cbe862b1",
+      "git_status": "M crates/wow-engine/src/logic_thread/mod.rs"
+    }
+  ]
+}

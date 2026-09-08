@@ -1,0 +1,24 @@
+                StateUpdate::ReadyCheckStarted { initiator_guid } => {
+                    game_state.ready_check_active = true;
+                    game_state.ready_check_initiator = *initiator_guid;
+                    game_state.ready_check_responses.clear();
+                    let initiator_name = if *initiator_guid == game_state.player_guid {
+                        game_state.player_name.clone()
+                    } else {
+                        game_state
+                            .party_members
+                            .iter()
+                            .find(|m| m.guid == *initiator_guid)
+                            .map(|m| m.name.clone())
+                            .unwrap_or_default()
+                    };
+                    network_lua_events.push(LuaEvent { name: "READY_CHECK".into(), args: vec![initiator_name] });
+                }
+                StateUpdate::ReadyCheckConfirm { guid, state } => {
+                    game_state.ready_check_responses.insert(*guid, *state);
+                    network_lua_events.push(LuaEvent { name: "READY_CHECK_CONFIRM".into(), args: vec![] });
+                }
+                StateUpdate::ReadyCheckFinished => {
+                    game_state.ready_check_active = false;
+                    network_lua_events.push(LuaEvent { name: "READY_CHECK_FINISHED".into(), args: vec![] });
+                }

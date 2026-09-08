@@ -116,3 +116,7 @@ set_tests_properties(
     framexml framexml_takeover widget_tree text_edit
     escape_action monster_move_facing packet bit_packet spline_body spline
     PROPERTIES LABELS "headless")
+
+# Ready-check state used by the live social handler and Lua API.
+wowee_add_test(test_ready_check_state SOURCES test_ready_check_state.cpp)
+set_tests_properties(ready_check_state PROPERTIES LABELS "headless")

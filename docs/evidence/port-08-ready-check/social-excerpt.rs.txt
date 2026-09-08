@@ -1,0 +1,33 @@
+    // GetReadyCheckStatus(unit) -- "ready"/"notready"/"waiting", or nil if
+    // no check has ever recorded anything for this unit. A member's answer
+    // (`ready_check_response`) stays queryable after the check finishes --
+    // real `ReadyCheckFrame`/`RaidGroupFrame` icons persist through
+    // `ReadyCheck_Finish`'s fade-out, not vanish the instant
+    // `READY_CHECK_FINISHED` fires -- so this only falls back to nil (no
+    // check ever ran) or "waiting" (a check is active but this unit hasn't
+    // answered yet) once there's no recorded answer to report.
+    {
+        let conn = vm.connection.clone();
+        globals.set(
+            "GetReadyCheckStatus",
+            lua.create_function(move |lua, unit: String| {
+                let guid = conn.unit_guid(&unit);
+                if guid == 0 {
+                    return Ok(mlua::Value::Nil);
+                }
+                let status = match conn.ready_check_response(guid) {
+                    Some(1) => Some("ready"),
+                    Some(_) => Some("notready"),
+                    None if conn.ready_check_active() => Some("waiting"),
+                    None => None,
+                };
+                match status {
+                    Some(s) => Ok(mlua::Value::String(lua.create_string(s)?)),
+                    None => Ok(mlua::Value::Nil),
+                }
+            })?,
+        )?;
+    }
+
+    // IsInInstance() -> inInstance (bool), instanceType (string)
+    {

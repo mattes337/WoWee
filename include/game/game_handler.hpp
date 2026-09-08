@@ -904,6 +904,7 @@ public:
     /// ready check therefore cleared nothing the client asks about, and
     /// hasPendingReadyCheck went on answering true.
     void dismissReadyCheck();
+    const char* getReadyCheckStatus(uint64_t guid) const;
     const std::string& getReadyCheckInitiator() const;
     const std::vector<ReadyCheckResult>& getReadyCheckResults() const;
 

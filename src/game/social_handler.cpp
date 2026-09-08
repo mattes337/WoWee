@@ -554,6 +554,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
     table[Opcode::SMSG_GROUP_DECLINE] = [this](network::Packet& packet) { handleGroupDecline(packet); };
     table[Opcode::SMSG_GROUP_LIST] = [this](network::Packet& packet) { handleGroupList(packet); };
     table[Opcode::SMSG_GROUP_DESTROYED] = [this](network::Packet& /*packet*/) {
+        resetReadyCheck();
         partyData.members.clear();
         partyData.memberCount = 0;
         partyData.leaderGuid = 0;
@@ -575,8 +576,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
     // ---- Ready check ----
     table[Opcode::MSG_RAID_READY_CHECK] = [this](network::Packet& packet) {
         pendingReadyCheck_ = true;
-        readyCheckReadyCount_ = 0;
-        readyCheckNotReadyCount_ = 0;
+        readyCheckState_.start();
         readyCheckInitiator_.clear();
         readyCheckResults_.clear();
         if (packet.hasRemaining(8)) {
@@ -600,7 +600,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         if (!packet.hasRemaining(9)) { packet.skipAll(); return; }
         uint64_t respGuid = packet.readUInt64();
         uint8_t  isReady  = packet.readUInt8();
-        if (isReady) ++readyCheckReadyCount_; else ++readyCheckNotReadyCount_;
+        readyCheckState_.confirm(respGuid, isReady != 0);
         auto nit = owner_.getPlayerNameCache().find(respGuid);
         std::string rname;
         if (nit != owner_.getPlayerNameCache().end()) rname = nit->second;
@@ -630,12 +630,10 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
     table[Opcode::MSG_RAID_READY_CHECK_FINISHED] = [this](network::Packet& /*packet*/) {
         char fbuf[128];
         std::snprintf(fbuf, sizeof(fbuf), "Ready check complete: %u ready, %u not ready.",
-                     readyCheckReadyCount_, readyCheckNotReadyCount_);
+                     readyCheckState_.count(true), readyCheckState_.count(false));
         owner_.addSystemChatMessage(fbuf);
         pendingReadyCheck_ = false;
-        readyCheckReadyCount_ = 0;
-        readyCheckNotReadyCount_ = 0;
-        readyCheckResults_.clear();
+        readyCheckState_.finish();
         if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("READY_CHECK_FINISHED", {});
     };
     table[Opcode::SMSG_RAID_INSTANCE_INFO] = [this](network::Packet& packet) { handleRaidInstanceInfo(packet); };
@@ -1916,6 +1914,7 @@ void SocialHandler::leaveGroup() {
     auto packet = GroupDisbandPacket::build();
     owner_.getSocket()->send(packet);
     partyData = GroupListData{};
+    resetReadyCheck();
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("GROUP_ROSTER_UPDATE", {});
         owner_.addonEventCallbackRef()("PARTY_MEMBERS_CHANGED", {});
@@ -2207,6 +2206,7 @@ void SocialHandler::handleGroupList(network::Packet& packet) {
     }
 
     const bool nowInGroup = !partyData.isEmpty();
+    if (!nowInGroup) resetReadyCheck();
     if (!nowInGroup && wasInGroup) {
         owner_.addSystemChatMessage("You are no longer in a group.");
         LOG_INFO("Left group");
@@ -2246,6 +2246,7 @@ void SocialHandler::handleGroupList(network::Packet& packet) {
 void SocialHandler::handleGroupUninvite(network::Packet& packet) {
     (void)packet;
     partyData = GroupListData{};
+    resetReadyCheck();
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("GROUP_ROSTER_UPDATE", {});
         owner_.addonEventCallbackRef()("PARTY_MEMBERS_CHANGED", {});
