@@ -16,8 +16,10 @@ jobs:
       - name: Install pure-test dependencies
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ca-certificates git cmake g++ libglm-dev
+          apt-get install -y --no-install-recommends ca-certificates git cmake make g++ libglm-dev python3
       - uses: actions/checkout@v6
+      - name: Verify source identity generation
+        run: python3 tools/test_source_identity.py
       - name: Verify Vulkan is absent
         run: |
           test ! -e /usr/include/vulkan/vulkan.h
@@ -28,3 +30,28 @@ jobs:
         run: cmake --build build-headless --parallel 2
       - name: Test
         run: ctest --test-dir build-headless --output-on-failure --no-tests=error
+
+  headless-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v6
+      - name: Fetch pinned GLM headers
+        uses: actions/checkout@v6
+        with:
+          repository: g-truc/glm
+          ref: 0af55ccecd98d4e5a8d1fad7de25ba429d60e863
+          path: dependencies/glm
+      - name: Install GLM CMake package
+        shell: pwsh
+        run: |
+          cmake -S dependencies/glm -B build-glm -G "Visual Studio 17 2022" -A x64 -DGLM_BUILD_LIBRARY=OFF -DGLM_BUILD_TESTS=OFF -DGLM_BUILD_INSTALL=ON "-DCMAKE_INSTALL_PREFIX=$env:RUNNER_TEMP/glm"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --install build-glm --config Release
+      - name: Verify source identity generation
+        run: python tools/test_source_identity.py
+      - name: Configure without graphics packages
+        run: cmake -S . -B build-headless -G "Visual Studio 17 2022" -A x64 -DWOWEE_HEADLESS_TESTS_ONLY=ON "-DCMAKE_PREFIX_PATH=$env:RUNNER_TEMP/glm" -DCMAKE_DISABLE_FIND_PACKAGE_Vulkan=TRUE -DCMAKE_DISABLE_FIND_PACKAGE_VulkanHeaders=TRUE
+      - name: Build
+        run: cmake --build build-headless --config Debug --parallel 2
+      - name: Test
+        run: ctest --test-dir build-headless -C Debug --output-on-failure --no-tests=error
