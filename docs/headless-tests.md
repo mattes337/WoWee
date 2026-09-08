@@ -3,7 +3,9 @@
 `WOWEE_HEADLESS_TESTS_ONLY=ON` builds the real Catch2 packet, bit-packet,
 spline interpolation/body/facing, widget layout, text-edit, escape-action,
 XML parser/emitter/takeover, settings-panel layout, ready-check state and Lua
-VM/API/snippet, input-trace parser and screenshot-request state tests. These same targets remain in normal client builds; their
+VM/API/snippet and animation-group behavior, input-trace parsing,
+screenshot-request/capture scheduling, and model-replacement lifetime. These
+same targets remain in normal client builds; their
 shared definition is `cmake/HeadlessTests.cmake`.
 
 Only a C++20 toolchain, CMake 3.15+ and GLM are required. Catch2 and Lua 5.1.5 are vendored.
@@ -39,7 +41,27 @@ and configure diagnostics on failure. `ctest -L headless` selects this subset
 in a full build as well. GPU/FrameXML runtime and local-emulator CI gates are
 still separate, unverified work under TEST-10.
 
-## Current frozen baseline, 2026-09-08
+## Current configured inventory and focused additions
+
+At committed revision `1659d85fc`, a headless-only configure registers **25**
+pure CTest targets. `-DWOWEE_TEST_SDL_EVENTS=ON` adds `input_trace_sdl` for a
+total of **26**. These are configured inventories, not claims that all 25 or 26
+have run together from that revision.
+
+The two targets added after the frozen baseline have narrower evidence:
+
+- `animation_group_lua` passed 20 Catch assertions across four cases for
+  ordered-stage duration at `4d582ff06`.
+- `model_replacement` passed 26 assertions across four cases in Windows Debug
+  and in an isolated Ubuntu 24.04 ASan/UBSan build at `1659d85fc`; see
+  [DEF-006](vulkan-validation-defects.md#def-006---p1---replacing-a-model-id-invalidates-surviving-instance-pointers).
+
+The optional SDL target was also run separately for held-input replay at
+`4a73bc719`, passing 78 assertions across five cases; see
+[its focused evidence](evidence/test-02-input-replay-20260908.md). Focused target
+passes do not extend the combined 23/24 baseline below.
+
+## Latest combined frozen baseline, 2026-09-08
 
 The updated ready-check completion/packet-serializer regression, screenshot
 request outcomes and capture schedule, and input parser/SDL fixture were

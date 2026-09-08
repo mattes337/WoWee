@@ -1,6 +1,6 @@
 # The widget system
 
-Source review: 2026-09-08, fork revision `51277f5f3` (widget implementation
+Source review: 2026-09-08, through fork revision `cd4d477a7` (widget implementation
 inherited from `3f92198677`). Links below identify current source; historical
 load timings and interface handover notes are not fresh runtime acceptance.
 See [the capability ledger](capability-ledger.md) and [fork roadmap](fork-roadmap.md)
@@ -48,8 +48,11 @@ emitter's output is a string a test can read without a Lua state.
 
 FrameXML is on by default. API fallback follows that setting unless explicitly
 overridden. `WOWEE_LUA_API_FALLBACK=0` takes precedence even when FrameXML is on;
-see `LuaEngine::installMissingApiFallback` in
-[`lua_engine.cpp`](../src/addons/lua_engine.cpp) for the environment parsing.
+see the default-on load decision in
+[`addon_manager.cpp`](../src/addons/addon_manager.cpp), the matching ownership
+decision in [`framexml_takeover.cpp`](../src/ui/framexml_takeover.cpp), and
+`LuaEngine::installMissingApiFallback` in
+[`lua_engine.cpp`](../src/addons/lua_engine.cpp) for the fallback parsing.
 
 ### `WOWEE_LUA_API_FALLBACK=1`
 

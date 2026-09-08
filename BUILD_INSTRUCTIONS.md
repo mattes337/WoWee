@@ -2,7 +2,7 @@
 
 This document provides platform-specific build instructions for WoWee.
 
-Fork documentation review: 2026-09-08 at `51277f5f3`. Platform recipes are
+Fork documentation review: 2026-09-08 through `cd4d477a7`. Platform recipes are
 setup guidance; they do not certify a current build or live session. For
 packet, spline, widget and XML tests without a graphics SDK, use the
 [headless test configuration](docs/headless-tests.md). It still requires a
@@ -279,6 +279,13 @@ demonstrate a warnings-clean build. Save configure/build/CTest output and
 verify runtime DLLs before claiming ENV-01 completion. Headless test success
 does not validate the full executable or graphics paths.
 
+The normal build creates the client and tests. The standalone FrameXML runner
+and world editor are excluded unless requested with
+`-DWOWEE_BUILD_FRAMEXML_RUNNER=ON` and `-DWOWEE_BUILD_EDITOR=ON`, respectively.
+The AMD SDK backends also default to off; enable the required
+`WOWEE_ENABLE_AMD_FSR2`, `WOWEE_ENABLE_AMD_FSR3_FRAMEGEN`, or
+`WOWEE_BUILD_AMD_FSR3_RUNTIME` option explicitly when evaluating them.
+
 ---
 
 ## 🪟 Asset Extraction (Windows)
@@ -305,7 +312,10 @@ You can also specify an expansion: `.\extract_assets.ps1 "C:\Games\WoW\Data" wot
 - AMD FSR2 SDK is fetched automatically by `build.sh` / `rebuild.sh` / `build.ps1` / `rebuild.ps1` from:
   - `https://github.com/GPUOpen-Effects/FidelityFX-FSR2.git`
   - target path: `extern/FidelityFX-FSR2`
-- AMD backend is enabled when SDK headers and Vulkan permutation headers are available.
+- The helper scripts fetch the SDK checkouts when absent, but fetched headers do
+  not enable an AMD backend by themselves. The corresponding CMake option also
+  has to be `ON`; all three AMD SDK options default to `OFF`.
 - If upstream SDK checkout is missing generated Vulkan permutation headers, CMake bootstraps them from:
   - `third_party/fsr2_vk_permutations`
-- If SDK headers are missing, the build uses the internal FSR2 fallback path.
+- If the FSR2 option is disabled or its required SDK headers are missing, the
+  client uses the internal FSR2 path.

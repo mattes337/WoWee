@@ -1,6 +1,6 @@
 # Project Status
 
-**Last source review**: 2026-09-08, fork revision `51277f5f3`.
+**Last source review**: 2026-09-08, through fork revision `cd4d477a7`.
 
 This page is a source/historical inventory, not a release certification.
 The fork's initial target is WotLK 3.3.5a/build 12340; live gameplay, stock
@@ -62,14 +62,18 @@ Recent fixes (July 2026):
 - Camera smoothing snaps 1:1 during active drag/keyboard turn to reduce input lag
 - Mount strafing uses MOUNT_RUN_LEFT/RIGHT when available
 
-Recent work (August 2026):
+Recent fork work (August-September 2026):
 
 - FrameXML interface transition: the original interface owns the chat window, and this client's own was removed along with the tab manager and completer that served it. The command registry, macro evaluation, and chat bubbles stay - FrameXML's edit box routes unknown slash commands into `runClientChatCommand`. See the Unreleased section of `CHANGELOG.md`
 - Warnings are errors: `WOWEE_WARNINGS_AS_ERRORS` (default ON) puts `-Werror` / `/WX` on the `wowee` target. Turn it off for a bisect or an unfamiliar compiler
 - AMD FidelityFX SDK backends are off by default (`WOWEE_ENABLE_AMD_FSR2`, `WOWEE_ENABLE_AMD_FSR3_FRAMEGEN`). This client's own FSR 1 and `fsr2_*` compute shaders are in-tree and unaffected
 - Test registration expanded; the former fixed 89-suite count is historical.
   Use `ctest --test-dir <build> -N` (plus `-C Debug` for a multi-configuration
-  build) for that configuration's manifest, then execute it to establish results
+  build) for that configuration's manifest, then execute it to establish results.
+  At `1659d85fc`, headless-only CMake registers 25 pure targets or 26 with the
+  optional SDL event fixture. The latest combined frozen execution remains
+  23/23 pure and 24/24 with SDL; newer animation and model-lifetime targets have
+  focused results documented in [headless tests](headless-tests.md).
 - macOS: SIGPIPE is ignored at startup, so a send to a dropped connection no longer terminates the client; crash backtraces now work there as well as on Linux
 
 In progress / known gaps:
