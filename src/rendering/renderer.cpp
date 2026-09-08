@@ -1175,7 +1175,6 @@ void Renderer::endFrame() {
     if (postProcessPipeline_) {
         postProcessPipeline_->executePostProcessing(
             currentCmd, currentImageIndex, camera.get(), lastDeltaTime_);
-        if (vkCtx) vkCtx->gpuMark(currentCmd, "post-process");
     }
 
     // The scene is complete: close its pass so the water refraction copy can run
@@ -1184,6 +1183,10 @@ void Renderer::endFrame() {
     // the water. The overlay pass is single-sampled and colour-only, which is
     // also why the UI costs the same here whatever MSAA the scene uses.
     vkCmdEndRenderPass(currentCmd);
+    // Post-processing may leave the original SECONDARY-only scene pass open.
+    // Record primary diagnostics only after it ends; this also times its final
+    // attachment resolves without dropping the checkpoint or timestamp.
+    if (postProcessPipeline_) vkCtx->gpuMark(currentCmd, "post-process");
 
     // Only when water could not be moved out of the scene pass (MSAA). Otherwise
     // renderWorld already took the copy at the one point in the frame where the
