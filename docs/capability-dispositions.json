@@ -183,9 +183,10 @@
   },
   "apis": {
     "CalendarEventCanEdit": {
-      "disposition": "unresolved static candidate",
+      "disposition": "implemented subset; integration pending",
       "owner": "BOTH-04",
-      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+      "reason": "Creator-only query implemented from open event state in 073afd80c, sharing the existing context ownership predicate. Pure/parsed-event tests pass 859 assertions in 11 cases. Full Lua binding build, populated-event close/open runtime, and broader guild/ownership-transfer permissions remain unverified; no complete API parity claim.",
+      "validation": "docs/evidence/api-01-calendar-event-can-edit.md"
     },
     "CalendarEventGetInviteSortCriterion": {
       "disposition": "unresolved static candidate",

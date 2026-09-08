@@ -104,4 +104,4 @@ pinned stock/LoD input, dynamic-registration review, fallback-off runtime
 reports and return/state/event contracts. No generated row is a completed
 feature merely because its registration exists.
 
-The refreshed scanner reports 48 current unresolved candidates (60 calls). The ledger retains 49 reviewed historical entries: `LOCAL_Function_Environment_Manager` now has zero candidate calls after its [lexical-local proof](evidence/api-01-local-function-environment-manager.md). Removing this false positive does not establish runtime API completeness.
+Scanner revision `21ac6d5b9` reported 48 unresolved candidates (60 calls). Subsequent registrations change the current scan; consult the generated entries and rerun the command above. The ledger retains 49 reviewed historical entries: `LOCAL_Function_Environment_Manager` now has zero candidate calls after its [lexical-local proof](evidence/api-01-local-function-environment-manager.md). Removing this false positive does not establish runtime API completeness.
