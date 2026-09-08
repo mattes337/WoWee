@@ -13,6 +13,10 @@ public:
 
     void update();
 
+    // Only an explicit unattended trace enables this dispatch-to-poll bridge.
+    void setTestReplayEnabled(bool enabled);
+    void observeTestReplayEvent(const SDL_Event& event);
+
     // Keyboard
     [[nodiscard]] bool isKeyPressed(SDL_Scancode key) const;
 
@@ -48,6 +52,9 @@ private:
 
     std::array<bool, NUM_KEYS> currentKeyState = {};
     std::array<bool, NUM_KEYS> virtualKeyState = {};
+    std::array<bool, NUM_KEYS> replayKeyState = {};
+    bool testReplayEnabled = false;
+    SDL_Keymod replayModifiers = KMOD_NONE;
     std::array<bool, NUM_KEYS> previousKeyState = {};
 
     std::array<bool, NUM_MOUSE_BUTTONS> currentMouseState = {};
@@ -57,6 +64,19 @@ private:
     glm::vec2 previousMousePosition = glm::vec2(0.0f);
     glm::vec2 mouseDelta = glm::vec2(0.0f);
     bool mouseLocked = false;
+};
+
+// Scope cleanup also runs on an exception; replay never leaves SDL modifiers
+// or synthetic held keys behind after an unattended run.
+class TestInputReplayScope {
+public:
+    explicit TestInputReplayScope(bool enabled);
+    ~TestInputReplayScope();
+    TestInputReplayScope(const TestInputReplayScope&) = delete;
+    TestInputReplayScope& operator=(const TestInputReplayScope&) = delete;
+private:
+    bool enabled_;
+    SDL_Keymod savedModifiers_;
 };
 
 } // namespace core

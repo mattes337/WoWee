@@ -17,7 +17,7 @@ void Input::update() {
     // Get current keyboard state
     const Uint8* keyState = SDL_GetKeyboardState(nullptr);
     for (int i = 0; i < NUM_KEYS; ++i) {
-        currentKeyState[i] = keyState[i] || virtualKeyState[i];
+        currentKeyState[i] = keyState[i] || virtualKeyState[i] || replayKeyState[i];
     }
 
     // Get current mouse state
@@ -34,6 +34,43 @@ void Input::update() {
 
     // Calculate mouse delta
     mouseDelta = mousePosition - previousMousePosition;
+}
+
+void Input::setTestReplayEnabled(bool enabled) {
+    testReplayEnabled = enabled;
+    replayKeyState.fill(false);
+    replayModifiers = KMOD_NONE;
+}
+
+void Input::observeTestReplayEvent(const SDL_Event& event) {
+    if (!testReplayEnabled) return;
+    if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
+        const auto key = event.key.keysym.scancode;
+        if (key > SDL_SCANCODE_UNKNOWN && key < SDL_NUM_SCANCODES)
+            replayKeyState[key] = event.type == SDL_KEYDOWN;
+        replayModifiers = static_cast<SDL_Keymod>(event.key.keysym.mod);
+    } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+        replayKeyState.fill(false);
+        replayModifiers = KMOD_NONE;
+    }
+    // Existing C++/Lua modifier queries use SDL_GetModState. SDL_PushEvent
+    // alone does not update it, so synchronize only during opt-in dispatch.
+    SDL_SetModState(replayModifiers);
+}
+
+TestInputReplayScope::TestInputReplayScope(bool enabled)
+    : enabled_(enabled), savedModifiers_(enabled ? SDL_GetModState() : KMOD_NONE) {
+    if (enabled_) {
+        Input::getInstance().setTestReplayEnabled(true);
+        SDL_SetModState(KMOD_NONE);
+    }
+}
+
+TestInputReplayScope::~TestInputReplayScope() {
+    if (enabled_) {
+        Input::getInstance().setTestReplayEnabled(false);
+        SDL_SetModState(savedModifiers_);
+    }
 }
 
 void Input::setVirtualKey(SDL_Scancode key, bool held) {

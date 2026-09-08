@@ -1175,6 +1175,7 @@ void Application::run() {
     ZoneScopedN("Application::run");
     LOG_INFO("Starting main loop");
     auto testInputTrace = TestInputTrace::fromFile(std::getenv("WOWEE_TEST_INPUT_TRACE"));
+    TestInputReplayScope testInputReplay(testInputTrace.enabled());
     const std::string traceLimit = testInputTrace.enabled() ? std::to_string(testInputTrace.stopAfterUpdates()) : "";
     const char* explicitLimit = std::getenv("WOWEE_TEST_MAX_UPDATES");
     TestUpdateLimit testUpdateLimit(explicitLimit ? explicitLimit :
@@ -1328,6 +1329,7 @@ void Application::run() {
         }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            Input::getInstance().observeTestReplayEvent(event);
 #ifdef __ANDROID__
             // The stick and the pinch read the finger events SDL sends
             // alongside the mouse ones. They claim nothing else: every panel,

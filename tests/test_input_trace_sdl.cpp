@@ -1,6 +1,7 @@
 #define SDL_MAIN_HANDLED
 #include <catch_amalgamated.hpp>
 #include "core/test_input_trace.hpp"
+#include "core/input.hpp"
 #include <SDL.h>
 #include <string>
 
@@ -11,6 +12,83 @@ struct Events {
     Events() { REQUIRE(SDL_Init(SDL_INIT_EVENTS) == 0); SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT); }
     ~Events() { SDL_SetEventFilter(nullptr, nullptr); SDL_Quit(); }
 };
+void dispatchReplay() {
+    SDL_Event event{};
+    while (SDL_PollEvent(&event)) Input::getInstance().observeTestReplayEvent(event);
+    Input::getInstance().update();
+}
+}
+
+TEST_CASE("opt-in dispatched trace holds and releases movement and modifiers", "[input-trace][sdl][held]") {
+    Events events;
+    auto& input = Input::getInstance();
+    input.update();
+    auto trace = TestInputTrace::parse(R"({"version":1,"stop_after_updates":6,"events":[
+        {"after_updates":0,"type":"key_down","keycode":1073742049,"scancode":225,"modifiers":1},
+        {"after_updates":0,"type":"key_down","keycode":119,"scancode":26,"modifiers":1},
+        {"after_updates":3,"type":"key_up","keycode":119,"scancode":26,"modifiers":1},
+        {"after_updates":4,"type":"key_up","keycode":1073742049,"scancode":225,"modifiers":0}
+    ]})");
+    TestInputReplayScope replay(true);
+    for (uint32_t update = 0; update < 6; ++update) {
+        trace.queueDue(update, [](const TestInputEvent& event) { return pushTestInputEvent(event, 7); });
+        dispatchReplay();
+        CHECK(input.isKeyPressed(SDL_SCANCODE_W) == (update < 3));
+        CHECK(input.isKeyJustPressed(SDL_SCANCODE_W) == (update == 0));
+        CHECK(input.isKeyPressed(SDL_SCANCODE_LSHIFT) == (update < 4));
+        CHECK(((SDL_GetModState() & KMOD_SHIFT) != 0) == (update < 4));
+        // The OS polling state is untouched: the bridge is opt-in Input state.
+        CHECK(SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_W] == 0);
+    }
+    trace.requireComplete(6);
+}
+
+TEST_CASE("replay focus loss and scope exit release keys without clearing virtual input", "[input-trace][sdl][held]") {
+    Events events;
+    auto& input = Input::getInstance();
+    SDL_SetModState(KMOD_NUM);
+    input.setVirtualKey(SDL_SCANCODE_A, true);
+    {
+        TestInputReplayScope replay(true);
+        TestInputEvent down;
+        down.kind = TestInputEvent::Kind::KeyDown;
+        down.keycode = SDLK_w;
+        down.scancode = SDL_SCANCODE_W;
+        down.modifiers = KMOD_LCTRL;
+        REQUIRE(pushTestInputEvent(down, 7) == 1);
+        dispatchReplay();
+        REQUIRE(input.isKeyPressed(SDL_SCANCODE_W));
+        SDL_Event focus{};
+        focus.type = SDL_WINDOWEVENT;
+        focus.window.event = SDL_WINDOWEVENT_FOCUS_LOST;
+        REQUIRE(SDL_PushEvent(&focus) == 1);
+        dispatchReplay();
+        CHECK_FALSE(input.isKeyPressed(SDL_SCANCODE_W));
+        CHECK(SDL_GetModState() == KMOD_NONE);
+        REQUIRE(pushTestInputEvent(down, 7) == 1);
+        dispatchReplay();
+    }
+    input.update();
+    CHECK_FALSE(input.isKeyPressed(SDL_SCANCODE_W));
+    CHECK(input.isKeyPressed(SDL_SCANCODE_A));
+    CHECK(SDL_GetModState() == KMOD_NUM);
+    input.clearVirtualKeys();
+    input.update();
+}
+
+TEST_CASE("ordinary pushed events do not enable held replay routing", "[input-trace][sdl][held]") {
+    Events events;
+    TestInputReplayScope replay(false);
+    SDL_SetModState(KMOD_CAPS);
+    TestInputEvent down;
+    down.kind = TestInputEvent::Kind::KeyDown;
+    down.keycode = SDLK_w;
+    down.scancode = SDL_SCANCODE_W;
+    down.modifiers = KMOD_LCTRL;
+    REQUIRE(pushTestInputEvent(down, 7) == 1);
+    dispatchReplay();
+    CHECK_FALSE(Input::getInstance().isKeyPressed(SDL_SCANCODE_W));
+    CHECK(SDL_GetModState() == KMOD_CAPS);
 }
 
 TEST_CASE("trace input traverses the real SDL event queue with complete fields", "[input-trace][sdl]") {
