@@ -78,7 +78,8 @@ is different and cannot establish the extraction provenance used here.
 
 No release-authenticated archive checksums, whole-tree comparison, later locale
 variant selection, original-loader tracing or complete loose-file override audit
-was performed. ENV-03's full stock/modified-data determination remains open.
+was performed. Original-stock authentication remains open; ENV-03 accepts the
+identified controlled data fixture and does not claim an untouched stock tree.
 
 ## Reproduction
 

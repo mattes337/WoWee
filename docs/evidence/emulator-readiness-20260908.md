@@ -169,10 +169,12 @@ were printed. Do not run their database setup against an existing volume.
    Run identified-client login and multiplayer acceptance with clean per-run
    client settings. No fixture-based replacement of the server is required.
 
-The audit alone did not establish image startup, source identity of runtime
-images, DB/schema compatibility, v19 data compatibility, clean account setup,
-login/world entry or gameplay scenarios; see the follow-up execution below. The volume inventory removes
-the earlier uncertainty about missing vmaps/mmaps, but **ENV-03 remains open**.
+The initial audit alone did not establish image startup, source identity of
+runtime images, DB/schema compatibility, v19 data compatibility, clean account
+setup, login/world entry or gameplay scenarios; see the follow-up execution
+below. The later successful login closes the controlled ENV-03 fixture contract,
+while the original-stock, pathfinding, preview, world-entry and gameplay scopes
+remain separate.
 
 Reproduction used `git rev-parse --verify HEAD`, filename inventories including
 ignored files, selective file hashes/header reads, process/listener inventory,
@@ -240,9 +242,10 @@ Nonsecret execution evidence under the ignored project directory includes
 `account-provision.log`. Auth's application revision is additionally in
 `auth/logs/Auth.log`. The project remains running for subsequent client
 testing. No pre-existing container, database, account or client-data content
-was changed. ENV-03 remains partial pending actual identified-client
-authentication, character/world entry, scenario coverage and compatible
-pathfinding data.
+was changed. At this provisioning stage, identified-client authentication had
+not yet run. The later login below completes the controlled ENV-03 login/data
+contract; character/world entry, broader scenarios and compatible pathfinding
+remain open under their own acceptance gates.
 
 ## First identified real-client login attempt
 
@@ -321,6 +324,14 @@ subsequent actual UI trace. No creation was attempted in this run. The driver
 exited 0 after all eight events and normal 1800-update shutdown, with no
 ERROR/FATAL messages. This capture establishes the visible empty-list state;
 character creation, world entry and gameplay gates remain open.
+
+The [committed login/data binding](env-03-login-data-binding-20260908.json)
+copies only allowlisted fields from this run and hashes the ignored originals.
+It ties the exact binary and source revision to the fixture manifest, active
+WotLK build 12340 profile and asset source, loopback endpoint, ordered
+auth/realm/world-auth/character-list outcome, and fresh fixture-local settings.
+That record completes ENV-03's controlled fixture contract without extending
+the original-stock, movement-map, normal-preview, world-entry or gameplay scope.
 
 ## Character-creation attempt: live-login-05
 

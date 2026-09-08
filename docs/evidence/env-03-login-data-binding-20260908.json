@@ -1,0 +1,52 @@
+{
+  "result": "pass",
+  "scope": "controlled ENV-03 login/data binding; no stock-release, pathfinding, preview-rendering, world-entry, or gameplay certification",
+  "run": "live-login-04",
+  "client": {
+    "source_revision": "e146401b9e793fb442dc8f9e149c02567a8dabd3",
+    "binary_sha256": "4b4c8c78559e3aab51015652a9db2015de704cf48cc5f60c00a4d1e9dd355005",
+    "expected_binary_matched": true
+  },
+  "data": {
+    "fixture_asset_root": "live-login-04/runtime/Data",
+    "manifest_sha256": "58e341e61011ef21d7faa5caaba4d2e4fee9eb6b4b17651592332a7d2fc74f90",
+    "manifest_hash_verified_against_file": true,
+    "manifest_base_path": "../../../../../../../Data/extracted",
+    "active_expansion": "wotlk",
+    "expansion_name": "Wrath of the Lich King",
+    "client_build": 12340,
+    "protocol_profile": "wotlk",
+    "asset_source": "wotlk",
+    "stock_wotlk_charsections_layout_detected": true
+  },
+  "server_and_protocol": {
+    "auth_endpoint": "127.0.0.1:3724",
+    "intended_endpoint_matched": true,
+    "authentication_success": true,
+    "realm_list_received": true,
+    "world_authentication_success": true,
+    "character_list_received": true,
+    "character_count": 0,
+    "ready_to_select_character": true,
+    "protocol_order_verified": true
+  },
+  "execution": {
+    "saved_variables": "fresh, fixture-local",
+    "exit_code": 0,
+    "updates": 1800,
+    "trace_completed": true,
+    "quit_dispatched": true,
+    "shutdown_completed": true,
+    "errors": [],
+    "screenshot_fully_decoded": true,
+    "screenshot_extent": [1280, 720],
+    "screenshot_mode": "RGBA"
+  },
+  "local_ignored_artifact_hashes": {
+    "live-login-04/result.json": "2ff24c6dee47059ddb3a4c46eb3daa26995f1627efe8371901dc2e5cfee5947f",
+    "live-login-04/runtime/logs/live-login.log": "36e9245a578f987997a57e744ccc8fc6daf6483938d0664de247afee346d50c0",
+    "live-login-04/runtime/Data/manifest.json": "58e341e61011ef21d7faa5caaba4d2e4fee9eb6b4b17651592332a7d2fc74f90",
+    "live-login-04/screenshot.png": "10bfe85daf37ac281cab9850f1174f385ec7c501c4aed7576d5399dd877c5d78"
+  },
+  "privacy": "Only allowlisted non-secret fields and outcome markers were copied. Passwords, SRP salts, verifiers, session keys, and private input traces are excluded."
+}
