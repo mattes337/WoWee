@@ -113,7 +113,7 @@ def main():
     result = {"schema": 2, "scope": "read-only model indices and raw vertices; no GPU execution",
               "pairs": [audit(*pair) for pair in args.pair]}
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8", newline="\n")
     for item in result["pairs"]:
         print(item["model"], "vertices", item["vertices"], "indices", item["index_count"],
               "batches", item["draw_batch_count"], "passes", item["passes"])
