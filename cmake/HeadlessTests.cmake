@@ -146,3 +146,72 @@ set_tests_properties(ready_check_member PROPERTIES LABELS "headless")
 wowee_add_test(test_lua_error_api SOURCES test_lua_error_api.cpp)
 target_link_libraries(test_lua_error_api PRIVATE lua51)
 set_tests_properties(lua_error_api PROPERTIES LABELS "headless")
+
+# ── test_lua_handler_globals ────────────────────────────────
+# The pre-3.0 handler globals, which are a pure function of the Lua stack and
+# so need no game, window or interface - while the fault they prevent is the
+# largest one this client can have: `this` nil on the first line of every
+# OnLoad in a 1.12 interface, so every frame it declares reaches the screen at
+# once and none of them where it belongs.
+add_executable(test_lua_handler_globals
+    test_lua_handler_globals.cpp
+    ${CMAKE_SOURCE_DIR}/src/addons/lua_handler_globals.cpp
+)
+target_include_directories(test_lua_handler_globals PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_lua_handler_globals SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/extern/lua-5.1.5/src)
+target_link_libraries(test_lua_handler_globals PRIVATE catch2_main lua51)
+wowee_test_link_glm(test_lua_handler_globals)
+add_test(NAME lua_handler_globals COMMAND test_lua_handler_globals)
+register_test_target(test_lua_handler_globals)
+
+# ── test_lua_generic_for ────────────────────────────────────
+# `for k, v in t do` over a plain table - the Lua 5.0 form 1.12's FrameXML is
+# written in. It raised on the vendored 5.1, and raising while a file is read
+# takes the whole file with it: six of FrameXML's died on this one construct,
+# the player, target and party frames among them.
+add_executable(test_lua_generic_for
+    test_lua_generic_for.cpp
+)
+target_include_directories(test_lua_generic_for PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_lua_generic_for SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/extern/lua-5.1.5/src)
+target_link_libraries(test_lua_generic_for PRIVATE catch2_main lua51)
+wowee_test_link_glm(test_lua_generic_for)
+add_test(NAME lua_generic_for COMMAND test_lua_generic_for)
+register_test_target(test_lua_generic_for)
+
+# ── test_lua_arg_coercion ───────────────────────────────────
+# The lenient numeric argument, which is a pure function of the Lua stack and
+# so needs no game, window or interface - while the fault it prevents is
+# invisible at every other level: a raise inside a click handler is swallowed,
+# so an auction search that never sent looked exactly like one that found
+# nothing.
+add_executable(test_lua_arg_coercion
+    test_lua_arg_coercion.cpp
+)
+target_include_directories(test_lua_arg_coercion PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_lua_arg_coercion SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/extern/lua-5.1.5/src)
+target_link_libraries(test_lua_arg_coercion PRIVATE catch2_main lua51)
+wowee_test_link_glm(test_lua_arg_coercion)
+add_test(NAME lua_arg_coercion COMMAND test_lua_arg_coercion)
+register_test_target(test_lua_arg_coercion)
+
+# ── test_addon_lua_snippets ──────────────────────────────────
+# The Lua this client injects into the interface lives as C++ string literals,
+# which nothing compiles until the client runs - and a syntax error there is a
+# false from executeString and a line in a warning-only log. This asks Lua
+# whether they parse.
+add_executable(test_addon_lua_snippets
+    test_addon_lua_snippets.cpp
+    ${TEST_COMMON_SOURCES}
+)
+target_include_directories(test_addon_lua_snippets PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_addon_lua_snippets SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/extern/lua-5.1.5/src)
+target_link_libraries(test_addon_lua_snippets PRIVATE catch2_main lua51)
+add_test(NAME addon_lua_snippets COMMAND test_addon_lua_snippets)
+register_test_target(test_addon_lua_snippets)
+
+set_tests_properties(lua_handler_globals lua_generic_for lua_arg_coercion addon_lua_snippets PROPERTIES LABELS "headless")

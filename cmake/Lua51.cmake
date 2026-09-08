@@ -30,3 +30,9 @@ if(ANDROID)
     target_compile_options(lua51 PRIVATE -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0)
 endif()
 
+# Instrument the VM itself; executable-only flags miss faults inside Lua.
+# The link requirement propagates to every consumer of the static library.
+if(WOWEE_ENABLE_ASAN AND NOT MSVC)
+    target_compile_options(lua51 PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+    target_link_options(lua51 INTERFACE -fsanitize=address,undefined)
+endif()

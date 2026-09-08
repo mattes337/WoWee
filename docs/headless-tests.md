@@ -1,11 +1,12 @@
 # Headless tests
 
 `WOWEE_HEADLESS_TESTS_ONLY=ON` builds the real Catch2 packet, bit-packet,
-spline interpolation/body/facing, widget layout, text-edit, escape-action and
-XML parser/emitter/takeover and settings-panel layout tests. These same targets remain in normal client
-builds; their shared definition is `cmake/HeadlessTests.cmake`.
+spline interpolation/body/facing, widget layout, text-edit, escape-action,
+XML parser/emitter/takeover, settings-panel layout, ready-check state and Lua
+VM/API/snippet tests. These same targets remain in normal client builds; their
+shared definition is `cmake/HeadlessTests.cmake`.
 
-Only a C++20 toolchain, CMake 3.15+ and GLM are required. Catch2 is vendored.
+Only a C++20 toolchain, CMake 3.15+ and GLM are required. Catch2 and Lua 5.1.5 are vendored.
 No Vulkan headers/loader, SDL, shader compiler, OpenSSL, game assets, window,
 GPU or server is required. The client/editor and the remaining dependency-heavy
 tests are deliberately excluded. This does not certify rendered UI or gameplay.
@@ -23,14 +24,20 @@ There is no required hardcoded vcpkg path. `WOWEE_BUILD_TESTS=OFF` together with
 headless-only mode is rejected as a configuration error.
 
 On GCC/Clang, add `-DWOWEE_ENABLE_ASAN=ON` for AddressSanitizer and UBSan.
-The common logger object and Catch2 library are instrumented as well as tests.
+The common logger object, Catch2 library and Lua VM are instrumented as well
+as tests.
 MSVC sanitizer support is unchanged and this option does not enable it there.
 
 The independent `Headless tests` CI workflow uses an Ubuntu 24.04 container with
 only compiler/CMake/GLM packages. It checks that Vulkan headers and glslc are
 absent, disables Vulkan package discovery, builds with sanitizers, and runs every
 configured test. The existing `Build` workflow retains graphics dependencies.
-`ctest -L headless` selects this subset in a full build as well.
+A separate Windows 2022 job builds the Debug suite using GLM 1.0.1 pinned to
+commit `0af55ccecd98d4e5a8d1fad7de25ba429d60e863`, installed as a header-only
+CMake package. Both jobs run the source-identity regression and attach CTest
+and configure diagnostics on failure. `ctest -L headless` selects this subset
+in a full build as well. GPU/FrameXML runtime and local-emulator CI gates are
+still separate, unverified work under TEST-10.
 
 ## Local validation, 2026-09-08
 
