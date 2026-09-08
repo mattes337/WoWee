@@ -3,7 +3,7 @@
   "scope": "paired preview rasterizer-discard diagnostic; not normal-preview or gameplay certification",
   "binary_sha256": "014c5317e5a261d4c8efe0ab0a6a2a6294270199784004e57ce7e6678bd6d817",
   "source_revision_reported_by_binary": "2e8d6a92e5dca18ddffdd6ba8824c48d7b7b1b35",
-  "source_identity_note": "The embedded revision is configure-time identity; the exact shared binary hash binds this pair more strongly.",
+  "source_identity_note": "The embedded revision predates source changes known to be present in this binary and therefore does not bind its exact source contents. The exact shared binary hash binds this pair to one executable.",
   "common": {
     "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
     "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
