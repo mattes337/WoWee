@@ -1,0 +1,431 @@
+{
+  "opcodes": {
+    "CMSG_FRIEND_LIST": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Classic split social-list protocol. requestContactList branches on isClassicLikeExpansion; WotLK uses CMSG_CONTACT_LIST/SMSG_CONTACT_LIST.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "CMSG_MOVE_FLIGHT_ACK": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "TBC map contains this forced-flight family; WotLK movement_handler.cpp registers SET_CAN_FLY/UNSET_CAN_FLY and their acknowledgments separately.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_ATTACKSWING_NOTSTANDING": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Mapped by Classic/TBC, absent in WotLK map; version-specific combat failure registration. Live failure behavior remains unverified.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_CLEAR_EXTRA_AURA_INFO": {
+      "disposition": "intentional alternate registration",
+      "owner": "BOTH-07",
+      "reason": "TBC spelling has WotLK _OBSOLETE counterpart already separately registered in spell_handler.cpp; no global alias change because profile meanings require care.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_FRIEND_LIST": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Classic split social-list protocol. requestContactList branches on isClassicLikeExpansion; WotLK uses CMSG_CONTACT_LIST/SMSG_CONTACT_LIST.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_IGNORE_LIST": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Classic split social-list protocol. requestContactList branches on isClassicLikeExpansion; WotLK uses CMSG_CONTACT_LIST/SMSG_CONTACT_LIST.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LEVELUP_INFO_ALT": {
+      "disposition": "redundant alternate registration",
+      "owner": "EVAL-05",
+      "reason": "Same handler loop also registers SMSG_LEVELUP_INFO, which is mapped for WotLK. ALT is not mapped by any shipped profile; trace provenance before deleting.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LFG_AUTOJOIN_FAILED": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LFG_AUTOJOIN_FAILED_NO_PLAYER": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LFG_LEADER_IS_LFM": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LFG_OTHER_TIMEDOUT": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LFG_PENDING_INVITE": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LFG_PENDING_MATCH": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LFG_PENDING_MATCH_DONE": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LFG_TIMEDOUT": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LFG_UPDATE": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LFG_UPDATE_LFG": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LFG_UPDATE_LFM": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_LFG_UPDATE_QUEUED": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_MEETINGSTONE_COMPLETE": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_MEETINGSTONE_IN_PROGRESS": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_MEETINGSTONE_JOINFAILED": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_MEETINGSTONE_LEAVE": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_MEETINGSTONE_MEMBER_ADDED": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_MEETINGSTONE_SETQUEUE": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "Legacy LFG/meetingstone handler or skip registration; WotLK social_handler.cpp registers the separate LFG role/proposal/player/party packet family. No WotLK mapping invented for legacy messages.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_MOVE_SET_FLIGHT": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "TBC map contains this forced-flight family; WotLK movement_handler.cpp registers SET_CAN_FLY/UNSET_CAN_FLY and their acknowledgments separately.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_MOVE_UNSET_FLIGHT": {
+      "disposition": "unsupported-version operation",
+      "owner": "EXPANSION-01",
+      "reason": "TBC map contains this forced-flight family; WotLK movement_handler.cpp registers SET_CAN_FLY/UNSET_CAN_FLY and their acknowledgments separately.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_SERVER_MESSAGE": {
+      "disposition": "required behavior review",
+      "owner": "EVAL-05",
+      "reason": "SMSG_CHAT_SERVER_MESSAGE is mapped and separately handled, but it discards message type while the unmapped SMSG_SERVER_MESSAGE handler uses shutdown/restart types. Confirm original behavior and consolidate with a regression; map absence alone is not proof of a missing packet.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_SET_EXTRA_AURA_INFO_NEED_UPDATE": {
+      "disposition": "intentional alternate registration",
+      "owner": "BOTH-07",
+      "reason": "TBC spelling has WotLK _OBSOLETE counterpart already separately registered in spell_handler.cpp; no global alias change because profile meanings require care.",
+      "validation": "static source/map review; live protocol scenario pending"
+    },
+    "SMSG_UPDATE_AURA_DURATION": {
+      "disposition": "unsupported-version operation",
+      "owner": "BOTH-07",
+      "reason": "TBC duration message; WotLK uses SMSG_AURA_UPDATE/SMSG_AURA_UPDATE_ALL. Validate aura duration behavior in BOTH-07.",
+      "validation": "static source/map review; live protocol scenario pending"
+    }
+  },
+  "apis": {
+    "CalendarEventCanEdit": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventGetInviteSortCriterion": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventGetSelectedInvite": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventSelectInvite": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventGetTextures": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarContextEventClipboard": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarNewGuildAnnouncement": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarContextEventCopy": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarContextEventPaste": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarContextEventComplain": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarNewArenaTeamEvent": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventSortInvites": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventGetInviteResponseTime": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventSignUp": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventAvailable": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventTentative": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventDecline": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventHasPendingInvite": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventGetCalendarType": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventSetAutoApprove": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventClearAutoApprove": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventSetLocked": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventClearLocked": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarEventRemoveInvite": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarCanAddEvent": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CalendarMassInviteArenaTeam": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-04",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "VehicleAimRequestNormAngle": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-05",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "GetVehicleUIIndicator": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-05",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "GetVehicleUIIndicatorSeat": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-05",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CanEjectPassengerFromSeat": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-05",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "UnitSwitchToVehicleSeat": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-05",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "CanSwitchVehicleSeat": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-05",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "EjectPassengerFromSeat": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-05",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "PickupEquipmentSet": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-13, BOTH-15",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "ReplaceTradeEnchant": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-13, BOTH-15",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "EndRefund": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-13, BOTH-15",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "EndBoundTradeable": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-13, BOTH-15",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "GameMovieFinished": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-03",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "LOCAL_Function_Environment_Manager": {
+      "disposition": "false positive: local helper",
+      "owner": "API-01",
+      "reason": "RestrictedExecution.lua:722 initializes two locals from CreateRestrictedEnvironment(); lines 777 and 824 invoke the second local. The scanner does not recognize multiple local assignment. No client API is required."
+    },
+    "GetMinigameState": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-22",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "GetMinigameType": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-22",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "DeclineLevelGrant": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-22",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "AcceptLevelGrant": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-22",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "GetVoiceSessionMemberInfoBySessionID": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-22",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "MovieRecording_IsCodecSupported": {
+      "disposition": "platform-dependent candidate",
+      "owner": "BOTH-22",
+      "reason": "Called by MacOptionsFrame.lua; movie recording differs from playback. Preserve BOTH-22 ownership until platform and stock interface provenance are established."
+    },
+    "MovieRecording_GetProgress": {
+      "disposition": "platform-dependent candidate",
+      "owner": "BOTH-22",
+      "reason": "Called by MacOptionsFrame.lua; movie recording differs from playback. Preserve BOTH-22 ownership until platform and stock interface provenance are established."
+    },
+    "GMSurveyAnswerSubmit": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-22",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "GMSurveyCommentSubmit": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-22",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    },
+    "GMSurveySubmit": {
+      "disposition": "unresolved static candidate",
+      "owner": "BOTH-22",
+      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+    }
+  }
+}

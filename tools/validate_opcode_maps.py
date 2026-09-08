@@ -59,7 +59,7 @@ def collect_code_refs(root: Path) -> Set[str]:
         "src/game/opcode_table.cpp",
     }
     for p in list(root.glob("src/**/*.cpp")) + list(root.glob("include/**/*.hpp")):
-        rel = p.as_posix()
+        rel = p.relative_to(root).as_posix()
         if rel in skip_suffixes:
             continue
         text = p.read_text(errors="ignore")
@@ -71,6 +71,10 @@ def collect_code_refs(root: Path) -> Set[str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", default=".")
+    parser.add_argument("--expansion", action="append", default=[],
+                        help="Validate only this expansion (repeatable).")
+    parser.add_argument("--required-opcodes", type=Path,
+                        help="JSON object mapping expansion names to reviewed required opcode lists; requires --expansion.")
     parser.add_argument(
         "--strict-required",
         action="store_true",
@@ -82,6 +86,24 @@ def main() -> int:
     canonical_path = root / "Data/opcodes/canonical.json"
     aliases_path = root / "Data/opcodes/aliases.json"
     expansions_dir = root / "Data/expansions"
+    available = {p.parent.name for p in iter_expansion_files(expansions_dir)}
+    if set(args.expansion) - available:
+        parser.error("Unknown expansion: " + ", ".join(sorted(set(args.expansion) - available)))
+    requirements = None
+    if args.required_opcodes:
+        if not args.expansion:
+            parser.error("--required-opcodes requires --expansion")
+        try:
+            requirements = json.loads(args.required_opcodes.read_text(encoding="utf-8"))
+            if not isinstance(requirements, dict):
+                raise ValueError("expected an object")
+            for expansion in args.expansion:
+                names = requirements.get(expansion)
+                if not isinstance(names, list) or not names or any(
+                        not isinstance(n, str) or not RE_OPCODE_NAME.fullmatch(n) for n in names):
+                    raise ValueError(f"{expansion}: expected a nonempty opcode list")
+        except (OSError, ValueError) as error:
+            parser.error(f"Invalid required opcode contract: {error}")
 
     enum_names = read_canonical_data(canonical_path)
     aliases = read_alias_data(aliases_path)
@@ -110,12 +132,19 @@ def main() -> int:
     print(f"Opcode:: code references: {len(code_refs)}")
 
     for exp_file in iter_expansion_files(expansions_dir):
+        if args.expansion and exp_file.parent.name not in args.expansion:
+            continue
         names = load_expansion_names(exp_file)
         canonical_names = {canonicalize(n, aliases) for n in names}
         unknown = sorted(n for n in canonical_names if n not in enum_names)
         missing_required = sorted(
             n for n in code_refs if canonicalize(n, aliases) not in canonical_names
         )
+        strict_missing = missing_required
+        if requirements is not None:
+            strict_missing = sorted(n for n in requirements[exp_file.parent.name]
+                                    if canonicalize(n, aliases) not in canonical_names)
+            print(f"  reviewed requirement scope: {len(requirements[exp_file.parent.name])} names; missing={len(strict_missing)}")
 
         # Detect multiple raw names collapsing to one canonical name.
         collisions: Dict[str, List[str]] = {}
@@ -137,10 +166,10 @@ def main() -> int:
                 f"{exp_file.parent.name}: unknown canonical names after aliasing: "
                 f"{len(unknown)} (sample: {unknown[:10]})"
             )
-        if missing_required and args.strict_required:
+        if strict_missing and args.strict_required:
             problems.append(
-                f"{exp_file.parent.name}: missing required opcodes from implementation refs: "
-                f"{len(missing_required)} (sample: {missing_required[:10]})"
+                f"{exp_file.parent.name}: missing required opcodes: "
+                f"{len(strict_missing)} (sample: {strict_missing[:10]})"
             )
         elif missing_required:
             print(
