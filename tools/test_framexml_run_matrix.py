@@ -14,6 +14,7 @@ class ClassificationTests(unittest.TestCase):
     def test_crashes_and_timeout_are_not_expected_error_handling(self):
         for code, expected in [(None, "timeout"), (-11, "crash"), (0xC0000005, "crash")]:
             self.assertEqual(classify(code, "marker", "marker", True, True), expected)
+        self.assertEqual(classify(3, "marker\nAssertion failed: native invariant", "marker", True, True), "crash")
 
     def test_failed_baseline_makes_later_negative_exit_inconclusive(self):
         self.assertEqual(classify(1, "marker", "marker", False, True), "inconclusive_failing_baseline")

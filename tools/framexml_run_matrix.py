@@ -28,6 +28,9 @@ def classify(returncode: int | None, output: str, marker: str,
         return "timeout"
     if returncode < 0 or returncode >= 0x80000000:
         return "crash"
+    if any(marker in output for marker in ("Assertion failed:", "abort() has been called",
+                                           "terminate called after throwing")):
+        return "crash"
     if expected_success:
         return "pass" if returncode == 0 and marker in output else "failed_baseline"
     if returncode == 0:
