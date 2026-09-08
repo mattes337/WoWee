@@ -39,41 +39,57 @@ and configure diagnostics on failure. `ctest -L headless` selects this subset
 in a full build as well. GPU/FrameXML runtime and local-emulator CI gates are
 still separate, unverified work under TEST-10.
 
-## Local validation, 2026-09-08
+## Current local validation, 2026-09-08
 
-MSVC 19.44.35224.0, Windows SDK 10.0.26100.0, fresh
-`build-headless-20260908`, Debug: configure/build succeeded; all 10 initial
-CTest tests passed with Vulkan and VulkanHeaders discovery disabled. GLM was
-resolved from the retained local dependency prefix. This execution required no
-Vulkan headers, shader compiler, DLLs from SDL/OpenSSL, game data or GPU context.
-The original spline-body fixture included an unused Application singleton stub;
-removing that dead dependency lets its real parsing assertions compile headlessly.
+Two fresh builds include the Lua error observer, FrameXML runner failure
+contract, settings-panel literal fix and on-demand root-anchor geometry fix.
+The configured CTest count comes from CMake/CTest, not a source-file estimate.
 
-The full Windows client remains outside this validation. A follow-up fix splits
-the oversized raw literals in `addon_lua_snippets.hpp` into adjacent tokens to
-avoid MSVC C2026 while preserving all 16 concatenated snippet strings byte for
-byte. The settings-panel layout fixture now builds and passes in headless MSVC
-Debug as well; it failed to compile before that fix.
+| Check | Windows | Minimal Linux container |
+|---|---|---|
+| Headless configure/build/CTest | MSVC 19.44.35224.0, Debug: **19/19 pass** | GNU 13.3.0, Debug, ASAN + UBSan: **19/19 pass** |
+| Source identity regression | 1 pass | 1 pass |
+| Capability scanner regressions | 6 pass | 6 pass |
+| Capability inventory regressions | 6 pass | 6 pass |
+| Opcode generator stability | 4 pass | 4 pass |
+| Donor evidence capture | 7 pass, 1 explicit skip | 8 pass |
+| Evaluation-data audit | 1 pass | 1 pass |
+| CVar dispatcher compile/run | 13 checked cases pass | 13 checked cases pass |
+| FrameXML CLI matrix classification/fixture | 5 pass | 5 pass |
+| Windows runtime install fixture | 1 test / 3 generator-output scenarios pass | Windows job only |
+| Native DLL bundler | 4 pass, including real compiled two-DLL chain | Windows job only |
 
+The Windows donor skip is `test_symlink_source_is_rejected`: creating symlinks
+was unavailable on this host. The corresponding Linux case passed. No CTest
+tests were skipped on either host.
 
-The no-Vulkan CI environment was also reproduced locally with Docker: Ubuntu
-24.04 image `sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517`,
-GNU 13.3.0, and only `cmake make g++ libglm-dev` installed. Both
-`/usr/include/vulkan/vulkan.h` and `/usr/bin/glslc` were asserted absent before
-configuration; `CMAKE_DISABLE_FIND_PACKAGE_Vulkan=TRUE` and
-`CMAKE_DISABLE_FIND_PACKAGE_VulkanHeaders=TRUE` were also supplied. A fresh
-Debug build with `WOWEE_ENABLE_ASAN=ON` passed all 11 then-configured tests
-(the initial 10 plus ready-check state). The subsequent Windows Debug run
-passed all 13 configured tests, including settings-panel layout and the
-ready-check member helper. The remote GitHub Actions job has not been executed
-from this workspace.
+The Linux run used Ubuntu 24.04 image
+`sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517`, a read-only
+source mount, and only `ca-certificates git cmake make g++ libglm-dev python3`
+installed. Both `/usr/include/vulkan/vulkan.h` and `/usr/bin/glslc` were asserted
+absent, and Vulkan/VulkanHeaders package discovery was disabled. The entire
+container ran with `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`; this fresh
+run supersedes the earlier sanitizer run that used default UBSan recovery.
+Its source HEAD at setup was `81e66a4477214271ec4410b16da9b67366bc7943`; the six
+inventory regressions were then rerun after `8d506ed6f` in the same container.
 
+The Windows build uses the pinned GLM 1.0.1 header-only installation recipe
+from CI, with Windows SDK 10.0.26100.0 and Vulkan discovery disabled. It needs
+no SDL/OpenSSL DLLs or game data. Saved local transcripts:
 
-After sharing and instrumenting the vendored Lua VM, a fresh no-Vulkan Ubuntu
-container run built and passed all 18 then-configured tests (including the Lua
-protected-call, handler-global, legacy iteration, argument-coercion and injected
-snippet regressions). The configure/build/CTest transcript is retained locally
-at `build-headless-20260908/linux-sanitizer-result.txt`. Windows Debug also
-passed these 18 tests using the same pinned GLM 1.0.1 installation recipe as CI.
-CI explicitly sets `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1` so a UBSan
-report fails the job; that stricter environment was added after the local run.
+- `build-headless-ci-final/windows-configure.txt`
+- `build-headless-ci-final/windows-build.txt`
+- `build-headless-ci-final/windows-ctest.txt`
+- `build-headless-ci-final/linux-ci-result.txt`
+- `build-headless-ci-final/linux-inventory-result.txt`
+
+Each Python regression runs as its own CI step, so a nonzero exit fails that
+step on both platforms. The CVar check compiles the real production dispatcher
+inside a small fixture; donor/data/scanner checks use synthetic inputs, without
+reading the real donor or game assets. Windows runtime regressions use synthetic
+DLL fixtures and a newly compiled dependency chain, without starting the client.
+
+These are local results. Hosted GitHub Actions execution, deliberately injected
+hosted-CI failure, GPU/FrameXML runtime workers and dedicated-emulator gameplay
+jobs remain unverified under TEST-10. The headless suite does not certify a
+rendered interface, real FrameXML startup or gameplay.
