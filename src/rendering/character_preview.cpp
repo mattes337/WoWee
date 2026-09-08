@@ -210,6 +210,11 @@ bool CharacterPreview::initialize(pipeline::AssetManager* am, int width, int hei
     if (!charRenderer_->initialize(vkCtx_, perFrameLayout, am, renderTarget_->getRenderPass(),
                                    renderTarget_->getSampleCount())) {
         LOG_ERROR("CharacterPreview: failed to initialize CharacterRenderer");
+        // Roll back the completed FBO and any partially-created renderer state.
+        // VkRenderTarget deliberately has no implicit Vulkan teardown, so leaving
+        // this state for a retry would leak it when createFBO replaces the target.
+        charRenderer_.reset();
+        destroyFBO();
         return false;
     }
 

@@ -181,6 +181,10 @@ void CharacterCreateScreen::initializePreview(pipeline::AssetManager* am) {
         if (preview_->initialize(am)) {
             auto* renderer = core::Application::getInstance().getRenderer();
             if (renderer) renderer->registerPreview(preview_.get());
+        } else {
+            // Leave subsequent entry attempts into retrying initialization rather
+            // than retaining a preview that never acquired a camera or renderer.
+            preview_.reset();
         }
     }
     if (preview_) preview_->resetView();
