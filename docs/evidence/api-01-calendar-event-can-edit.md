@@ -43,6 +43,7 @@ returning false before an event is opened. No fallback or unconditional
 permission was added.
 
 There is no natural public test seam for seeding the private open detail.
-Close and valid-open clearing are source-reviewed and compiled but their state
+Close and valid-open clearing are source-reviewed, with compilation still
+pending after the focused build ended in C1060 resource exhaustion. Their state
 transitions remain runtime-unverified; no test-only setter, runner command, or
 private-state hook was added to manufacture that evidence.
