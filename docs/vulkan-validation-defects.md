@@ -1,6 +1,6 @@
 # Vulkan validation defects
 
-## DEF-001 · P0 · Primary diagnostics inside a secondary-only scene subpass
+## DEF-001 Â· P0 Â· Primary diagnostics inside a secondary-only scene subpass
 
 Status: fix implemented; post-fix GPU validation pending. Parent: EVAL-01;
 related tasks: QUALITY-04, TEST-10.
@@ -42,3 +42,19 @@ was insufficient evidence before this fix. This live Vulkan check is the
 regression; no source-text assertion substitutes for command-buffer validation.
 GPU world rendering, alternative post-processing configurations, and other
 platforms remain separate validation obligations.
+
+### Post-fix intermediate run
+
+The rebuilt client completed 120 iterations, dispatched SDL_QUIT and exited 0
+with no ERROR/FATAL entries in
+`logs/fork-baseline/smoke-validation-fixed/runtime/logs/smoke.log`.
+[Sanitized result](evidence/vulkan-diagnostics-intermediate-smoke.json) preserves
+binary/log hashes and the emitted source identity (which includes a dirty suffix).
+This is clean-runtime evidence, but does **not** yet prove layer activation:
+independent wrapper review found `request_validation_layers` silently allows
+missing layers, while the prior success gate checked only the requested marker.
+The strict gate now requires the post-build enabled marker. Explicit validation
+must be required by the client and that stricter smoke must pass before closing
+this defect. Wrapper regression tests also cover inherited application override
+removal, preventing resource-root escapes and render-skip switches from leaking
+into this fresh baseline.

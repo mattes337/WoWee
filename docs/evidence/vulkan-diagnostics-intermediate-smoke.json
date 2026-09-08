@@ -1,0 +1,22 @@
+{
+  "result": "intermediate_clean_log_validation_activation_unproven",
+  "exit_code": 0,
+  "quit_dispatched": true,
+  "shutdown_completed": true,
+  "errors": [],
+  "binary_sha256": "8fe02f019c4e302da5786ef7637d79ef498f88e6136dc32ff7cdb5d6160b9cd7",
+  "input": {
+    "asset_root": "runtime/Data",
+    "manifest_sha256": "2a42c12bf244bfb6b23d97324f7d9cfa51f36281506922860636c812af6d8e91",
+    "manifest_base_path": "../../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 120,
+  "timeout_seconds": 90.0,
+  "layer_path": "VulkanSDK/1.4.357.0/Bin",
+  "source_revision": "6ed0166497e4b664dcfadf1a963bf267f1180a11-dirty",
+  "log_sha256": "9e44e43879ff15262dd5f06827ede369fb3cf5c24410eeb1321b876e41c00bd6",
+  "scope": "offline startup and normal shutdown; no visual/presented-frame/gameplay certification",
+  "original_wrapper_result": "pass",
+  "note": "Original wrapper required a requested marker only; later review found optional layer activation. This result does not close the strict Vulkan validation gate."
+}
