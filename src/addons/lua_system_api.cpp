@@ -735,6 +735,7 @@ static void applySoundCVars(lua_State* L) {
 /// with wherever the controls already were.
 
 static void pushCvarDefault(lua_State* L, const std::string& n) {
+    // Return from each match: a 128-branch else-if chain exceeds MSVC nesting limits.
     // Return sensible defaults for commonly queried CVars
     // The sound ones read back as on and at full, which is what this client
     // starts as. Volume up/down step from whatever is read here, so answering
@@ -743,11 +744,11 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Ahead of the sound_enable prefix below, which would otherwise answer it
     // "1" - that rule swallows every name it starts with, so a default of any
     // other value has to be stated before it rather than after.
-    if (n == "sound_enablesoundwhengameisinbg") lua_pushstring(L, "0");
-    else if (n.rfind("sound_enable", 0) == 0) lua_pushstring(L, "1");
-    else if (n == "sound_mastervolume" || n == "sound_musicvolume" ||
+    if (n == "sound_enablesoundwhengameisinbg") { lua_pushstring(L, "0"); return; }
+    if (n.rfind("sound_enable", 0) == 0) { lua_pushstring(L, "1"); return; }
+    if (n == "sound_mastervolume" || n == "sound_musicvolume" ||
              n == "sound_ambiencevolume") {
-        lua_pushstring(L, "1");
+        { lua_pushstring(L, "1"); return; }
     }
     // Both at their maximum, because this client has no lower setting to be
     // at. miniaudio mixes every voice it is given at the device's own rate:
@@ -757,150 +758,150 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // as a client running at its worst and was not a setting at all.
     //
     // The controls are taken off the panels; see kRemovedControlsLua.
-    else if (n == "sound_numchannels") lua_pushstring(L, "64");
-    else if (n == "sound_outputquality") lua_pushstring(L, "2");
-    else if (n == "uiscale") lua_pushstring(L, "1");
-    else if (n == "useuiscale") lua_pushstring(L, "1");
-    else if (n == "screenwidth" || n == "gxresolution") {
+    if (n == "sound_numchannels") { lua_pushstring(L, "64"); return; }
+    if (n == "sound_outputquality") { lua_pushstring(L, "2"); return; }
+    if (n == "uiscale") { lua_pushstring(L, "1"); return; }
+    if (n == "useuiscale") { lua_pushstring(L, "1"); return; }
+    if (n == "screenwidth" || n == "gxresolution") {
         auto* svc = getLuaServices(L);
         auto* win = svc ? svc->window : nullptr;
-        lua_pushstring(L, std::to_string(win ? win->getWidth() : 1920).c_str());
-    } else if (n == "screenheight" || n == "gxfullscreenresolution") {
+        { lua_pushstring(L, std::to_string(win ? win->getWidth() : 1920).c_str()); return; }
+    } if (n == "screenheight" || n == "gxfullscreenresolution") {
         auto* svc = getLuaServices(L);
         auto* win = svc ? svc->window : nullptr;
-        lua_pushstring(L, std::to_string(win ? win->getHeight() : 1080).c_str());
-    } else if (n == "nameplateshowfriends") lua_pushstring(L, "1");
-    else if (n == "nameplateshowenemies") lua_pushstring(L, "1");
-    else if (n == "sound_enablesfx") lua_pushstring(L, "1");
-    else if (n == "sound_enableerrorspeech") lua_pushstring(L, "1");
+        { lua_pushstring(L, std::to_string(win ? win->getHeight() : 1080).c_str()); return; }
+    } if (n == "nameplateshowfriends") { lua_pushstring(L, "1"); return; }
+    if (n == "nameplateshowenemies") { lua_pushstring(L, "1"); return; }
+    if (n == "sound_enablesfx") { lua_pushstring(L, "1"); return; }
+    if (n == "sound_enableerrorspeech") { lua_pushstring(L, "1"); return; }
     // One, not zero: the slider is a multiple of the original client's limit
     // and zero is not a position on it. Answering zero pinned it at minimum.
-    else if (n == "cameradistancemaxfactor") lua_pushstring(L, "1");
-    else if (n == "weatherdensity") lua_pushstring(L, "3");
-    else if (n == "particledensity") lua_pushstring(L, "1");
-    else if (n == "environmentdetail") lua_pushstring(L, "1");
+    if (n == "cameradistancemaxfactor") { lua_pushstring(L, "1"); return; }
+    if (n == "weatherdensity") { lua_pushstring(L, "3"); return; }
+    if (n == "particledensity") { lua_pushstring(L, "1"); return; }
+    if (n == "environmentdetail") { lua_pushstring(L, "1"); return; }
     // The top of the slider: this client has always drawn at 16x, so anything
     // less would be a quality setting the player never asked for.
-    else if (n == "texturefilteringmode") lua_pushstring(L, "5");
-    else if (n == "groundeffectdist") lua_pushstring(L, "140");
+    if (n == "texturefilteringmode") { lua_pushstring(L, "5"); return; }
+    if (n == "groundeffectdist") { lua_pushstring(L, "140"); return; }
     // Level 3 is 4096, which is the shadow map this client drew before the
     // setting existed. Answering the size it has always used keeps a player who
     // never touches this from being quietly downgraded by it appearing.
-    else if (n == "extshadowquality") lua_pushstring(L, "3");
+    if (n == "extshadowquality") { lua_pushstring(L, "3"); return; }
     // Clicking open ground clears the target, which is the real client's
     // behaviour and this one's. Without saying so it fell to the generic zero,
     // and zero here means sticky targeting - so the checkbox would have shown
     // itself ticked while the client went on clearing, the panel and the game
     // disagreeing about the same switch.
-    else if (n == "deselectonclick") lua_pushstring(L, "1");
+    if (n == "deselectonclick") { lua_pushstring(L, "1"); return; }
     // On, which is what this client has always done and what the real one
     // defaults to. Unset it fell to zero, so the checkbox would have shown the
     // numbers switched off while they were drawn.
-    else if (n == "enablecombattext") lua_pushstring(L, "1");
+    if (n == "enablecombattext") { lua_pushstring(L, "1"); return; }
     // The three kinds this client draws. All on, which is what it did before
     // any of them were read; unset they fell to zero, which would have shown
     // every one of these boxes unticked while the numbers were on screen.
-    else if (n == "fctdamage" || n == "fcthealing" ||
-             n == "fctdodgeparrymiss") lua_pushstring(L, "1");
+    if (n == "fctdamage" || n == "fcthealing" ||
+             n == "fctdodgeparrymiss") { lua_pushstring(L, "1"); return; }
     // The four kinds of unit this client can tell apart on a nameplate. On,
     // which is what it drew before any of them were read.
-    else if (n == "unitnameenemyplayername" || n == "unitnamefriendlyplayername" ||
+    if (n == "unitnameenemyplayername" || n == "unitnamefriendlyplayername" ||
              n == "unitnamenpc" || n == "unitnamenoncombatcreaturename")
-        lua_pushstring(L, "1");
+        { lua_pushstring(L, "1"); return; }
     // Off, as the real client has it: bars start unlocked and a player who
     // wants them held down says so.
-    else if (n == "lockactionbars") lua_pushstring(L, "0");
+    if (n == "lockactionbars") { lua_pushstring(L, "0"); return; }
     // On, which is what the tooltip has always drawn. Unset it fell to zero,
     // and that would have taken the line away the moment anything read it.
-    else if (n == "showitemlevel") lua_pushstring(L, "1");
+    if (n == "showitemlevel") { lua_pushstring(L, "1"); return; }
     // Off: trades arrive as they always have unless the player says otherwise.
-    else if (n == "blocktrades") lua_pushstring(L, "0");
+    if (n == "blocktrades") { lua_pushstring(L, "0"); return; }
     // On, which is what the aura icons have always drawn.
-    else if (n == "buffdurations") lua_pushstring(L, "1");
+    if (n == "buffdurations") { lua_pushstring(L, "1"); return; }
     // Off, which is the behaviour there has been: changing target leaves the
     // swing running and it follows to whoever is selected next.
-    else if (n == "stopautoattackontargetchange") lua_pushstring(L, "0");
+    if (n == "stopautoattackontargetchange") { lua_pushstring(L, "0"); return; }
     // On, which is what has always been printed.
-    else if (n == "showlootspam") lua_pushstring(L, "1");
+    if (n == "showlootspam") { lua_pushstring(L, "1"); return; }
     // On, as the real client has it: coming back and talking takes the flag
     // off rather than leaving it for the player to notice.
-    else if (n == "autoclearafk") lua_pushstring(L, "1");
+    if (n == "autoclearafk") { lua_pushstring(L, "1"); return; }
     // On, which is what has always been announced.
-    else if (n == "guildmembernotify") lua_pushstring(L, "1");
+    if (n == "guildmembernotify") { lua_pushstring(L, "1"); return; }
     // Off, as the real client has it: attacking an ally does nothing unless
     // the player has asked for it to mean assist.
-    else if (n == "assistattack") lua_pushstring(L, "0");
+    if (n == "assistattack") { lua_pushstring(L, "0"); return; }
     // Off, as the real client has it: the threat indicator is drawn either
     // way, and the noise is opt-in.
-    else if (n == "threatplaysounds") lua_pushstring(L, "0");
+    if (n == "threatplaysounds") { lua_pushstring(L, "0"); return; }
     // Two that were relying on the generic zero rather than saying so. Both
     // want off, so the behaviour was right - but by coincidence, and the rule
     // this file keeps proving is that a value nobody registers is a value
     // nobody has checked. Stated, they agree by construction.
-    else if (n == "autodismountflying") lua_pushstring(L, "0");
-    else if (n == "colorblindmode") lua_pushstring(L, "0");
+    if (n == "autodismountflying") { lua_pushstring(L, "0"); return; }
+    if (n == "colorblindmode") { lua_pushstring(L, "0"); return; }
     // Off, as the real client has it: a second press stops the swing unless
     // the player has asked to be protected from that.
-    else if (n == "secureabilitytoggle") lua_pushstring(L, "0");
+    if (n == "secureabilitytoggle") { lua_pushstring(L, "0"); return; }
     // Quest titles on the world map colour by difficulty out of the box, and a
     // quest whose progress changes starts being watched - both on in the real
     // client. The other two are opt-in there and stay opt-in here.
-    else if (n == "mapquestdifficulty") lua_pushstring(L, "1");
-    else if (n == "autoquestprogress") lua_pushstring(L, "1");
-    else if (n == "consolidatebuffs") lua_pushstring(L, "0");
-    else if (n == "watchframewidth") lua_pushstring(L, "0");
+    if (n == "mapquestdifficulty") { lua_pushstring(L, "1"); return; }
+    if (n == "autoquestprogress") { lua_pushstring(L, "1"); return; }
+    if (n == "consolidatebuffs") { lua_pushstring(L, "0"); return; }
+    if (n == "watchframewidth") { lua_pushstring(L, "0"); return; }
     // Nameplates and names for totems. The real client shows an enemy's totems
     // and hides your own side's, and names both when they are shown.
-    else if (n == "nameplateshowenemytotems") lua_pushstring(L, "1");
-    else if (n == "nameplateshowfriendlytotems") lua_pushstring(L, "0");
-    else if (n == "unitnameenemytotemname") lua_pushstring(L, "1");
-    else if (n == "unitnamefriendlytotemname") lua_pushstring(L, "1");
+    if (n == "nameplateshowenemytotems") { lua_pushstring(L, "1"); return; }
+    if (n == "nameplateshowfriendlytotems") { lua_pushstring(L, "0"); return; }
+    if (n == "unitnameenemytotemname") { lua_pushstring(L, "1"); return; }
+    if (n == "unitnamefriendlytotemname") { lua_pushstring(L, "1"); return; }
     // Reaction, not class, is what a world-space bar is for here; the setting
     // is offered and honoured, but green stays the default.
-    else if (n == "showclasscolorinnameplate") lua_pushstring(L, "0");
+    if (n == "showclasscolorinnameplate") { lua_pushstring(L, "0"); return; }
     // The Combat Text panel's own filters. Effects on units other than your
     // target are off in the real client; everything else here is on.
-    else if (n == "combatdamage") lua_pushstring(L, "1");
-    else if (n == "combathealing") lua_pushstring(L, "1");
-    else if (n == "combatlogperiodicspells") lua_pushstring(L, "1");
-    else if (n == "petmeleedamage") lua_pushstring(L, "1");
-    else if (n == "fctspellmechanics") lua_pushstring(L, "1");
-    else if (n == "fctspellmechanicsother") lua_pushstring(L, "0");
+    if (n == "combatdamage") { lua_pushstring(L, "1"); return; }
+    if (n == "combathealing") { lua_pushstring(L, "1"); return; }
+    if (n == "combatlogperiodicspells") { lua_pushstring(L, "1"); return; }
+    if (n == "petmeleedamage") { lua_pushstring(L, "1"); return; }
+    if (n == "fctspellmechanics") { lua_pushstring(L, "1"); return; }
+    if (n == "fctspellmechanicsother") { lua_pushstring(L, "0"); return; }
     // The camera does not keep lerping through a turn unless asked, which is
     // this client's own default, and the smoothing rate it starts at.
-    else if (n == "camerasmoothstyle") lua_pushstring(L, "0");
-    else if (n == "camerayawsmoothspeed") lua_pushstring(L, "30");
+    if (n == "camerasmoothstyle") { lua_pushstring(L, "0"); return; }
+    if (n == "camerayawsmoothspeed") { lua_pushstring(L, "30"); return; }
     // Titles on player names, as the real client shows them.
-    else if (n == "unitnameplayerpvptitle") lua_pushstring(L, "1");
+    if (n == "unitnameplayerpvptitle") { lua_pushstring(L, "1"); return; }
     // Cast bars over enemy nameplates are on; party lines float only if asked.
-    else if (n == "showvkeycastbar") lua_pushstring(L, "1");
-    else if (n == "chatbubblesparty") lua_pushstring(L, "0");
+    if (n == "showvkeycastbar") { lua_pushstring(L, "1"); return; }
+    if (n == "chatbubblesparty") { lua_pushstring(L, "0"); return; }
     // Pets and guardians, plated and named on both sides, as they ship.
-    else if (n == "nameplateshowenemypets") lua_pushstring(L, "1");
-    else if (n == "nameplateshowfriendlypets") lua_pushstring(L, "1");
-    else if (n == "nameplateshowenemyguardians") lua_pushstring(L, "1");
-    else if (n == "nameplateshowfriendlyguardians") lua_pushstring(L, "1");
-    else if (n == "unitnameenemypetname") lua_pushstring(L, "1");
-    else if (n == "unitnamefriendlypetname") lua_pushstring(L, "1");
-    else if (n == "unitnameenemyguardianname") lua_pushstring(L, "1");
-    else if (n == "unitnamefriendlyguardianname") lua_pushstring(L, "1");
+    if (n == "nameplateshowenemypets") { lua_pushstring(L, "1"); return; }
+    if (n == "nameplateshowfriendlypets") { lua_pushstring(L, "1"); return; }
+    if (n == "nameplateshowenemyguardians") { lua_pushstring(L, "1"); return; }
+    if (n == "nameplateshowfriendlyguardians") { lua_pushstring(L, "1"); return; }
+    if (n == "unitnameenemypetname") { lua_pushstring(L, "1"); return; }
+    if (n == "unitnamefriendlypetname") { lua_pushstring(L, "1"); return; }
+    if (n == "unitnameenemyguardianname") { lua_pushstring(L, "1"); return; }
+    if (n == "unitnamefriendlyguardianname") { lua_pushstring(L, "1"); return; }
     // Guild names over players are shown; your own name over your own head is
     // not, both as the real client has them.
-    else if (n == "unitnameplayerguild") lua_pushstring(L, "1");
-    else if (n == "unitnameown") lua_pushstring(L, "0");
+    if (n == "unitnameplayerguild") { lua_pushstring(L, "1"); return; }
+    if (n == "unitnameown") { lua_pushstring(L, "0"); return; }
     // Plates are kept apart unless overlapping is asked for, as they ship.
-    else if (n == "nameplateallowoverlap") lua_pushstring(L, "0");
+    if (n == "nameplateallowoverlap") { lua_pushstring(L, "0"); return; }
     // Spam filtering is on (the checkbox in front of it reads "Disable Spam
     // Filter"), and mature language filtering is off, as they ship.
-    else if (n == "spamfilter") lua_pushstring(L, "1");
-    else if (n == "profanityfilter") lua_pushstring(L, "0");
+    if (n == "spamfilter") { lua_pushstring(L, "1"); return; }
+    if (n == "profanityfilter") { lua_pushstring(L, "0"); return; }
     // Off, as it ships: a zone track stops at its end and the next one starts
     // when the zone asks for it.
-    else if (n == "sound_zonemusicnodelay") lua_pushstring(L, "0");
+    if (n == "sound_zonemusicnodelay") { lua_pushstring(L, "0"); return; }
     // The mouse speed this client starts at.
-    else if (n == "camerayawmovespeed") lua_pushstring(L, "0.2");
+    if (n == "camerayawmovespeed") { lua_pushstring(L, "0.2"); return; }
     // Not joined unless asked for, as it ships.
-    else if (n == "guildrecruitmentchannel") lua_pushstring(L, "0");
+    if (n == "guildrecruitmentchannel") { lua_pushstring(L, "0"); return; }
 
     // The uvarInfo table's own defaults, for the CVars it names that nothing
     // here answered. An unanswered CVar is not "off": GetCVar gives back
@@ -913,42 +914,42 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // interface's own statement of what each setting starts as, and a default
     // invented next to it would be a second answer to a question already
     // answered a few lines away in the file this reads.
-    else if (n == "alwaysshowactionbars") lua_pushstring(L, "0");
-    else if (n == "autoquestwatch") lua_pushstring(L, "1");
-    else if (n == "combattextfloatmode") lua_pushstring(L, "1");
-    else if (n == "displayworldpvpobjectives") lua_pushstring(L, "2");
-    else if (n == "fctauras") lua_pushstring(L, "0");
-    else if (n == "fctcombatstate") lua_pushstring(L, "0");
-    else if (n == "fctcombopoints") lua_pushstring(L, "0");
-    else if (n == "fctdamagereduction") lua_pushstring(L, "0");
-    else if (n == "fctenergygains") lua_pushstring(L, "0");
-    else if (n == "fctfriendlyhealers") lua_pushstring(L, "0");
-    else if (n == "fcthonorgains") lua_pushstring(L, "0");
-    else if (n == "fctlowmanahealth") lua_pushstring(L, "1");
-    else if (n == "fctperiodicenergygains") lua_pushstring(L, "0");
-    else if (n == "fctreactives") lua_pushstring(L, "0");
-    else if (n == "fctrepchanges") lua_pushstring(L, "0");
-    else if (n == "hidepartyinraid") lua_pushstring(L, "0");
-    else if (n == "lootundermouse") lua_pushstring(L, "0");
-    else if (n == "questfadingdisable") lua_pushstring(L, "0");
-    else if (n == "removechatdelay") lua_pushstring(L, "0");
-    else if (n == "showarenaenemycastbar") lua_pushstring(L, "1");
-    else if (n == "showarenaenemypets") lua_pushstring(L, "1");
-    else if (n == "showpartybackground") lua_pushstring(L, "0");
-    else if (n == "showpartypets") lua_pushstring(L, "1");
-    else if (n == "showtargetoftarget") lua_pushstring(L, "0");
-    else if (n == "targetoftargetmode") lua_pushstring(L, "5");
-    else if (n == "sound_enablemusic") lua_pushstring(L, "1");
-    else if (n == "chatbubbles") lua_pushstring(L, "1");
+    if (n == "alwaysshowactionbars") { lua_pushstring(L, "0"); return; }
+    if (n == "autoquestwatch") { lua_pushstring(L, "1"); return; }
+    if (n == "combattextfloatmode") { lua_pushstring(L, "1"); return; }
+    if (n == "displayworldpvpobjectives") { lua_pushstring(L, "2"); return; }
+    if (n == "fctauras") { lua_pushstring(L, "0"); return; }
+    if (n == "fctcombatstate") { lua_pushstring(L, "0"); return; }
+    if (n == "fctcombopoints") { lua_pushstring(L, "0"); return; }
+    if (n == "fctdamagereduction") { lua_pushstring(L, "0"); return; }
+    if (n == "fctenergygains") { lua_pushstring(L, "0"); return; }
+    if (n == "fctfriendlyhealers") { lua_pushstring(L, "0"); return; }
+    if (n == "fcthonorgains") { lua_pushstring(L, "0"); return; }
+    if (n == "fctlowmanahealth") { lua_pushstring(L, "1"); return; }
+    if (n == "fctperiodicenergygains") { lua_pushstring(L, "0"); return; }
+    if (n == "fctreactives") { lua_pushstring(L, "0"); return; }
+    if (n == "fctrepchanges") { lua_pushstring(L, "0"); return; }
+    if (n == "hidepartyinraid") { lua_pushstring(L, "0"); return; }
+    if (n == "lootundermouse") { lua_pushstring(L, "0"); return; }
+    if (n == "questfadingdisable") { lua_pushstring(L, "0"); return; }
+    if (n == "removechatdelay") { lua_pushstring(L, "0"); return; }
+    if (n == "showarenaenemycastbar") { lua_pushstring(L, "1"); return; }
+    if (n == "showarenaenemypets") { lua_pushstring(L, "1"); return; }
+    if (n == "showpartybackground") { lua_pushstring(L, "0"); return; }
+    if (n == "showpartypets") { lua_pushstring(L, "1"); return; }
+    if (n == "showtargetoftarget") { lua_pushstring(L, "0"); return; }
+    if (n == "targetoftargetmode") { lua_pushstring(L, "5"); return; }
+    if (n == "sound_enablemusic") { lua_pushstring(L, "1"); return; }
+    if (n == "chatbubbles") { lua_pushstring(L, "1"); return; }
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
     // itself declares as the default. Only reached before the handler exists;
     // once it does, the branch above answers from the setting itself.
-    else if (n == "autolootdefault") lua_pushstring(L, "0");
+    if (n == "autolootdefault") { lua_pushstring(L, "0"); return; }
     // On, as it is for a fresh account. The XP bar and the unit frames put
     // their whole tooltip behind this one: GameTooltip_AddNewbieTip is called
     // with noNormalText set, so with tips off it does nothing at all and
     // hovering the experience bar says nothing.
-    else if (n == "shownewbietips") lua_pushstring(L, "1");
+    if (n == "shownewbietips") { lua_pushstring(L, "1"); return; }
     // Off, which is what the real client ships and is a decision here rather
     // than an accident. GearManagerDialog_OnEvent shows GearManagerToggleButton
     // only `if ( GetCVarBool("equipmentManager") )`, and that button is the only
@@ -965,7 +966,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Answered rather than left silent so the reasoning is on record: reading
     // as off by accident and reading as off on purpose look identical from
     // Lua and are not the same thing to whoever reads this next.
-    else if (n == "equipmentmanager") lua_pushstring(L, "0");
+    if (n == "equipmentmanager") { lua_pushstring(L, "0"); return; }
     // On, which is the default interfaceoptionsframe itself declares for it:
     // `["SHOW_DISPELLABLE_DEBUFFS"] = { default = "1", ... }`. Answering
     // nothing read as off and contradicted that, so the party frames showed
@@ -975,24 +976,24 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // filter FrameXML passes and ignored it, so turning this on before would
     // have claimed a filter that does not filter - which is worse than the
     // wrong default, because it reads as working.
-    else if (n == "showdispeldebuffs") lua_pushstring(L, "1");
+    if (n == "showdispeldebuffs") { lua_pushstring(L, "1"); return; }
     // Off, also as declared. It asks the same "RAID" filter of *buffs* - only
     // the ones this character could cast - and that half is not implemented,
     // so this stays where the real client leaves it rather than being turned
     // on into a filter that would not filter.
-    else if (n == "showcastablebuffs") lua_pushstring(L, "0");
+    if (n == "showcastablebuffs") { lua_pushstring(L, "0"); return; }
     // The numbers on a unit frame's bars. A stock 3.3.5 client keeps these off
     // and shows them on mouseover; on this one they are wanted permanently,
     // which is what the Status Text interface option turns on.
     // The unit frames each ask about their own, not about "statusText" - the
     // player frame's bars carry cvar = "playerStatusText". Defaulting only the
     // general one left every bar's numbers hidden, correct text and all.
-    else if (n == "statustext" || n == "playerstatustext" ||
+    if (n == "statustext" || n == "playerstatustext" ||
              n == "targetstatustext" || n == "petstatustext" ||
              n == "partystatustext") {
-        lua_pushstring(L, "1");
+        { lua_pushstring(L, "1"); return; }
     }
-    else if (n == "statustextpercentage") lua_pushstring(L, "0");
+    if (n == "statustextpercentage") { lua_pushstring(L, "0"); return; }
     // Which stat category each column of the character sheet shows. These are
     // not preferences with a sensible fallback - UpdatePaperdollStats compares
     // the value against five names and fills the column from whichever matches,
@@ -1002,14 +1003,14 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // completion and simply had nothing to write.
     //
     // The two names below are what a fresh 3.3.5 account has.
-    else if (n == "playerstatleftdropdown")  lua_pushstring(L, "PLAYERSTAT_BASE_STATS");
-    else if (n == "playerstatrightdropdown") lua_pushstring(L, "PLAYERSTAT_MELEE_COMBAT");
+    if (n == "playerstatleftdropdown")  { lua_pushstring(L, "PLAYERSTAT_BASE_STATS"); return; }
+    if (n == "playerstatrightdropdown") { lua_pushstring(L, "PLAYERSTAT_MELEE_COMBAT"); return; }
     // Whether a conversation opens in its own window or in the chat frame.
     // "0" already behaved as "inline" - the only test is against "popout" -
     // so this changes nothing today. It is written out because the value is a
     // name rather than a number, which is the case where falling through to
     // "0" is luck rather than a default.
-    else if (n == "conversationmode") lua_pushstring(L, "inline");
+    if (n == "conversationmode") { lua_pushstring(L, "inline"); return; }
     // Who last spoke to you as a GM, and empty means nobody has.
     //
     // uiparent.lua does `if ( lastTalkedToGM ~= "" )` at login and, when that
@@ -1019,7 +1020,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     //
     // The empty string is not a placeholder here - it is the value the client
     // stores until a GM actually writes.
-    else if (n == "lasttalkedtogm") lua_pushstring(L, "");
+    if (n == "lasttalkedtogm") { lua_pushstring(L, ""); return; }
     // On, as a stock client has them. Each of these gates something off
     // entirely when it reads false, so "0" is not a quiet preference - it is
     // the feature missing with no way to ask for it back.
@@ -1044,9 +1045,9 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // So the staging flow was written deliberately and then reached by
     // nothing, because the CVar that gates every one of those eight call
     // sites answered false.
-    else if (n == "previewtalents") lua_pushstring(L, "1");
-    else if (n == "chatmousescroll") lua_pushstring(L, "1");
-    else if (n == "showkeyring")     lua_pushstring(L, "1");
+    if (n == "previewtalents") { lua_pushstring(L, "1"); return; }
+    if (n == "chatmousescroll") { lua_pushstring(L, "1"); return; }
+    if (n == "showkeyring")     { lua_pushstring(L, "1"); return; }
     // The quest tracker's filter, and it is not a preference - it is a bitmask
     // fed to bit.band. watchframe.lua starts it at 0 on load and then, on
     // VARIABLES_LOADED, overwrites it with tonumber(GetCVar("trackerFilter")).
@@ -1068,52 +1069,52 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // filled, which is why it was left set - see the override of
     // WatchFrame_GetCurrentMapQuests in AddonManager, which fills it from the
     // log's zone headers rather than from map POIs.
-    else if (n == "trackerfilter") lua_pushstring(L, "3");
+    if (n == "trackerfilter") { lua_pushstring(L, "3"); return; }
     // Manual, which is WATCHFRAME_SORT_MANUAL. Only ever compared with ==, so
     // nil was survivable here - it is answered for the same reason its
     // neighbour is, and because the sort menu's ticks read it.
-    else if (n == "trackersorting") lua_pushstring(L, "0");
+    if (n == "trackersorting") { lua_pushstring(L, "0"); return; }
     // The narrow tracker, which is what a stock client has.
     // WatchFrame_SetWidth tests `width == "0"` and takes the wide branch for
     // anything else, so nil quietly chose the wide one.
-    else if (n == "watchframewidth") lua_pushstring(L, "0");
+    if (n == "watchframewidth") { lua_pushstring(L, "0"); return; }
     // Opaque. WorldMapFrame_SetOpacity computes 0.5 + (1.0 - opacity) * 0.5,
     // which raises on a nil - and WorldMap_ToggleSizeDown calls it, so putting
     // the map into windowed mode took it down. Zero is opaque here: the
     // arithmetic reads the value as how transparent to be.
-    else if (n == "worldmapopacity") lua_pushstring(L, "0");
+    if (n == "worldmapopacity") { lua_pushstring(L, "0"); return; }
     // Half, as the arena frames have it. The same arithmetic-on-nil shape,
     // reached only if the arena addon loads, which is why it is a default
     // rather than a fix.
-    else if (n == "partybackgroundopacity") lua_pushstring(L, "0.5");
+    if (n == "partybackgroundopacity") { lua_pushstring(L, "0.5"); return; }
     // Full volume and sound on, which is what a fresh client has. These are
     // read as numbers by the sound options, where zero reads as silence
     // rather than as "unset".
-    else if (n == "sound_mastervolume")   lua_pushstring(L, "1");
-    else if (n == "sound_enableallsound") lua_pushstring(L, "1");
+    if (n == "sound_mastervolume")   { lua_pushstring(L, "1"); return; }
+    if (n == "sound_enableallsound") { lua_pushstring(L, "1"); return; }
     // On, as a stock client has it. ActionButton_SetTooltip branches on this:
     // with it off the tooltip is anchored to the right of the button itself, so
     // an action bar tooltip appeared at the bottom of the screen across the
     // icons. On, it goes through GameTooltip_SetDefaultAnchor to the
     // bottom-right corner, clear of the bar, which is where WoW puts it.
-    else if (n == "ubertooltips") lua_pushstring(L, "1");
+    if (n == "ubertooltips") { lua_pushstring(L, "1"); return; }
     // The target's cast bar, which a stock client shows. targetframe.lua tests
     // this as `if ( GetCVar("showTargetCastbar") == "0" )` and sets
     // showCastbar false - and an unrecognised name answers exactly "0" here,
     // so that branch was taken every time and the target frame is one of the
     // elements FrameXML draws by default. Nothing about it looked broken: the
     // bar was switched off by a setting nobody had touched.
-    else if (n == "showtargetcastbar") lua_pushstring(L, "1");
+    if (n == "showtargetcastbar") { lua_pushstring(L, "1"); return; }
     // Quest markers on the world map, on in a stock WotLK client. The
     // objectives checkbox reads this for its initial state, so "0" started it
     // unchecked and the markers off.
-    else if (n == "questpoi") lua_pushstring(L, "1");
+    if (n == "questpoi") { lua_pushstring(L, "1"); return; }
     // The aggro warning on the unit frames. Three is "always", which is what
     // the Display panel lists first and what a stock WotLK client ships with;
     // one is "in an instance", two "in a party", zero never. Falling through
     // to the "0" below would have left the indicator off with the option
     // reading Never, which is a preference nobody chose.
-    else if (n == "threatwarning") lua_pushstring(L, "3");
+    if (n == "threatwarning") { lua_pushstring(L, "3"); return; }
     // Only reached with no client behind the call, because GetCVar answers this
     // one from the "Chat box always visible" setting. A word, not a number: the
     // social options panel branches on it and raises on anything it does not
@@ -1124,7 +1125,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // cleared, which is a box you can click into. That is the whole of what
     // this switch does, and it is why the setting is phrased as visibility
     // rather than as a style.
-    else if (n == "chatstyle") lua_pushstring(L, "im");
+    if (n == "chatstyle") { lua_pushstring(L, "im"); return; }
     // "none", which is the word this one is switched off with - and the blanket
     // default below is a number, which is not off but a format string.
     //
@@ -1138,8 +1139,8 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Worth remembering when adding a CVar here: the fallback answers "0" for
     // everything unlisted, which is right for a flag and wrong for any setting
     // whose value is a word.
-    else if (n == "showtimestamps") lua_pushstring(L, "none");
-    else lua_pushstring(L, "0");
+    if (n == "showtimestamps") { lua_pushstring(L, "none"); return; }
+    { lua_pushstring(L, "0"); return; }
 }
 
 
