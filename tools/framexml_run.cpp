@@ -48,10 +48,16 @@
 // each expression are reported separately: an error during load is a different
 // question from an error the expression caused.
 //
-// Exit status is the number of expressions that raised, capped at 100, so a
-// script can ask "did this one still work" without reading the output.
+// All setup, addon, callback and expression failures produce a nonzero exit
+// status, capped at 100. Missing or empty requested scripts are input errors.
 
 #include "addons/addon_manager.hpp"
+#include "addons/framexml_run_contract.hpp"
+#include "core/version.hpp"
+#include <openssl/evp.h>
+#include <fstream>
+#include <iterator>
+#include <charconv>
 #include "addons/lua_services.hpp"
 #include "ui/settings_schema.hpp"
 #include "ui/settings_panel.hpp"
@@ -79,6 +85,31 @@
 #include <set>
 #include <vector>
 
+namespace {
+void printFileIdentity(const std::string& path) {
+    std::ifstream file(path, std::ios::binary);
+    EVP_MD_CTX* context = EVP_MD_CTX_new();
+    if (!file || !context || EVP_DigestInit_ex(context, EVP_sha256(), nullptr) != 1) {
+        std::printf("== identity: %s unavailable\n", path.c_str());
+        EVP_MD_CTX_free(context);
+        return;
+    }
+    char buffer[16384];
+    bool ok = true;
+    while (file.read(buffer, sizeof(buffer)) || file.gcount() > 0) {
+        if (EVP_DigestUpdate(context, buffer, static_cast<size_t>(file.gcount())) != 1) ok = false;
+    }
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int length = 0;
+    ok = ok && !file.bad() && EVP_DigestFinal_ex(context, digest, &length) == 1;
+    EVP_MD_CTX_free(context);
+    std::printf("== identity: %s sha256=", path.c_str());
+    if (ok) for (unsigned int i = 0; i < length; ++i) std::printf("%02x", digest[i]);
+    else std::printf("unavailable");
+    std::printf("\n");
+}
+}
+
 int main(int argc, char** argv) {
     // Its own log file, before anything can open one.
     //
@@ -97,10 +128,38 @@ int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
                      "usage: framexml_run <assetPath> [expression ...]\n"
-                     "  e.g. framexml_run Data 'ToggleGameMenu()'\n");
+                     "  e.g. framexml_run Data/extracted 'ToggleGameMenu()' --script:test.lua\n");
         return 2;
     }
     const std::string assetPath = argv[1];
+    std::error_code inputError;
+    if (!std::filesystem::is_directory(assetPath, inputError)) {
+        std::fprintf(stderr, "framexml_run: asset directory does not exist: %s\n", assetPath.c_str());
+        return 2;
+    }
+    if (const char* load = std::getenv("WOWEE_LOAD_FRAMEXML"); load && std::strcmp(load, "0") == 0) {
+        std::fprintf(stderr, "framexml_run: WOWEE_LOAD_FRAMEXML=0 disables the interface under test\n");
+        return 2;
+    }
+    for (int i = 2; i < argc; ++i) {
+        const std::string argument = argv[i];
+        const auto code = argument.rfind("--lua:", 0) == 0 ? argument.substr(6) : argument;
+        if (!wowee::addons::hasLuaExpression(code)) {
+            std::fprintf(stderr, "framexml_run: empty expression\n");
+            return 2;
+        }
+        if (argument.rfind("--script:", 0) == 0) {
+            if (!wowee::addons::readableRunnerScript(argument.substr(9))) {
+                std::fprintf(stderr, "framexml_run: missing, unreadable or empty script: %s\n", argument.c_str() + 9);
+                return 2;
+            }
+        }
+    }
+    std::printf("== source: %s; built %s\n", wowee::core::kSourceRevision, wowee::core::kBuildDate);
+    std::printf("== setup: assets=%s viewport=1920x1080 server=none expression-timeout-ms=5000 fallback=%s\n",
+                std::filesystem::absolute(assetPath).string().c_str(),
+                std::getenv("WOWEE_LUA_API_FALLBACK") ? std::getenv("WOWEE_LUA_API_FALLBACK") : "default");
+    printFileIdentity(assetPath + "/interface/FrameXML/FrameXML.toc");
 
     // The client's settings, so the panels the schema generates have values to
     // show. Without this every control was built against a nil: WoweeGetSetting
@@ -183,7 +242,7 @@ int main(int argc, char** argv) {
 
     mgr.setFrameXmlDir(assetPath + "/interface/FrameXML");
     mgr.scanAddons(assetPath + "/interface/AddOns");
-    mgr.loadAllAddons();
+    const bool loaded = mgr.loadAllAddons();
 
     std::printf("== load: %zu error(s)\n", errors.size());
     for (const std::string& e : errors) std::printf("   %s\n", e.c_str());
@@ -366,6 +425,8 @@ int main(int argc, char** argv) {
     if (!assetFallbackPath.empty())
         assets.setBaseFallbackPath(assetFallbackPath, assetExpansionId);
     const bool haveAssets = assets.initialize(primaryAssetPath);
+    printFileIdentity(primaryAssetPath + "/manifest.json");
+    if (!assetFallbackPath.empty()) printFileIdentity(assetFallbackPath + "/manifest.json");
     if (!haveAssets) {
         std::printf("== assets: none at %s; texture sizes are unavailable\n",
                     primaryAssetPath.c_str());
@@ -405,6 +466,7 @@ int main(int argc, char** argv) {
     relayout();
 
     int raised = 0;
+    mgr.getLuaEngine()->setChunkTimeoutMs(5000);
     for (int i = 2; i < argc; ++i) {
         const size_t before = errors.size();
         std::printf("\n== %s\n", argv[i]);
@@ -655,10 +717,12 @@ int main(int argc, char** argv) {
         // ShowUIPanel(QuestLogFrame); QuestLog_SetSelection(1) is the quest log
         // opening onto its first quest, which is exactly the path a "the
         // description is blank" report walks.
-        if (std::strncmp(argv[i], "--lua:", 6) == 0) {
+        if (std::strncmp(argv[i], "--lua:", 6) == 0 || std::strncmp(argv[i], "--script:", 9) == 0) {
             relayout();
             if (auto* engine = mgr.getLuaEngine()) {
-                const bool ok = engine->executeString(argv[i] + 6);
+                const bool script = std::strncmp(argv[i], "--script:", 9) == 0;
+                if (script) printFileIdentity(argv[i] + 9);
+                const bool ok = script ? engine->executeFile(argv[i] + 9) : engine->executeString(argv[i] + 6);
                 if (ok && errors.size() == before) {
                     std::printf("   ran\n");
                 } else {
@@ -949,6 +1013,7 @@ int main(int argc, char** argv) {
             }
             if (sym == 0) {
                 std::printf("   --bind: only single letters, ESCAPE and SPACE\n");
+                ++raised;
                 continue;
             }
             bool ran = false;
@@ -1090,7 +1155,15 @@ int main(int argc, char** argv) {
             continue;
         }
         if (std::strncmp(argv[i], "--tick:", 7) == 0) {
-            const int ticks = std::atoi(argv[i] + 7);
+            int ticks = 0;
+            const char* begin = argv[i] + 7;
+            const char* end = begin + std::strlen(begin);
+            const auto parsed = std::from_chars(begin, end, ticks);
+            if (parsed.ec != std::errc{} || parsed.ptr != end || ticks < 0 || ticks > 36000) {
+                std::printf("   --tick: requires an integer from 0 to 36000\n");
+                ++raised;
+                continue;
+            }
             relayout();
             // Move the shared clock forward with the tick loop, not just the
             // per-frame elapsed: FadingFrame and cooldown sweeps read GetTime
@@ -1117,8 +1190,13 @@ int main(int argc, char** argv) {
         // been asked of it. The client lays out every frame; this is the same
         // thing at the only granularity there is here.
         relayout();
-        mgr.runInterfaceCommand(argv[i]);
-        if (errors.size() == before) {
+        if (std::strncmp(argv[i], "--", 2) == 0) {
+            std::printf("   unknown runner option\n");
+            ++raised;
+            continue;
+        }
+        const bool ok = mgr.getLuaEngine()->executeString(argv[i]);
+        if (ok && errors.size() == before) {
             std::printf("   no error\n");
         } else {
             ++raised;
@@ -1134,5 +1212,5 @@ int main(int argc, char** argv) {
     // which is the one thing a settings file is for.
     gameScreen.saveSettings();
 
-    return raised > 100 ? 100 : raised;
+    return wowee::addons::frameXmlRunExitCode(loaded, haveAssets, errors.size(), addonFailures.size(), raised);
 }

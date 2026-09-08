@@ -329,7 +329,8 @@ std::vector<std::string> AddonManager::deferredAddonGlobals() const {
     return names;
 }
 
-void AddonManager::loadAllAddons() {
+bool AddonManager::loadAllAddons() {
+    bool frameXmlLoaded = true;
     // The original interface, when asked for. Before any addon, because addons
     // are written against a world where FrameXML has already defined its frames
     // and its several thousand functions.
@@ -377,7 +378,7 @@ void AddonManager::loadAllAddons() {
                 static_cast<float>(luaServices_.window->getHeight()));
         }
         luaEngine_.setUiSoundsSuppressed(true);
-        loadFrameXml(frameXmlDir_);
+        frameXmlLoaded = loadFrameXml(frameXmlDir_);
         luaEngine_.setUiSoundsSuppressed(false);
         // The client's own options, as a category in FrameXML's Interface
         // Options. After FrameXML rather than in the bootstrap, because
@@ -447,6 +448,7 @@ void AddonManager::loadAllAddons() {
     LOG_INFO("AddonManager: loaded ", loaded, " addons",
              (failed > 0 ? (", " + std::to_string(failed) + " failed") : ""),
              (skipped > 0 ? (", " + std::to_string(skipped) + " disabled") : ""));
+    return frameXmlLoaded && failed == 0;
 }
 
 // ---- Per-addon enable/disable (persisted) ----------------------------------
@@ -681,13 +683,14 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // before the interface, so that a script asking what a command is bound to
     // during load gets an answer. Without this the file was never read at all
     // and the key bindings list had nothing to list.
+    int lua = 0, xml = 0, failed = 0;
     if (const auto bindings = resolveChild(dir, "Bindings.xml"); !bindings.empty()) {
         if (!loadXmlFile(bindings.string(), 0)) {
+            ++failed;
             LOG_WARNING("FrameXML: could not read the key bindings: ", lastXmlError_);
         }
     }
 
-    int lua = 0, xml = 0, failed = 0;
     // Kept and printed together at the end. Spread through the log these are
     // unreadable: the reasons land among thousands of other lines, and one
     // broken script takes down every file that references it, so what matters

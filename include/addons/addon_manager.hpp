@@ -17,7 +17,8 @@ public:
 
     bool initialize(game::GameHandler* gameHandler, const LuaServices& services = {});
     void scanAddons(const std::string& addonsPath);
-    void loadAllAddons();
+    // False when FrameXML or an enabled addon failed to load.
+    bool loadAllAddons();
     /// Parse an XML file, build what it declares, and follow its includes and
     /// scripts. depth guards against a file that includes itself.
     bool loadXmlFile(const std::string& path, int depth);

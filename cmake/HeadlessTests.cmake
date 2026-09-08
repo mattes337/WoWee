@@ -215,3 +215,7 @@ add_test(NAME addon_lua_snippets COMMAND test_addon_lua_snippets)
 register_test_target(test_addon_lua_snippets)
 
 set_tests_properties(lua_handler_globals lua_generic_for lua_arg_coercion addon_lua_snippets PROPERTIES LABELS "headless")
+
+# FrameXML runner exit/failure contract shared with the runtime entrypoint.
+wowee_add_test(test_framexml_run_contract SOURCES test_framexml_run_contract.cpp)
+set_tests_properties(framexml_run_contract PROPERTIES LABELS "headless")
