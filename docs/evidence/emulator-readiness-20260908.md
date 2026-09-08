@@ -321,3 +321,25 @@ subsequent actual UI trace. No creation was attempted in this run. The driver
 exited 0 after all eight events and normal 1800-update shutdown, with no
 ERROR/FATAL messages. This capture establishes the visible empty-list state;
 character creation, world entry and gameplay gates remain open.
+
+## Character-creation attempt: live-login-05
+
+The same pinned `4b4c8c...355005` Debug binary, unchanged account A, and
+observed New Hero click (780,425) were used for a real creation trace. Auth,
+world authentication and the initial empty list succeeded. At completed
+update 300 the trace clicked New Hero. The production creation screen loaded
+the HumanMale model, composite skin and racial backdrop through
+`CharacterPreview`; **before name-entry/submission**, frame 306 failed
+`vkQueueSubmit` with `VK_ERROR_DEVICE_LOST` (-4). The driver reported an
+invalid write at address 0 and later pending-command-buffer reset validation
+errors during recovery. These observations associate the failure with opening
+the preview; they do not identify a proven renderer root cause.
+
+The client exited nonzero and the driver correctly reported **fail**. No
+character-create success response, refreshed named list, completed input trace
+or update-900 screenshot was observed. A read-only count against only the new
+DB confirmed **0 characters** after the attempt. Its logs and
+`character-count.log` are preserved under `live-login-05/`; no retry or direct
+character-table mutation was performed. Character creation and world-entry
+acceptance now have a concrete GPU failure blocker in addition to the
+separately recorded movement-map compatibility limitation.
