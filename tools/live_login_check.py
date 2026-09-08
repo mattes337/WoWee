@@ -12,6 +12,24 @@ import re
 import shutil
 import subprocess
 
+
+PREVIEW_ISOLATION_ENV = {
+    "no-backdrop": "WOWEE_TEST_PREVIEW_NO_BACKDROP",
+    "no-model-draw": "WOWEE_TEST_PREVIEW_NO_MODEL_DRAW",
+    "non-indexed-draw": "WOWEE_TEST_PREVIEW_NON_INDEXED_DRAW",
+}
+
+
+def diagnostic_mode(args, fragment_override, vertex_override):
+    modes = []
+    if args.gpu_validation:
+        modes.append("GPU-assisted validation requested")
+    if args.preview_isolation:
+        modes.append(f"preview isolation: {args.preview_isolation}")
+    if fragment_override or vertex_override:
+        modes.append("shader override")
+    return "; ".join(modes) + "; not normal-mode certification" if modes else "normal validation"
+
 from client_smoke import classify as classify_smoke
 from framexml_run_matrix import prepare_assets, sha256
 
@@ -174,9 +192,7 @@ def run(args):
         env["VK_KHRONOS_VALIDATION_VALIDATE_SYNC"] = "true"
         env["VK_KHRONOS_VALIDATION_SYNCVAL_SUBMIT_TIME_VALIDATION"] = "true"
     if args.preview_isolation:
-        variable = {"no-backdrop": "WOWEE_TEST_PREVIEW_NO_BACKDROP",
-                    "no-model-draw": "WOWEE_TEST_PREVIEW_NO_MODEL_DRAW"}[args.preview_isolation]
-        env[variable] = "1"
+        env[PREVIEW_ISOLATION_ENV[args.preview_isolation]] = "1"
     if args.screenshot:
         env["WOWEE_TEST_SCREENSHOT_PATH"] = str(args.output / "screenshot.png")
         if args.screenshot_after_updates is not None:
@@ -223,7 +239,7 @@ def run(args):
                   input_geometry={"account_x": args.account_x, "account_y": args.account_y,
                                   "basis": args.geometry_basis},
                   requested_character=args.create_name,
-                  diagnostic_mode="GPU-assisted validation requested; not normal-mode certification" if args.gpu_validation else ("shader override; not normal-mode certification" if fragment_override or vertex_override else "normal validation"),
+                  diagnostic_mode=diagnostic_mode(args, fragment_override, vertex_override),
                   preview_isolation=args.preview_isolation,
                   sync_validation_requested=args.sync_validation,
                   character_fragment_override=fragment_override,
@@ -250,7 +266,7 @@ def main():
     parser.add_argument("--screenshot", action="store_true", help="require startup capture acknowledgement; pixels need separate inspection")
     parser.add_argument("--gpu-validation", action="store_true", help="request GPU-assisted diagnostic validation; not normal-mode certification")
     parser.add_argument("--sync-validation", action="store_true", help="request synchronization and submit-time diagnostic validation")
-    parser.add_argument("--preview-isolation", choices=("no-backdrop", "no-model-draw"),
+    parser.add_argument("--preview-isolation", choices=tuple(PREVIEW_ISOLATION_ENV),
                         help="diagnostic preview isolation; cannot certify default rendering")
     parser.add_argument("--character-fragment-override", type=lambda value: Path(value).resolve(),
                         help="diagnostic SPIR-V copied only over the fresh fixture character fragment shader")

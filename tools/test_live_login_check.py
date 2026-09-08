@@ -3,7 +3,8 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from live_login_check import add_creation_trace, classify, make_trace, run
+from live_login_check import (PREVIEW_ISOLATION_ENV, add_creation_trace, classify,
+                              diagnostic_mode, make_trace, run)
 
 
 GOOD = """[INFO ] Asset manager initialized successfully
@@ -22,6 +23,17 @@ GOOD = """[INFO ] Asset manager initialized successfully
 
 
 class LiveLoginTest(unittest.TestCase):
+    def test_non_indexed_preview_isolation_is_default_off_and_uncertified(self):
+        self.assertEqual(PREVIEW_ISOLATION_ENV["non-indexed-draw"],
+                         "WOWEE_TEST_PREVIEW_NON_INDEXED_DRAW")
+        normal = SimpleNamespace(gpu_validation=False, preview_isolation=None)
+        self.assertEqual(diagnostic_mode(normal, None, None), "normal validation")
+        isolated = SimpleNamespace(gpu_validation=False,
+                                   preview_isolation="non-indexed-draw")
+        self.assertEqual(diagnostic_mode(isolated, None, object()),
+                         "preview isolation: non-indexed-draw; shader override; "
+                         "not normal-mode certification")
+
     def test_account_prefix_is_not_exact_test_account(self):
         self.assertEqual(classify(0, GOOD.replace("WOWEE_EVAL_A", "WOWEE_EVAL_A_OTHER"), 1800)["result"], "fail")
 
