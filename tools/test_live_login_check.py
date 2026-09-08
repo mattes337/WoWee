@@ -1,6 +1,7 @@
 import unittest
 import tempfile
 import subprocess
+import sys
 from unittest.mock import patch
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,6 +27,21 @@ GOOD = """[INFO ] Asset manager initialized successfully
 
 
 class LiveLoginTest(unittest.TestCase):
+    def test_missing_fragment_rejects_single_sample_mode_at_cli(self):
+        script = Path(__file__).with_name("live_login_check.py")
+        result = subprocess.run([
+            sys.executable, str(script),
+            "--binary", "unused.exe", "--assets", "unused-assets",
+            "--profiles", "unused-profiles", "--output", "unused-output",
+            "--secrets", "unused-secrets.json", "--expected-binary-sha256", "0" * 64,
+            "--account-x", "1", "--account-y", "1",
+            "--geometry-basis", "source-hypothesis",
+            "--missing-character-fragment", "--preview-single-sample",
+        ], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("missing fragment cannot reach the single-sample diagnostic marker",
+                      result.stderr)
+
     def test_external_private_output_requires_contained_fresh_child(self):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
