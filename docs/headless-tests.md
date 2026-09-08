@@ -47,3 +47,16 @@ the oversized raw literals in `addon_lua_snippets.hpp` into adjacent tokens to
 avoid MSVC C2026 while preserving all 16 concatenated snippet strings byte for
 byte. The settings-panel layout fixture now builds and passes in headless MSVC
 Debug as well; it failed to compile before that fix.
+
+
+The no-Vulkan CI environment was also reproduced locally with Docker: Ubuntu
+24.04 image `sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517`,
+GNU 13.3.0, and only `cmake make g++ libglm-dev` installed. Both
+`/usr/include/vulkan/vulkan.h` and `/usr/bin/glslc` were asserted absent before
+configuration; `CMAKE_DISABLE_FIND_PACKAGE_Vulkan=TRUE` and
+`CMAKE_DISABLE_FIND_PACKAGE_VulkanHeaders=TRUE` were also supplied. A fresh
+Debug build with `WOWEE_ENABLE_ASAN=ON` passed all 11 then-configured tests
+(the initial 10 plus ready-check state). The subsequent Windows Debug run
+passed all 13 configured tests, including settings-panel layout and the
+ready-check member helper. The remote GitHub Actions job has not been executed
+from this workspace.
