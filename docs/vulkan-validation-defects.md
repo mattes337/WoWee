@@ -223,6 +223,50 @@ Original results, stdout, client logs and character-count.log are retained at
 `8b9a49a7dc4232c659c57a41226f78141fc2918c5c2ff43d478f987c2cef711e` and
 `6fa4db4e95597dda3e099a5b1d7d06b308cb199805d7222e8b3aff823cd94ac3`.
 
+The later shader isolation in `live-login-09` and `live-login-10` did select
+the fixture binaries. `CharacterRenderer` requests the relative paths
+`assets/shaders/character.vert.spv` and `character.frag.spv`, and
+`VkShaderModule::loadFromFile` passes those paths directly to `std::ifstream`.
+The live-login driver creates a fresh runtime, replaces those exact paths, and
+launches the pinned executable with that runtime as its working directory.
+There is no binary-directory or data-manifest shader search before it.
+
+The persisted `live-login-09` runtime fragment hashes to
+`2698110bcbab8004a4038b55c5df87ddfde98b7a7655a612759d6fce9b805c84`,
+matching the recorded constant-fragment override; its vertex remains the stock
+`00496682d270a9bcc07925d37b764dc2935769ccdf91eb6b8a2c6d42c4e61e45`.
+In `live-login-10`, the fragment has the same override hash and the vertex is
+the recorded bind-pose override
+`3e5f222559c10cab3d791534c75109f23599608daf5562dee0215a35b2aeeb2f`.
+Both logs create the named character shader modules before device loss at frame
+55. The log names only the leaf files rather than their hashes, but the fresh
+runtime construction, direct working-directory resolution, result metadata and
+persisted file hashes together establish which bytes were selected. These runs
+rule out those replacement shader bodies alone; they do not rule out character
+pipeline state, descriptor binding, indexed draw inputs or pass lifecycle.
+
+A further fixture-only vertex isolation is prepared under the ignored evidence
+tree at `logs/fork-baseline/emulator/wowee-eval-20260908-af5200/shader-fixtures/`
+`index-triangle/character-index-triangle.vert.glsl` and hashes to
+`a4ab9d5759ac26b1ce206dc920294b8073b35330c1f6bbd3a72aa31cf5d7c221`;
+its compiled SPIR-V beside it at the corresponding `.spv` path hashes to
+`5c7c0578893be500c1e10e1fd839e03108225a4155ef1e6b4d69c0f37f4a4d7c`.
+Vulkan SDK 1.4.357.0 `glslc` compiled it for Vulkan 1.2 and `spirv-val` accepted
+it for the same target. Disassembly has only `gl_VertexIndex` as an input and
+`gl_Position` as an output: the shader selects one of three literal clip-space
+positions at approximately +/-0.02 NDC using `uint(gl_VertexIndex) % 3u`. It
+declares no vertex attributes,
+UBOs, SSBOs, samplers or push constants. Paired with the existing constant
+fragment SPIR-V hash
+`2698110bcbab8004a4038b55c5df87ddfde98b7a7655a612759d6fce9b805c84`,
+this removes shader reads from vertex buffers and transform/descriptor data.
+The production indexed draw calls, index-buffer reads, pipeline vertex-input
+state, descriptors bound by the command stream, render pass and submission all
+remain active, so a future outcome cannot isolate among those remaining paths.
+No client run has used this new fixture yet. An earlier prepared +/-0.75 NDC
+version was replaced before execution because repeated indexed triangles could
+have generated an artificially large fragment workload; it was never run.
+
 Independent source audit found matching preview descriptor layouts, bounded
 material ring offsets, matching 4x color/depth pipeline samples and 1x resolve,
 correct framebuffer attachment order and an explicit color-write to sampling
