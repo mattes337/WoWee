@@ -58,11 +58,17 @@ private:
     std::array<bool, NUM_KEYS> previousKeyState = {};
 
     std::array<bool, NUM_MOUSE_BUTTONS> currentMouseState = {};
+    std::array<bool, NUM_MOUSE_BUTTONS> replayMouseState = {};
     std::array<bool, NUM_MOUSE_BUTTONS> previousMouseState = {};
 
     glm::vec2 mousePosition = glm::vec2(0.0f);
     glm::vec2 previousMousePosition = glm::vec2(0.0f);
     glm::vec2 mouseDelta = glm::vec2(0.0f);
+    glm::vec2 replayMousePosition = glm::vec2(0.0f);
+    glm::vec2 replayMouseDelta = glm::vec2(0.0f);
+    bool replayMousePositionValid = false;
+    bool replayMouseDeltaPending = false;
+    bool suppressNextMouseDelta = false;
     bool mouseLocked = false;
 };
 

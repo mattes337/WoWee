@@ -23,10 +23,19 @@ cmake --build build-input-ci-validation --target test_input_trace_sdl --config R
 ctest --test-dir build-input-ci-validation -C Release -R ^input_trace_sdl$ --output-on-failure
 ```
 
-Result: 1/1 test passed in 0.09 seconds. The target contains 5 test cases with
-78 assertions, including multi-update hold/release, modifier transitions,
-focus-loss cleanup, preservation of mobile virtual keys, scope restoration,
-and disabled-by-default behavior.
+Result after the keyboard bridge: 1/1 test passed in 0.09 seconds. The target
+contained 5 test cases with 78 assertions, including multi-update hold/release,
+modifier transitions, focus-loss cleanup, preservation of mobile virtual keys,
+scope restoration, and disabled-by-default behavior.
+
+Follow-up source baseline `6993a86a6` extends the same opt-in bridge to SDL's
+polled mouse state. A first motion uses the trace's relative delta rather than
+jumping from the physical cursor; held buttons survive updates; button-event
+coordinates do not masquerade as motion; focus loss releases buttons without
+moving the cursor; and scope cleanup suppresses the transition back to the
+physical cursor for one update. Disabled replay still reports SDL's physical
+mouse state. The rebuilt target passes 110 assertions in 7 cases; CTest passes
+1/1 in 0.09 seconds.
 
 `git diff --check` passed for all implementation, registration, test, and
 evidence files.

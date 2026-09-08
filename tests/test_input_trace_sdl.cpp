@@ -89,6 +89,94 @@ TEST_CASE("ordinary pushed events do not enable held replay routing", "[input-tr
     dispatchReplay();
     CHECK_FALSE(Input::getInstance().isKeyPressed(SDL_SCANCODE_W));
     CHECK(SDL_GetModState() == KMOD_CAPS);
+
+    TestInputEvent mouse;
+    mouse.kind = TestInputEvent::Kind::MouseDown;
+    mouse.button = SDL_BUTTON_LEFT;
+    mouse.x = 999999; mouse.y = -999999;
+    REQUIRE(pushTestInputEvent(mouse, 7) == 1);
+    dispatchReplay();
+    int physicalX = 0, physicalY = 0;
+    const Uint32 physicalButtons = SDL_GetMouseState(&physicalX, &physicalY);
+    CHECK(Input::getInstance().getMousePosition() ==
+          glm::vec2(static_cast<float>(physicalX), static_cast<float>(physicalY)));
+    CHECK(Input::getInstance().isMouseButtonPressed(SDL_BUTTON_LEFT) ==
+          ((physicalButtons & SDL_BUTTON_LMASK) != 0));
+}
+
+TEST_CASE("opt-in mouse replay preserves motion, button coordinates and held state", "[input-trace][sdl][mouse]") {
+    Events events;
+    auto& input = Input::getInstance();
+    input.update();
+    TestInputReplayScope replay(true);
+
+    TestInputEvent motion;
+    motion.kind = TestInputEvent::Kind::MouseMove;
+    motion.x = 120; motion.y = 80;
+    motion.dx = 7; motion.dy = -3;
+    motion.buttons = SDL_BUTTON_LMASK;
+    REQUIRE(pushTestInputEvent(motion, 7) == 1);
+    dispatchReplay();
+    CHECK(input.getMousePosition() == glm::vec2(120.0f, 80.0f));
+    CHECK(input.getMouseDelta() == glm::vec2(7.0f, -3.0f));
+    CHECK(input.isMouseButtonPressed(SDL_BUTTON_LEFT));
+    CHECK(input.isMouseButtonJustPressed(SDL_BUTTON_LEFT));
+
+    dispatchReplay();
+    CHECK(input.getMousePosition() == glm::vec2(120.0f, 80.0f));
+    CHECK(input.getMouseDelta() == glm::vec2(0.0f));
+    CHECK(input.isMouseButtonPressed(SDL_BUTTON_LEFT));
+    CHECK_FALSE(input.isMouseButtonJustPressed(SDL_BUTTON_LEFT));
+
+    TestInputEvent release;
+    release.kind = TestInputEvent::Kind::MouseUp;
+    release.button = SDL_BUTTON_LEFT;
+    release.x = 125; release.y = 82;
+    REQUIRE(pushTestInputEvent(release, 7) == 1);
+    dispatchReplay();
+    CHECK(input.getMousePosition() == glm::vec2(125.0f, 82.0f));
+    CHECK(input.getMouseDelta() == glm::vec2(0.0f));
+    CHECK_FALSE(input.isMouseButtonPressed(SDL_BUTTON_LEFT));
+    CHECK(input.isMouseButtonJustReleased(SDL_BUTTON_LEFT));
+
+    TestInputEvent down = release;
+    down.kind = TestInputEvent::Kind::MouseDown;
+    down.button = SDL_BUTTON_RIGHT;
+    down.x = 130; down.y = 90;
+    REQUIRE(pushTestInputEvent(down, 7) == 1);
+    dispatchReplay();
+    CHECK(input.getMousePosition() == glm::vec2(130.0f, 90.0f));
+    CHECK(input.getMouseDelta() == glm::vec2(0.0f));
+    CHECK(input.isMouseButtonPressed(SDL_BUTTON_RIGHT));
+}
+
+TEST_CASE("mouse replay focus and scope cleanup avoid synthetic cursor motion", "[input-trace][sdl][mouse]") {
+    Events events;
+    auto& input = Input::getInstance();
+    input.update();
+    {
+        TestInputReplayScope replay(true);
+        TestInputEvent down;
+        down.kind = TestInputEvent::Kind::MouseDown;
+        down.button = SDL_BUTTON_LEFT;
+        down.x = 100000; down.y = -100000;
+        REQUIRE(pushTestInputEvent(down, 7) == 1);
+        dispatchReplay();
+        REQUIRE(input.isMouseButtonPressed(SDL_BUTTON_LEFT));
+
+        SDL_Event focus{};
+        focus.type = SDL_WINDOWEVENT;
+        focus.window.event = SDL_WINDOWEVENT_FOCUS_LOST;
+        REQUIRE(SDL_PushEvent(&focus) == 1);
+        dispatchReplay();
+        CHECK_FALSE(input.isMouseButtonPressed(SDL_BUTTON_LEFT));
+        CHECK(input.isMouseButtonJustReleased(SDL_BUTTON_LEFT));
+        CHECK(input.getMousePosition() == glm::vec2(100000.0f, -100000.0f));
+        CHECK(input.getMouseDelta() == glm::vec2(0.0f));
+    }
+    input.update();
+    CHECK(input.getMouseDelta() == glm::vec2(0.0f));
+    CHECK_FALSE(input.isMouseButtonPressed(SDL_BUTTON_LEFT));
 }
 
 TEST_CASE("trace input traverses the real SDL event queue with complete fields", "[input-trace][sdl]") {
