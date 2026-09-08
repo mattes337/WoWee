@@ -184,3 +184,28 @@ including multiple boundaries, `REPEAT`, `BOUNCE`, Stop/Play/Pause and
 SetLooping callbacks, bounded short-loop work, retained debt, and invalid
 deltas. This deterministic coverage does not establish live visual parity or
 close the other PORT-07 items listed above.
+
+## Stock Calendar smoothing emission
+
+The extracted stock interface has one concrete smoothing consumer.
+`Blizzard_Calendar.xml` declares `CalendarViewEventFlashTimer` as a 0.7-second
+generic animation with `smoothing="OUT"`; `Blizzard_Calendar.lua` passes that
+animation's `GetSmoothProgress()` directly to the RSVP flash texture alpha.
+The FrameXML emitter created and timed the animation but omitted its smoothing
+attribute, so the existing runtime method returned linear progress. At the
+halfway point that is 0.5 rather than the runtime's OUT-smoothed 0.75.
+
+The emitter now quotes the XML value and passes it unchanged to
+`SetSmoothing`. An exact stock-shaped regression covers `OUT`; a second case
+pins preservation of nonuppercase spelling rather than adding parser-side
+normalization. Before the fix, the focused emitter case produced the expected
+animation and duration calls but failed its `SetSmoothing("OUT")` assertion
+(**2 passed, 1 failed**). The isolated repaired FrameXML suite passes **321
+assertions in 92 cases**, and the production-Lua smoothing fixture passes its
+five assertions.
+
+No extracted stock XML or Lua uses `endDelay`, `SetEndDelay`, or
+`GetEndDelay`. The emitter currently does not pass an end-delay attribute and
+the runtime does not include it in scheduling, but this audit found no stock
+consumer that establishes the intended behavior. End-delay semantics therefore
+remain open rather than being inferred from another implementation.

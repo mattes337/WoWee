@@ -473,6 +473,8 @@ struct Emitter {
                         line(avar + ":SetOrder(" + *o + ")");
                     if (const std::string* sd = a.attr("startDelay"))
                         line(avar + ":SetStartDelay(" + *sd + ")");
+                    if (const std::string* smoothing = a.attr("smoothing"))
+                        line(avar + ":SetSmoothing(" + quote(*smoothing) + ")");
                     if (const std::string* c = a.attr("change"))
                         line(avar + ":SetChange(" + *c + ")");
                     if (a.attr("offsetX") || a.attr("offsetY")) {

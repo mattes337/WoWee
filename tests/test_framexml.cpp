@@ -1129,6 +1129,29 @@ TEST_CASE("An Animations block becomes group and animation calls",
     REQUIRE_FALSE(has(r.lua, "local __w["));
 }
 
+TEST_CASE("stock generic animation smoothing reaches its Lua animation", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"CalendarViewEventInviteListSection\">"
+        "<Animations><AnimationGroup looping=\"BOUNCE\">"
+        "<Animation name=\"CalendarViewEventFlashTimer\" duration=\"0.7\" "
+        "smoothing=\"OUT\"/>"
+        "</AnimationGroup></Animations></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    INFO(r.lua);
+    REQUIRE(has(r.lua, "CreateAnimation(\"Alpha\", \"CalendarViewEventFlashTimer\")"));
+    REQUIRE(has(r.lua, ":SetSmoothing(\"OUT\")"));
+}
+
+TEST_CASE("animation smoothing spelling is preserved", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name='Pulse'><Animations><AnimationGroup>"
+        "<Animation duration='1' smoothing='out_in'/>"
+        "</AnimationGroup></Animations></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    INFO(r.lua);
+    REQUIRE(has(r.lua, ":SetSmoothing(\"out_in\")"));
+}
+
 TEST_CASE("A TitleRegion makes a frame draggable", "[framexml][emit]") {
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"Loot\"><TitleRegion setAllPoints=\"true\"/></Frame></Ui>");
