@@ -1,0 +1,25 @@
+{
+  "result": "fail",
+  "exit_code": 1,
+  "quit_dispatched": false,
+  "shutdown_completed": false,
+  "errors": [
+    "[2026-09-08 18:27:41.439] [ERROR] Failed to create Vulkan instance: requested_layers_not_present",
+    "[2026-09-08 18:27:41.439] [ERROR] Failed to initialize Vulkan context",
+    "[2026-09-08 18:27:41.441] [FATAL] Failed to initialize window",
+    "[2026-09-08 18:27:41.441] [FATAL] Failed to initialize application"
+  ],
+  "binary_sha256": "c33e4c86f2c6857f026b9f9d1ed321edfd36c62798e82a6885b3c60f394f4f6f",
+  "input": {
+    "asset_root": "runtime/Data",
+    "manifest_sha256": "2a42c12bf244bfb6b23d97324f7d9cfa51f36281506922860636c812af6d8e91",
+    "manifest_base_path": "../../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 120,
+  "timeout_seconds": 90.0,
+  "layer_path": "fixture/empty-layer-directory",
+  "source_revision": "6c6fe7e372159572fc3b7f02bce6e5e3f5402a90-dirty",
+  "log_sha256": "ce0f078338298f6154e71c14ffae1fa6ac3bfe2a12f3b0e85d3031a899c5cb31",
+  "scope": "offline startup and normal shutdown; no visual/presented-frame/gameplay certification"
+}

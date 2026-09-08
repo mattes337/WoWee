@@ -1,8 +1,8 @@
 # Vulkan validation defects
 
-## DEF-001 Â· P0 Â· Primary diagnostics inside a secondary-only scene subpass
+## DEF-001 Ã‚Â· P0 Ã‚Â· Primary diagnostics inside a secondary-only scene subpass
 
-Status: fix implemented; post-fix GPU validation pending. Parent: EVAL-01;
+Status: fixed and verified in the bounded Windows startup smoke. Parent: EVAL-01;
 related tasks: QUALITY-04, TEST-10.
 
 The Windows Debug client completed the isolated 120-update startup smoke with
@@ -58,3 +58,17 @@ must be required by the client and that stricter smoke must pass before closing
 this defect. Wrapper regression tests also cover inherited application override
 removal, preventing resource-root escapes and render-skip switches from leaking
 into this fresh baseline.
+
+### Strict validation closure
+
+The same rebuilt binary (`c33e4c86f2c6857f026b9f9d1ed321edfd36c62798e82a6885b3c60f394f4f6f`)
+passed the [required-layer run](evidence/smoke-required-validation.json): 120
+completed iterations, normal SDL_QUIT dispatch, exit 0, the post-instance
+`Vulkan validation layers enabled` marker, and no ERROR/FATAL entries. Its
+complete log is `logs/fork-baseline/smoke-required-validation/runtime/logs/smoke.log`.
+The [missing-layer negative control](evidence/smoke-missing-validation.json)
+failed with exit 1 and `requested_layers_not_present`, confirming this binary
+and wrapper cannot silently pass without the requested validation layer.
+This closes DEF-001 for the tested startup path with the renderer fix
+`7ab2f5a7d`; it does not certify world rendering or alternative post-process
+settings. Evidence JSON preserves exact source identity and binary/log hashes.

@@ -1,0 +1,20 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "quit_dispatched": true,
+  "shutdown_completed": true,
+  "errors": [],
+  "binary_sha256": "c33e4c86f2c6857f026b9f9d1ed321edfd36c62798e82a6885b3c60f394f4f6f",
+  "input": {
+    "asset_root": "runtime/Data",
+    "manifest_sha256": "2a42c12bf244bfb6b23d97324f7d9cfa51f36281506922860636c812af6d8e91",
+    "manifest_base_path": "../../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 120,
+  "timeout_seconds": 90.0,
+  "layer_path": "VulkanSDK/1.4.357.0/Bin",
+  "source_revision": "6c6fe7e372159572fc3b7f02bce6e5e3f5402a90-dirty",
+  "log_sha256": "f35e8a3b9acf4c7606c2e4f357502ff83e247b49c33ecdd2d671dd63bcf522d4",
+  "scope": "offline startup and normal shutdown; no visual/presented-frame/gameplay certification"
+}
