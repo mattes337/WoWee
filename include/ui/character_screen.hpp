@@ -32,6 +32,7 @@ public:
     void setAssetManager(pipeline::AssetManager* am) {
         assetManager_ = am;
         previewInitialized_ = false;
+        previewInitializationFailedGuid_ = 0;
         previewGuid_ = 0;
         previewAppearanceBytes_ = 0;
         previewFacialFeatures_ = 0;
@@ -67,6 +68,7 @@ public:
         statusIsError = false;
         deleteConfirmStage = 0;
         previewInitialized_ = false;
+        previewInitializationFailedGuid_ = 0;
         previewGuid_ = 0;
         previewAppearanceBytes_ = 0;
         previewFacialFeatures_ = 0;
@@ -150,6 +152,9 @@ private:
     pipeline::AssetManager* assetManager_ = nullptr;
     std::unique_ptr<rendering::CharacterPreview> preview_;
     bool previewInitialized_ = false;
+    // Selectable characters never have GUID zero, so zero means that no
+    // initialization failure is currently suppressed.
+    uint64_t previewInitializationFailedGuid_ = 0;
     uint64_t previewGuid_ = 0;
     uint32_t previewAppearanceBytes_ = 0;
     uint8_t previewFacialFeatures_ = 0;

@@ -225,6 +225,8 @@ void CharacterScreen::render(game::GameHandler& gameHandler) {
         if (picked.clicked >= 0) {
             selectedCharacterIndex = picked.clicked;
             selectedCharacterGuid = characters[static_cast<size_t>(picked.clicked)].guid;
+            // Clicking even the selected row is an explicit preview retry.
+            previewInitializationFailedGuid_ = 0;
             saveLastCharacter(selectedCharacterGuid);
         }
         if (picked.activated >= 0) {
@@ -289,6 +291,7 @@ void CharacterScreen::render(game::GameHandler& gameHandler) {
         if (quiet("refresh", "Refresh", px(110))) {
             if (gameHandler.getState() == game::WorldState::READY ||
                 gameHandler.getState() == game::WorldState::CHAR_LIST_RECEIVED) {
+                previewInitializationFailedGuid_ = 0;
                 gameHandler.requestCharacterList();
                 setStatus("Refreshing character list...");
             }
@@ -381,6 +384,7 @@ void CharacterScreen::renderNotice(game::GameHandler& gameHandler, float screenW
         if (quiet("notice.refresh", "Refresh", px(110))) {
             if (gameHandler.getState() == game::WorldState::READY ||
                 gameHandler.getState() == game::WorldState::CHAR_LIST_RECEIVED) {
+                previewInitializationFailedGuid_ = 0;
                 gameHandler.requestCharacterList();
                 setStatus("Refreshing character list...");
             }
@@ -399,15 +403,17 @@ void CharacterScreen::renderDetails(game::GameHandler& gameHandler,
 
     // Keep the 3D preview in sync with the selected character.
     if (assetManager_ && assetManager_->isInitialized()) {
-        if (!preview_) {
+        if (!preview_ && previewInitializationFailedGuid_ != character.guid) {
             preview_ = std::make_unique<rendering::CharacterPreview>();
         }
-        if (!previewInitialized_) {
+        if (preview_ && !previewInitialized_) {
             previewInitialized_ = preview_->initialize(assetManager_);
             if (!previewInitialized_) {
                 LOG_WARNING("CharacterScreen: failed to init CharacterPreview");
                 preview_.reset();
+                previewInitializationFailedGuid_ = character.guid;
             } else {
+                previewInitializationFailedGuid_ = 0;
                 auto* renderer = core::Application::getInstance().getRenderer();
                 if (renderer) renderer->registerPreview(preview_.get());
             }

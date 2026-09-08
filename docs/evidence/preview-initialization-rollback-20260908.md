@@ -46,3 +46,12 @@ the world-renderer owner branch, or successful preview rendering. The persisted
 stdout binds the executable to source revision
 `f0411db78b04bddfe0b77a8a26f3251389a2eadf`; the compact evidence also records
 the executable and stdout SHA-256 values.
+
+The follow-up per-character failure gate suppresses automatic reinitialization
+after `CharacterPreview::initialize` fails for the currently selected nonzero
+character GUID. Selecting a different character permits one attempt; clicking
+the selected row again, refreshing the list, resetting the screen, or replacing
+the asset manager explicitly permits another. Healthy preview reuse and model
+load failures are outside this gate. A later missing-shader run must establish
+the expected reduction from repeated per-frame failures to one attempt; this
+source note does not claim that runtime result yet.
