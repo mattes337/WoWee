@@ -1,0 +1,38 @@
+{
+  "date": "2026-09-08",
+  "result": "failed-diagnostic-not-credited",
+  "source_revision_reported": "2e8d6a92e5dca18ddffdd6ba8824c48d7b7b1b35",
+  "binary_sha256": "94d344715ca15d7affabea0c436ff11c4543b6933596f08306ee63a91ed0386a",
+  "artifact_root": "logs/fork-baseline/emulator/wowee-eval-20260908-af5200/live-login-18",
+  "artifact_hashes": {
+    "result.json": "0786d902c6a53df5ab2b7d31e78b807985f081ad63ea00b4deee184e5e5634a7",
+    "stdout.log": "de1f243b2818753408f58f9e842187b50cc89304acafb7922aaa992455046887",
+    "screenshot.png": "4cba22c4b8f60436276b23e9b63bc4e651f99c5d35161a1f7afb82815b422e20"
+  },
+  "fixture": {
+    "manifest_sha256": "58e341e61011ef21d7faa5caaba4d2e4fee9eb6b4b17651592332a7d2fc74f90",
+    "manifest_base_path": "../../../../../../../Data/extracted",
+    "vertex_override_sha256": "5c7c0578893be500c1e10e1fd839e03108225a4155ef1e6b4d69c0f37f4a4d7c",
+    "fragment_override_sha256": "2698110bcbab8004a4038b55c5df87ddfde98b7a7655a612759d6fce9b805c84"
+  },
+  "diagnostic": {
+    "non_indexed_marker": true,
+    "rasterizer_discard_marker": true,
+    "validation_vuid": "VUID-VkGraphicsPipelineCreateInfo-pStages-06894",
+    "validation_error": "fragment shader stage supplied although static rasterizer discard makes fragment shader state absent",
+    "affected_pipeline_creation_reports": 5,
+    "device_loss_observed": false
+  },
+  "completed_behavior": {
+    "authentication_and_character_list_order_verified": true,
+    "world_entry_started": false,
+    "trace_events": 8,
+    "completed_updates": 1800,
+    "screenshot_after_updates": 600,
+    "exit_code": 0,
+    "clean_shutdown": true,
+    "vma_allocations_at_shutdown": 0,
+    "vma_blocks_at_shutdown": 4
+  },
+  "interpretation": "The process completed without device loss, but the discard pipeline was invalid under Vulkan validation. This run does not establish that rasterizer discard prevents the preview device loss and is not a passing diagnostic control."
+}
