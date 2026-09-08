@@ -47,7 +47,7 @@ The configured CTest count comes from CMake/CTest, not a source-file estimate.
 
 | Check | Windows | Minimal Linux container |
 |---|---|---|
-| Headless configure/build/CTest | MSVC 19.44.35224.0, Debug: **19/19 pass** | GNU 13.3.0, Debug, ASAN + UBSan: **19/19 pass** |
+| Headless configure/build/CTest | MSVC 19.44.35224.0, Debug: **20/20 pass** | GNU 13.3.0, Debug, ASAN + UBSan: **19/19 pass** |
 | Source identity regression | 1 pass | 1 pass |
 | Capability scanner regressions | 6 pass | 6 pass |
 | Capability inventory regressions | 6 pass | 6 pass |
@@ -61,7 +61,10 @@ The configured CTest count comes from CMake/CTest, not a source-file estimate.
 
 The Windows donor skip is `test_symlink_source_is_rejected`: creating symlinks
 was unavailable on this host. The corresponding Linux case passed. No CTest
-tests were skipped on either host.
+tests were skipped on either host. The Windows total includes the later
+`update_limit` smoke-helper regression (35 assertions / 4 cases), added after
+the fresh 19-test strict Linux run. That new helper has not been run on Linux
+in this validation batch.
 
 The Linux run used Ubuntu 24.04 image
 `sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517`, a read-only
@@ -79,7 +82,8 @@ no SDL/OpenSSL DLLs or game data. Saved local transcripts:
 
 - `build-headless-ci-final/windows-configure.txt`
 - `build-headless-ci-final/windows-build.txt`
-- `build-headless-ci-final/windows-ctest.txt`
+- `build-headless-ci-final/windows-ctest.txt` (fresh 19-test run)
+- `build-headless-ci-final/windows-ctest-with-update-limit.txt` (20-test run)
 - `build-headless-ci-final/linux-ci-result.txt`
 - `build-headless-ci-final/linux-inventory-result.txt`
 
