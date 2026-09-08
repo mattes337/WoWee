@@ -1,6 +1,9 @@
 import unittest
+import tempfile
+from pathlib import Path
+from types import SimpleNamespace
 
-from live_login_check import add_creation_trace, classify, make_trace
+from live_login_check import add_creation_trace, classify, make_trace, run
 
 
 GOOD = """[INFO ] Asset manager initialized successfully
@@ -16,6 +19,13 @@ GOOD = """[INFO ] Asset manager initialized successfully
 
 
 class LiveLoginTest(unittest.TestCase):
+    def test_wrong_binary_rejected_before_reading_credentials_or_creating_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / "client.exe"
+            binary.write_bytes(b"old build")
+            with self.assertRaisesRegex(ValueError, "executable hash"):
+                run(SimpleNamespace(binary=binary, expected_binary_sha256="0" * 64))
+
     def test_protocol_success_requires_every_stage_and_clean_shutdown(self):
         self.assertEqual(classify(0, GOOD, 1800)["result"], "pass")
         for line in GOOD.splitlines():

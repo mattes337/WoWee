@@ -85,6 +85,9 @@ def require_ignored(output):
 
 
 def run(args):
+    binary_hash = sha256(args.binary)
+    if binary_hash.lower() != args.expected_binary_sha256.lower():
+        raise ValueError("executable hash does not match the separately validated build")
     require_ignored(args.output)
     secret = json.loads(args.secrets.read_text(encoding="utf-8"))["account_a_password"]
     trace = make_trace(secret, args.account_x, args.account_y, args.updates)
@@ -139,7 +142,7 @@ def run(args):
         if log_path.is_file():
             log_path.write_text(log, encoding="utf-8")
         report = classify(code, log, args.updates, len(trace["events"]), args.create_name)
-    report.update(binary_sha256=sha256(args.binary), input=identity,
+    report.update(binary_sha256=binary_hash, expected_binary_sha256=args.expected_binary_sha256, input=identity,
                   updates=args.updates, timeout_seconds=args.timeout,
                   account="WOWEE_EVAL_A", auth_endpoint="127.0.0.1:3724",
                   input_geometry={"account_x": args.account_x, "account_y": args.account_y,
@@ -155,6 +158,8 @@ def main():
     for name in ("binary", "assets", "profiles", "output", "secrets"):
         parser.add_argument("--" + name, type=lambda value: Path(value).resolve(), required=True)
     parser.add_argument("--layer-path", type=lambda value: Path(value).resolve())
+    parser.add_argument("--expected-binary-sha256", required=True,
+                        help="SHA-256 from the separately validated build/capture evidence")
     parser.add_argument("--account-x", type=int, required=True)
     parser.add_argument("--account-y", type=int, required=True)
     parser.add_argument("--geometry-basis", choices=("source-hypothesis", "observed-capture"), required=True)

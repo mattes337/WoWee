@@ -243,3 +243,39 @@ testing. No pre-existing container, database, account or client-data content
 was changed. ENV-03 remains partial pending actual identified-client
 authentication, character/world entry, scenario coverage and compatible
 pathfinding data.
+
+## First identified real-client login attempt
+
+`live-login-02` used the exact capture-validated Debug executable
+`build-fork-windows/bin/Debug/wowee.exe`, SHA-256
+`9136279b449772f891f9999594eb333c49f3086bc9d787a3bf8982d7959a93a2`.
+The observed 1280x720 login screenshot placed the account field at
+467..814 by 289..326; the trace clicked (640,306), pressed Return to focus
+the password field, sent private SDL text input, and pressed Return. The
+client logged loading its fresh fixture-local login configuration and started
+authentication for dedicated account A against `127.0.0.1:3724`.
+
+The real server returned a 32-byte salt challenge, but rejected LOGON_PROOF
+with status 4. The client logged `s_nat=31`: its then-current
+`SRP::computeProofs` converts salt, A and B to natural-length BigNum arrays,
+whereas inspected AzerothCore `SRP6::VerifyChallengeResponse` hashes the
+fixed-width arrays. This is a concrete candidate cause requiring a regression
+and corrected-client rerun; no successful login is claimed. A private read-only
+query of the new database confirmed account A's verifier matches the client's
+uppercase username/password SHA-1 and little-endian exponent convention.
+No credentials, salts, verifiers or session keys are published here.
+
+The driver reported **fail**, despite process exit 0: all eight SDL events
+completed, SDL_QUIT dispatched after 1800 completed update/render iterations,
+and shutdown completed, but authentication/realm/character-list acceptance
+markers were absent and auth errors were present. The server's rejection is
+not treated as proof that the account does not exist; the challenge and
+independent new-DB account verification establish otherwise.
+
+The preceding `live-login-01` is **invalid-wrong-binary**: an older Release
+executable was selected accidentally and its owned process was stopped. Its
+fixture cwd and failed result were preserved; there is no evidence that old
+executable honored the requested config-root override. No pre-existing user
+files were restored or deleted speculatively. The driver now requires the
+SHA-256 from separate build/capture evidence and rejects a mismatched binary
+before reading credentials or creating any run output.
