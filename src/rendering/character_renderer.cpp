@@ -45,6 +45,7 @@
 #include <cmath>
 #include <filesystem>
 #include <future>
+#include <mutex>
 #include <numeric>
 #include <thread>
 #include <functional>
@@ -2498,6 +2499,19 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
     const glm::vec3 camPos = camera.getPosition();
     const float frameTimeSeconds = std::chrono::duration<float>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
+    const bool previewNonIndexedDraw = renderPassOverride_ != VK_NULL_HANDLE &&
+        core::envFlagEnabled("WOWEE_TEST_PREVIEW_NON_INDEXED_DRAW");
+    auto draw = [&](uint32_t indexCount, uint32_t firstIndex) {
+        if (previewNonIndexedDraw) {
+            static std::once_flag markerOnce;
+            std::call_once(markerOnce, [] {
+                LOG_WARNING("CharacterRenderer: preview non-indexed draw diagnostic enabled");
+            });
+            vkCmdDraw(cmd, 3, 1, 0, 0);
+        } else {
+            vkCmdDrawIndexed(cmd, indexCount, 1, firstIndex, 0, 0);
+        }
+    };
 
     // Extract frustum planes for per-instance visibility testing
     Frustum frustum;
@@ -3070,7 +3084,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 // armor pieces (chest/legs/gloves) that share identical depth.
                 vkCmdSetDepthBias(cmd, static_cast<float>(batch.materialLayer) * 0.5f, 0.0f, 0.0f);
 
-                vkCmdDrawIndexed(cmd, batch.indexCount, 1, batch.indexStart, 0, 0);
+                draw(batch.indexCount, batch.indexStart);
             }
             } // end pass loop
         } else {
@@ -3129,7 +3143,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                     pipelineLayout_, 1, 1, &materialSet, 1, &dynamicOffset);
 
-            vkCmdDrawIndexed(cmd, gpuModel.indexCount, 1, 0, 0, 0);
+            draw(gpuModel.indexCount, 0);
         }
     }
 }
