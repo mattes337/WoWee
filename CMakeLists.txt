@@ -1497,12 +1497,11 @@ if(GLSLC)
         DESTINATION bin/assets/shaders)
 endif()
 
-# On Windows, install any DLLs that were bundled into the build output dir
-# (populated by the CI workflow's DLL-bundling step before cpack runs)
+# CI bundles dependencies beside the executable before packaging. Install only
+# that configuration's DLLs flat beside the installed executable.
 if(WIN32)
-    install(DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
-        DESTINATION bin
-        FILES_MATCHING PATTERN "*.dll")
+    include(${CMAKE_SOURCE_DIR}/cmake/WindowsRuntime.cmake)
+    wowee_install_runtime_dlls(wowee)
 endif()
 
 # Linux desktop integration (launcher + icon)
