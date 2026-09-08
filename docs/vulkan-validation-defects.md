@@ -241,7 +241,7 @@ root cause and a validated correction.
 
 ## DEF-005 - P0 - Uploaded buffers lack copy-to-consumer memory dependencies
 
-Status: source-confirmed gap fixed; live synchronization regression pending.
+Status: source-confirmed gap fixed; rebuilt normal-preview replay still fails.
 Parent: QUALITY-04; related investigation: DEF-004, causality unproven.
 
 `uploadBuffer` and `uploadIntoBuffer` recorded vkCmdCopyBuffer without a
@@ -263,10 +263,12 @@ range to this allocation.
 
 This addresses default same-queue visibility; an opt-in independent transfer
 queue still requires cross-queue semaphore ordering and is not repaired by this
-barrier alone. The change is not yet established as the cause or solution of
-DEF-004's character-preview device loss. Root's synchronization-validation
-before/after replay is the required runtime regression. No source-text test is
-used as a substitute for GPU synchronization validation.
+barrier alone. Replay `live-login-12` with the rebuilt executable
+`eda45028294806f9b1a46c134e8a83db660b383b707eb5ecefef98af2e4ff752`
+still lost the device at frame 55 after receiving the named character list.
+Synchronization validation was requested but its activation was not confirmed;
+no SYNC-HAZARD message appeared. This does not establish synchronization safety,
+and the correction did not resolve DEF-004. See evidence commit `0191f4637`.
 
 ### Device-loss recovery diagnostics
 
