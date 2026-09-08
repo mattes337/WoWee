@@ -41,18 +41,40 @@ The new `animation_group_lua` CTest is shared by headless and normal builds and
 links the same vendored Lua library. The earlier frozen 24-test full-suite
 results remain evidence for their original snapshot, not this added target.
 
+## Ordered duration follow-up
+
+Stock `Data/extracted/interface/FrameXML/AlertFrames.xml` defines a shine
+`animIn` with a 0.2-second order-1 Alpha stage, then order-2 Translation lasting
+0.85 seconds in parallel with an Alpha whose 0.35-second start delay plus
+0.5-second duration also spans 0.85 seconds. The group duration is therefore
+1.05 seconds. The old implementation returned only the largest individual
+span, 0.85 seconds, because it ignored order boundaries.
+
+`GetDuration()` now takes the maximum `startDelay + duration` within each order
+and sums those order spans. Sorting the populated order keys makes the result
+deterministic while treating sparse order numbers as stages rather than empty
+time slots. The query recomputes from the animations on every call, so later
+duration and order changes are reflected.
+
+Two additional real-Lua cases cover the stock 1.05-second shape and parallel,
+sparse, and mutated order spans. With the old maximum calculation they failed
+at the stock-duration and sparse-order assertions (**18 passed, 2 failed**).
+With the repair, the isolated MSVC Debug CTest passes **20 assertions in 4
+cases**.
+
 ## Remaining PORT-07 scope
 
 The source audit also found work beyond this small repair: order is stored but
-the tick loop advances all animations together; GetDuration uses a maximum of
-startDelay+duration rather than ordered spans; endDelay is stored but not used
-by the tick; easing is exposed through GetSmoothProgress while interpolation
-uses raw progress; repeated explicit Finish calls are not guarded for exactly
-once completion. Loop overshoot, zero-duration completion callbacks, callback
-reentrancy, paused Play semantics and cleanup on hide/destruction/reload also
-need dedicated tests before making broader behavior claims.
+the tick loop still advances all animations together; endDelay is stored but
+not used by the tick; easing is exposed through GetSmoothProgress while
+interpolation uses raw progress; repeated explicit Finish calls are not guarded
+for exactly once completion. Loop overshoot, zero-duration completion callbacks,
+callback reentrancy, paused Play semantics and cleanup on
+hide/destruction/reload also need dedicated tests before making broader behavior
+claims.
 
 This change does not certify stock cast bars, pulse/fade visuals, animation
-ordering, all finish paths or live frame cleanup. PORT-07 remains open for those
-acceptance gates. Full client compilation and actual FrameXML behavior are
-separate from this real-Lua deterministic regression.
+ordering at runtime, all finish paths or live frame cleanup. Correcting the
+duration query does not sequence the tick scheduler. PORT-07 remains open for
+those acceptance gates. Full client compilation and actual FrameXML behavior
+are separate from this real-Lua deterministic regression.

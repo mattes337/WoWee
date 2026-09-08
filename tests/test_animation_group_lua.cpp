@@ -86,3 +86,51 @@ TEST_CASE("pause resume preserves elapsed time while stopped runs remain inert",
         assert(finishes == 1 and not group:IsPlaying())
     )lua");
 }
+
+TEST_CASE("stock alert shine duration sums ordered stages not parallel animations", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        -- AlertFrames.xml shine animIn: .2 stage then .85 parallel stage.
+        local g = __WoweeCreateAnimationGroup(frame)
+        local fadeIn = g:CreateAnimation('Alpha')
+        fadeIn:SetDuration(0.2)
+        fadeIn:SetOrder(1)
+        local slide = g:CreateAnimation('Translation')
+        slide:SetDuration(0.85)
+        slide:SetOrder(2)
+        local fadeOut = g:CreateAnimation('Alpha')
+        fadeOut:SetStartDelay(0.35)
+        fadeOut:SetDuration(0.5)
+        fadeOut:SetOrder(2)
+        assert(g:GetDuration() == 0.2 + 0.85, 'ordered stock shine span must total 1.05')
+        -- Observation only: do not lock the existing parallel tick defect
+        -- into a passing assertion. Duration correctness is the gate above.
+        g:Play()
+        __WoweeTickAnimations(0.85)
+        print('PORT07 ordering observation: duration=' .. g:GetDuration() ..
+              ' playing_after_0.85=' .. tostring(g:IsPlaying()))
+    )lua");
+}
+
+TEST_CASE("duration groups sparse order values and recomputes changed spans", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local g = __WoweeCreateAnimationGroup(frame)
+        assert(g:GetDuration() == 0)
+        local late = g:CreateAnimation('Animation')
+        late:SetOrder(9)
+        late:SetDuration(2)
+        local early = g:CreateAnimation('Animation')
+        early:SetOrder(3)
+        early:SetDuration(1)
+        early:SetStartDelay(0.25)
+        local parallel = g:CreateAnimation('Animation')
+        parallel:SetOrder(9)
+        parallel:SetDuration(0.5)
+        assert(g:GetDuration() == 3.25, 'missing order numbers are not time slots')
+        parallel:SetDuration(4)
+        assert(g:GetDuration() == 5.25)
+        parallel:SetOrder(3)
+        assert(g:GetDuration() == 6)
+    )lua");
+}

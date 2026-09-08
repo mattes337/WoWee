@@ -106,12 +106,20 @@ inline constexpr const char kAnimationGroupLua[] =
         "end\n"
         "function groupMeta:SetParent(p) self.parent = p end\n"
         "function groupMeta:GetParent() return self.parent end\n"
+        // Same-order animations are parallel; each successive order adds a
+        // stage. This duration query does not yet repair the tick scheduler.
         "function groupMeta:GetDuration()\n"
-        "    local total = 0\n"
+        "    local spans = {}\n"
         "    for _, a in ipairs(self.animations) do\n"
+        "        local order = a.order or 1\n"
         "        local t = (a.startDelay or 0) + (a.duration or 0)\n"
-        "        if t > total then total = t end\n"
+        "        if t > (spans[order] or 0) then spans[order] = t end\n"
         "    end\n"
+        "    local orders = {}\n"
+        "    for order in pairs(spans) do table.insert(orders, order) end\n"
+        "    table.sort(orders)\n"
+        "    local total = 0\n"
+        "    for _, order in ipairs(orders) do total = total + spans[order] end\n"
         "    return total\n"
         "end\n"
         // The frame's alpha at the moment Play is called is what an Alpha
