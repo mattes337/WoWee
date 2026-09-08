@@ -1,6 +1,7 @@
 #include <catch_amalgamated.hpp>
 
 #include "ui/widget_tree.hpp"
+#include "ui/widget_wheel.hpp"
 
 #include <limits>
 #include <string>
@@ -668,6 +669,55 @@ TEST_CASE("Only a frame that asked for the wheel takes it", "[widget][scroll]") 
     REQUIRE(hit == child);
     REQUIRE_FALSE(tree.get(child)->wheelEnabled);
     REQUIRE(tree.get(tree.get(child)->parent)->wheelEnabled);
+}
+
+TEST_CASE("Wheel dispatch reaches the actual ancestor frame and reports consumption",
+          "[widget][scroll][input]") {
+    WidgetTree tree;
+    tree.setUserScale(2.0f);
+    const uint32_t scroll = tree.create(WidgetKind::Frame, tree.root(), "WheelOwner");
+    tree.get(scroll)->wheelEnabled = true;
+    tree.get(scroll)->width = 100.0f;
+    tree.get(scroll)->height = 100.0f;
+    tree.addPoint(scroll, Anchor{"BOTTOMLEFT", 0, "BOTTOMLEFT", 0.0f, 0.0f});
+    const uint32_t child = tree.create(WidgetKind::Frame, scroll, "Child");
+    tree.get(child)->mouseEnabled = true;
+    tree.get(child)->width = 100.0f;
+    tree.get(child)->height = 100.0f;
+    tree.addPoint(child, Anchor{"BOTTOMLEFT", scroll, "BOTTOMLEFT", 0.0f, 0.0f});
+    tree.layout(1024.0f, 768.0f);
+
+    uint32_t calledWidget = 0;
+    float calledDelta = 0.0f;
+    int cameraFallbacks = 0;
+    auto route = [&](float x, float y, float delta) {
+        const bool consumed = dispatchWidgetWheel(tree, x, y, delta,
+            [&](uint32_t widget, float notch) {
+                calledWidget = widget;
+                calledDelta = notch;
+                tree.get(widget)->wheelEnabled = false;
+                tree.setParent(child, tree.root());
+            });
+        if (!consumed) ++cameraFallbacks;
+        return consumed;
+    };
+
+    CHECK(route(100.0f, 100.0f, 3.0f));
+    CHECK(calledWidget == scroll);
+    CHECK(calledDelta == 1.0f);
+    CHECK(cameraFallbacks == 0);
+
+    calledWidget = 0;
+    CHECK_FALSE(route(100.0f, 100.0f, -2.0f));
+    CHECK(calledWidget == 0);
+    CHECK(cameraFallbacks == 1);
+
+    CHECK_FALSE(route(300.0f, 300.0f, -2.0f));
+    CHECK(calledWidget == 0);
+    CHECK(cameraFallbacks == 2);
+
+    CHECK_FALSE(route(100.0f, 100.0f, 0.0f));
+    CHECK(cameraFallbacks == 3);
 }
 
 TEST_CASE("Scrolled out of sight is out of reach", "[widget][scroll][hittest]") {

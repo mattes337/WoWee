@@ -68,6 +68,7 @@ register_test_target(test_framexml_takeover)
 add_executable(test_widget_tree
     test_widget_tree.cpp
     ${CMAKE_SOURCE_DIR}/src/ui/widget_tree.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/widget_wheel.cpp
 )
 target_include_directories(test_widget_tree PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_widget_tree SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})

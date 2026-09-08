@@ -928,6 +928,7 @@ set(WOWEE_SOURCES
     src/ui/ui_manager.cpp
     src/ui/ui_upload_budget.cpp
     src/ui/widget_tree.cpp
+    src/ui/widget_wheel.cpp
     src/ui/xml_parser.cpp
     src/ui/framexml_emitter.cpp
     src/ui/framexml_takeover.cpp

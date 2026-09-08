@@ -1,5 +1,6 @@
 #include "addons/lua_error_api.hpp"
 #include "addons/lua_engine.hpp"
+#include "ui/widget_wheel.hpp"
 #include "addons/animation_group_lua.hpp"
 #include "ui/link_hit.hpp"
 #include "ui/text_markup.hpp"
@@ -10012,46 +10013,10 @@ void LuaEngine::updateScrollRanges() {
 
 bool LuaEngine::dispatchMouseWheel(float x, float y, float delta) {
     if (!L_) return false;
-    const float s = widgets_.uiScale();
-    if (s > 0.0f) { x /= s; y /= s; }
-
-    // One notch, whatever the mouse said. WoW's OnMouseWheel delta is exactly
-    // 1 or -1 and FrameXML is written against that: hybridscrollframe.lua:46
-    // is `if ( delta == 1 ) then scroll up else scroll down end`, so a wheel
-    // that reported 2 or 3 - which any brisk scroll on a trackpad or a
-    // free-spinning wheel does - fell through to the else and scrolled *down*
-    // while the hand moved up.
-    //
-    // Down never showed it. Every negative delta fails that test too and lands
-    // in the same branch, which is the branch it wanted, so down worked at any
-    // speed and up worked only when the wheel happened to send a bare 1.
-    //
-    // Sign only, and not clamped elsewhere: the camera keeps the magnitude,
-    // because how far a zoom travels is a different question from which way a
-    // list moves.
-    delta = (delta > 0.0f) ? 1.0f : (delta < 0.0f ? -1.0f : 0.0f);
-    if (delta == 0.0f) return false;
-
-    // Up from whatever is under the cursor to the first frame that asked for
-    // the wheel. WoW works the same way: a scroll frame's child fills it and
-    // takes the hit, and the scroll frame above is what handles the wheel.
-    // The wheel's own hit test. A scroll frame enables the wheel and not the
-    // mouse - UIPanelScrollFrameTemplate declares OnMouseWheel and never calls
-    // EnableMouse - so the plain hit test could not see one, and this walk
-    // started from whatever mouse-enabled child happened to be under the
-    // cursor or, over the empty parts of a panel, from nothing at all. The
-    // talent tree is all empty parts between its buttons.
-    uint32_t wid = widgets_.hitTestWheel(x, y);
-    while (wid != 0) {
-        const auto* w = widgets_.get(wid);
-        if (!w) break;
-        if (w->wheelEnabled) {
-            callFrameScriptNumber(wid, "OnMouseWheel", delta);
-            return true;
-        }
-        wid = w->parent;
-    }
-    return false;
+    return ui::dispatchWidgetWheel(widgets_, x, y, delta,
+        [this](uint32_t widget, float notch) {
+            callFrameScriptNumber(widget, "OnMouseWheel", notch);
+        });
 }
 
 bool LuaEngine::holdsMousePress() const {
