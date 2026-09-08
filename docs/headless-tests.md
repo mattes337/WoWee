@@ -3,7 +3,7 @@
 `WOWEE_HEADLESS_TESTS_ONLY=ON` builds the real Catch2 packet, bit-packet,
 spline interpolation/body/facing, widget layout, text-edit, escape-action,
 XML parser/emitter/takeover, settings-panel layout, ready-check state and Lua
-VM/API/snippet tests. These same targets remain in normal client builds; their
+VM/API/snippet, input-trace parser and screenshot-request state tests. These same targets remain in normal client builds; their
 shared definition is `cmake/HeadlessTests.cmake`.
 
 Only a C++20 toolchain, CMake 3.15+ and GLM are required. Catch2 and Lua 5.1.5 are vendored.
@@ -39,7 +39,41 @@ and configure diagnostics on failure. `ctest -L headless` selects this subset
 in a full build as well. GPU/FrameXML runtime and local-emulator CI gates are
 still separate, unverified work under TEST-10.
 
-## Current local validation, 2026-09-08
+## Input-trace validation, 2026-09-08
+
+The optional `-DWOWEE_TEST_SDL_EVENTS=ON` adds the real SDL queue fixture and
+requires an SDL2 CMake package. It initializes SDL events only, with no video,
+window or Vulkan. The default pure build still does not discover or need SDL.
+Linux CI first builds/tests the pure suite, then installs `libsdl2-dev`, asserts
+Vulkan headers/glslc remain absent, and builds/runs the optional fixture with
+ASan and strict UBSan. Hosted execution of this workflow change is unverified.
+
+Fresh isolated builds from committed snapshot
+`779c216fb51493bb6cbb330b7538ad3ba6e8f18a` passed:
+
+| Suite | Windows MSVC Debug | Ubuntu 24.04 GNU Debug ASan + UBSan |
+|---|---|---|
+| Default pure headless | 21/21 | 21/21 |
+| With optional SDL events | 22/22 | 22/22 |
+
+The Linux run used a read-only source mount, installed compiler/CMake/GLM
+before the pure stage, and added SDL only afterward. Vulkan headers/glslc were
+asserted absent at both stages; Vulkan package discovery stayed disabled.
+`UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1` applied to the entire run.
+These runs include the input parser and actual queue test; they do not establish
+OS polled input state, field focus, rendered UI outcomes or gameplay.
+
+Local evidence is under `build-input-ci-validation/`: `identity.json`,
+`windows-pure-ctest.txt`, `windows-sdl-ctest.txt`, `linux-output.txt`, and both
+`linux-*-last-test.log` files. The later `screenshot_request` target was built
+and passed separately on Windows (`windows-screenshot-ctest.txt`). For that
+focused check, the isolated source overlaid only its header, test and shared
+CMake module from `d80b4a3e9655f48fe6fe74787bb3584792a3d067`.
+`windows-current-configured-ctest.json` inventories 23 configured tests after
+that overlay; it is configuration evidence, not a combined 23-test execution.
+The normal full build also registers the SDL target when SDL2 is available.
+
+## Earlier full regression validation, 2026-09-08
 
 Two fresh builds include the Lua error observer, FrameXML runner failure
 contract, settings-panel literal fix and on-demand root-anchor geometry fix.

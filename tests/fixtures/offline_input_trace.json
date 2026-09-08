@@ -2,7 +2,7 @@
   "version": 1,
   "stop_after_updates": 12,
   "events": [
-    {"after_updates": 1, "type": "mouse_move", "x": 10, "y": 10},
+    {"after_updates": 2, "type": "mouse_move", "x": 10, "y": 10},
     {"after_updates": 2, "type": "mouse_down", "button": 1, "x": 10, "y": 10},
     {"after_updates": 3, "type": "mouse_up", "button": 1, "x": 10, "y": 10},
     {"after_updates": 4, "type": "mouse_wheel", "x": 0, "y": -1},

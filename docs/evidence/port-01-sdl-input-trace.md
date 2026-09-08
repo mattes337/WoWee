@@ -30,7 +30,8 @@ so use non-secret fixture text.
 ## Verification
 
 The pure parser/scheduler regression and real SDL event-queue fixture both pass
-with MSVC Debug. The SDL fixture initializes only SDL_INIT_EVENTS: no Vulkan,
+with MSVC Debug and fresh Ubuntu GNU Debug ASan + strict UBSan. See
+`docs/headless-tests.md` for snapshot identity and exact suite counts. The SDL fixture initializes only SDL_INIT_EVENTS: no Vulkan,
 window, original game data, or server is used. It inspects actual polled SDL
 events, including position, relative motion, button/modifier state fields,
 keycode/scancode, wheel and text values, and forces SDL event filtering to
@@ -53,3 +54,27 @@ completed iterations. A live application trace smoke remains to be executed.
 TEST-02 remains open for polled-state integration and actual UI outcome
 assertions. TEST-04 capture acknowledgement and authoritative gameplay waits
 remain separate. No screenshot event or game/server replacement was added.
+
+## ImGui event-path audit
+
+The vendored SDL backend accepts matching-window motion, buttons, keys and text
+through `ImGui_ImplSDL2_ProcessEvent` (`extern/imgui/backends/imgui_impl_sdl2.cpp`).
+Button events do not set pointer position from their x/y fields. Queue a
+`mouse_move` immediately before `mouse_down` at the same `after_updates`, then
+queue release on a later update. This also sets the backend's held-button bit
+before NewFrame, preventing its focused-window global-position fallback
+(`UpdateMouseData`, condition `MouseButtonsDown == 0`) from replacing that motion.
+This uses the real existing event path, not emulated OS polling state.
+
+Allow startup focus/leave events to settle before clicking. A pending window
+leave may reset position when no buttons are held. ImGui's input trickling can
+defer text after a mouse change, and focus loss clears keys/mouse
+(`extern/imgui/imgui.cpp`, `UpdateInputEvents`). Send text on later updates after
+field focus is established, and verify the actual UI result. The queue fixture
+alone does not establish field focus or contents. Native focus/hover changes
+can still interfere with unattended traces.
+
+`Window::initialize` creates an `SDL_WINDOW_SHOWN` window. Windows
+`CREATE_NO_WINDOW` hides a console, not this SDL window, so it cannot establish
+a hidden-window input guarantee. No application or renderer behavior was changed
+for this audit, and the OS-state limitation above remains open.

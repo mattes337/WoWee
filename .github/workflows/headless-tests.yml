@@ -46,6 +46,19 @@ jobs:
         env:
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: ctest --test-dir build-headless --output-on-failure --no-tests=error
+      - name: Install optional SDL event-fixture dependency
+        run: |
+          apt-get install -y --no-install-recommends libsdl2-dev
+          test ! -e /usr/include/vulkan/vulkan.h
+          test ! -e /usr/bin/glslc
+      - name: Configure and build optional SDL event fixture
+        run: |
+          cmake -S . -B build-headless -DWOWEE_TEST_SDL_EVENTS=ON
+          cmake --build build-headless --target test_input_trace_sdl --parallel 2
+      - name: Test real SDL queue without video or Vulkan
+        env:
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: ctest --test-dir build-headless -R '^input_trace_sdl$' --output-on-failure --no-tests=error
       - name: Attach failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
@@ -108,4 +121,3 @@ jobs:
             build-headless/Testing/Temporary/
             build-headless/CMakeFiles/CMakeConfigureLog.yaml
             build-headless/CMakeCache.txt
-
