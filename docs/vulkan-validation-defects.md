@@ -75,7 +75,8 @@ settings. Evidence JSON preserves exact source identity and binary/log hashes.
 
 ## DEF-002 - P0 - Screenshot reads outside the acquired frame lifetime
 
-Status: source fix and queue regression pass; real GPU capture checks pending.
+Status: source fix, queue regression and positive GPU capture pass; negative
+destination and final follow-up build verification pending.
 Parent: EVAL-01; related tasks: TEST-04, QUALITY-04.
 
 Source audit found `Renderer::captureScreenshot` immediately copying the image
@@ -111,3 +112,31 @@ passes. Required live checks: layer-enabled startup with a fresh capture path,
 PNG decode/extent and completion assertion, then an unwritable destination that
 must fail without claiming saved. This establishes capture mechanics only;
 reference-image parity and authenticated world captures remain open.
+
+### Intermediate live capture evidence
+
+The [positive capture result](evidence/smoke-capture-intermediate.json) passed
+120-update startup with required Vulkan validation, no ERROR/FATAL entries,
+normal quit and exit 0. The PNG is 90,965 bytes, 1280x720 RGBA; root separately
+ran Pillow verification and full pixel decode, checked nonblank extrema, and
+viewed the login card. The PNG SHA-256 is
+`90d5a4335ebb9517c4c4a74c2c7d0fc39f4f745b08c434db367892d518c08202`.
+The original run is `logs/fork-baseline/smoke-capture/result.json`; the sanitized
+result preserves binary and log hashes and emitted source identity. This
+binary includes the capture barrier correction `c21ec96a0` but predates
+`b5bdc2cca` caller/output exception handling. No negative-destination result or
+post-follow-up executable verification is claimed here.
+
+### TEST-04 acceptance remains open
+
+Queuing a screenshot does not freeze the scene at the API call. The request
+stores a destination, not a scene snapshot, and returns immediately. A same-tick
+Lua `Screenshot(); frame:Hide()` or move can mutate widget state before the
+end-of-frame readback is recorded. The screenshot will capture whichever state
+was rendered into that completed frame, not necessarily the call-site state.
+Although the renderer waits for its copy and file write before reporting saved,
+Lua scripts currently receive neither a completion acknowledgment nor a wait
+primitive that prevents later mutations. The startup capture proves acquired
+image ownership and successful readback mechanics only. TEST-04 still needs
+explicit script completion/wait semantics and a live same-tick hide/move
+regression; it must not be checked off from this result.

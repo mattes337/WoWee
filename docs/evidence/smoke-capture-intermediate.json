@@ -1,0 +1,30 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "quit_dispatched": true,
+  "shutdown_completed": true,
+  "errors": [],
+  "screenshot": {
+    "extent": [
+      1280,
+      720
+    ],
+    "bytes": 90965,
+    "sha256": "90d5a4335ebb9517c4c4a74c2c7d0fc39f4f745b08c434db367892d518c08202",
+    "completion_logged": true
+  },
+  "binary_sha256": "9136279b449772f891f9999594eb333c49f3086bc9d787a3bf8982d7959a93a2",
+  "input": {
+    "asset_root": "runtime/Data",
+    "manifest_sha256": "2a42c12bf244bfb6b23d97324f7d9cfa51f36281506922860636c812af6d8e91",
+    "manifest_base_path": "../../../../../Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 120,
+  "timeout_seconds": 90.0,
+  "layer_path": "VulkanSDK/1.4.357.0/Bin",
+  "source_revision": "c21ec96a01f0064001342cb26076dae55df79c9b-dirty",
+  "log_sha256": "4a33e6126fd2d2602ca5da80c0088fb4b4cbe168557948d12479427875ef2e21",
+  "scope": "offline startup and normal shutdown; no visual/presented-frame/gameplay certification",
+  "verification_note": "Root separately verified and decoded with Pillow: 1280x720 RGBA, nonblank extrema; viewed login card. Predates b5bdc2cca output/caller follow-up. No negative destination outcome claimed."
+}
