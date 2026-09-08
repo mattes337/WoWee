@@ -34,5 +34,33 @@
     "vma_allocations_at_shutdown": 0,
     "vma_blocks_at_shutdown": 4
   },
-  "interpretation": "The process completed without device loss, but the discard pipeline was invalid under Vulkan validation. This run does not establish that rasterizer discard prevents the preview device loss and is not a passing diagnostic control."
+  "interpretation": "The process completed without device loss, but the discard pipeline was invalid under Vulkan validation. This run does not establish that rasterizer discard prevents the preview device loss and is not a passing diagnostic control.",
+  "screenshot_inspection": {
+    "dimensions": [
+      1280,
+      720
+    ],
+    "visual_state": "Choose a Hero character-selection screen",
+    "selected_character": "Woweetrial, level 1 Human Warrior",
+    "selection_evidence": [
+      "selected character row",
+      "character detail panel",
+      "Enter World button"
+    ],
+    "login_or_error_screen_observed": false,
+    "preview_content": "uniform dark/blank preview region",
+    "dark_region_connected_bbox_xyxy": [
+      829,
+      177,
+      981,
+      373
+    ],
+    "dark_region_seed_rgb": [
+      70,
+      68,
+      73
+    ],
+    "dark_region_tolerance_per_channel": 5,
+    "interpretation": "The capture establishes character-selection state. Blank preview pixels are expected with rasterizer discard, but this invalid-pipeline run cannot certify discard behavior or preview correctness."
+  }
 }
