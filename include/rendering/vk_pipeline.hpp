@@ -29,6 +29,7 @@ public:
     // Shader stages
     PipelineBuilder& setShaders(VkPipelineShaderStageCreateInfo vert,
         VkPipelineShaderStageCreateInfo frag);
+    PipelineBuilder& setVertexShader(VkPipelineShaderStageCreateInfo vert);
 
     // Vertex input
     PipelineBuilder& setVertexInput(

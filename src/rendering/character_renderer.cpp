@@ -309,10 +309,16 @@ void CharacterRenderer::buildMainPassPipelines(VkDevice device, VkRenderPass mai
         core::envFlagEnabled("WOWEE_TEST_PREVIEW_RASTERIZER_DISCARD");
     auto buildCharPipeline = [&](VkPipelineColorBlendAttachmentState blendState,
                                   bool depthWrite, bool alphaToCoverage = false) -> VkPipeline {
-        auto builder = PipelineBuilder()
-            .setShaders(charVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        charFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({charBinding}, charAttrs)
+        auto builder = PipelineBuilder();
+        if (previewRasterizerDiscard) {
+            // VUID-VkGraphicsPipelineCreateInfo-pStages-06894: a pipeline with
+            // static rasterizer discard has no fragment shader state.
+            builder.setVertexShader(charVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT));
+        } else {
+            builder.setShaders(charVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                               charFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT));
+        }
+        builder.setVertexInput({charBinding}, charAttrs)
             .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
             .setRasterizerDiscard(previewRasterizerDiscard)

@@ -19,6 +19,12 @@ PipelineBuilder& PipelineBuilder::setShaders(
     return *this;
 }
 
+PipelineBuilder& PipelineBuilder::setVertexShader(VkPipelineShaderStageCreateInfo vert)
+{
+    shaderStages_ = {vert};
+    return *this;
+}
+
 PipelineBuilder& PipelineBuilder::setVertexInput(
     const std::vector<VkVertexInputBindingDescription>& bindings,
     const std::vector<VkVertexInputAttributeDescription>& attributes)
