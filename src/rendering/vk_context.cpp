@@ -2602,7 +2602,9 @@ bool VkContext::recreateSwapchain(int width, int height) {
 }
 
 void VkContext::resetFrameSyncState() {
-    if (device == VK_NULL_HANDLE) return;
+    // A lost device cannot be recovered by resetting pending command buffers.
+    // Keep resources intact for shutdown; beginFrame already refuses new work.
+    if (device == VK_NULL_HANDLE || deviceLost_) return;
     // How many asynchronous upload batches are still outstanding when a
     // rebuild happens. These are submitted without being waited on, one fence
     // each, and FrameXML makes hundreds where this client alone makes almost
@@ -2612,11 +2614,12 @@ void VkContext::resetFrameSyncState() {
                     " upload batches still in flight (", batchesSubmitted_,
                     " submitted, ", batchesRetired_, " retired)");
     }
-    // Checked: if the device is already gone, everything below is theatre and
-    // the fence wait in the next frame takes the blame for it.
+    // Resetting requires completed work. A failed wait provides no such
+    // guarantee, and device loss is terminal rather than a rebuild request.
     if (const VkResult idle = vkDeviceWaitIdle(device); idle != VK_SUCCESS) {
-        LOG_ERROR("wait-idle before a rebuild failed: ", static_cast<int>(idle),
-                  " - the device was already lost before this rebuild, not by it");
+        LOG_ERROR("wait-idle before a rebuild failed: ", static_cast<int>(idle));
+        noteDeviceLost("frame synchronisation reset wait", idle);
+        return;
     }
 
     // Retire the upload batches now. The wait above means every one of them has
@@ -2817,6 +2820,7 @@ bool VkContext::endFrame(VkCommandBuffer cmd, uint32_t imageIndex) {
     if (endResult != VK_SUCCESS) {
         LOG_ERROR("endFrame[", endFrameCounter, "] vkEndCommandBuffer FAILED: ", static_cast<int>(endResult));
         noteDeviceLost("endFrame command end", endResult);
+        if (deviceLost_) return false;
         resetFrameSyncState();
         swapchainDirty = true;
         return false;
@@ -2876,6 +2880,7 @@ bool VkContext::endFrame(VkCommandBuffer cmd, uint32_t imageIndex) {
     if (submitResult != VK_SUCCESS) {
         LOG_ERROR("endFrame[", endFrameCounter, "] vkQueueSubmit FAILED: ", static_cast<int>(submitResult));
         noteDeviceLost("endFrame vkQueueSubmit", submitResult);
+        if (deviceLost_) return false;
         // And no present. renderSem is signalled by the submission that just
         // failed, so presenting on it queues a wait that nothing will ever
         // satisfy - the same trap the timeline value above is withheld to
@@ -2898,9 +2903,8 @@ bool VkContext::endFrame(VkCommandBuffer cmd, uint32_t imageIndex) {
         // resetFrameSyncState() is what remakes them unsignalled. It also
         // remakes the fences signalled and points every timeline slot at the
         // value the counter has reached, so the next frame begins on a slot
-        // that is satisfied by construction. On a device that is already gone
-        // it logs its failed wait-idle and carries on, which is the treatment
-        // the MSAA rebuild path gives it.
+        // that is satisfied by construction. Device loss returns above; only
+        // a usable device may attempt this synchronization recovery.
         //
         // It leaves currentFrame at 0 itself, so this path does not advance the
         // slot: after the reset every slot is safe to begin on, which is all

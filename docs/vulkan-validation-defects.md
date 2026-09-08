@@ -267,3 +267,17 @@ barrier alone. The change is not yet established as the cause or solution of
 DEF-004's character-preview device loss. Root's synchronization-validation
 before/after replay is the required runtime regression. No source-text test is
 used as a substitute for GPU synchronization validation.
+
+### Device-loss recovery diagnostics
+
+Normal preview failures also produced secondary pending-command-buffer reset
+validation errors: endFrame latched device loss, then resetFrameSyncState
+continued rebuilding fences and resetting command buffers despite its failed
+idle wait. The bounded recovery correction returns immediately on known loss
+and refuses synchronization reset after any unsuccessful idle wait. Healthy
+non-device-loss submission recovery retains its existing reset path. Resources
+remain owned for shutdown, and beginFrame already refuses work on a lost device.
+This preserves the initiating fault and removes an invalid recovery attempt;
+it is not a preview rendering fix. A subsequent fault replay is needed to
+verify the secondary reset diagnostics disappear while the original error
+remains reported.
