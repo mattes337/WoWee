@@ -295,3 +295,25 @@ opaque handles recorded. A separate procedural triangle draw can isolate fixed
 vertex/index fetching from the existing render target/pipeline. Neither test
 has been performed or proposed as a production fix here; no further GPU crash
 replay was run during this audit.
+
+## DEF-006 - P1 - Replacing a model ID invalidates surviving instance pointers
+
+Status: source-confirmed lifetime defect corrected; full-client rebuild pending.
+Related task: PORT-11. This is separate from DEF-004: no same-ID replacement was
+observed before the first-preview device loss.
+
+CharacterRenderer::loadModel erased an existing unordered_map node and inserted
+a new model for the same ID. Live CharacterInstance::cachedModel pointers still
+named the erased object. Deferred GPU-handle destruction did not preserve the
+CPU model object's lifetime. Replacement now retains the existing map node via
+the production replaceModelInPlace helper. Surviving instances keep that stable
+address and reset their sequence index/time and CPU bone palette, preventing
+old model sequence indices from indexing a smaller replacement's animation data.
+Old GPU handles retain their existing deferred destruction policy.
+
+The headless regression keeps a live cached pointer across replacement and a
+forced map rehash, verifies new payload and unrelated-instance stability, and
+asserts the old mapped object's destructor never ran. The destructor check
+catches erase/reinsert even when an allocator happens to reuse its address.
+Windows model_replacement passes seven assertions in one case. This validates
+CPU address preservation, not GPU model-swap rendering or the preview fault.
