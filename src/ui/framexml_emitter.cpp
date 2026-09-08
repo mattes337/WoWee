@@ -496,6 +496,14 @@ struct Emitter {
                     for (const XmlNode& sc : a.children) {
                         if (sc.name == "Scripts") emitScripts(sc, avar);
                     }
+                    if (const XmlNode* scripts = a.child("Scripts");
+                        scripts && scripts->child("OnLoad")) {
+                        line("if " + avar + ".OnLoad then " + avar + ":OnLoad() end");
+                    }
+                }
+                if (const XmlNode* scripts = group.child("Scripts");
+                    scripts && scripts->child("OnLoad")) {
+                    line("if " + gvar + ".OnLoad then " + gvar + ":OnLoad() end");
                 }
             }
         }

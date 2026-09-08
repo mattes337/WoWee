@@ -2,6 +2,13 @@
 
 #include "ui/xml_parser.hpp"
 #include "ui/framexml_emitter.hpp"
+#include "addons/animation_group_lua.hpp"
+
+extern "C" {
+#include "lua.h"
+#include "lauxlib.h"
+#include "lualib.h"
+}
 
 #include <fstream>
 #include <iterator>
@@ -19,6 +26,12 @@ XmlNode parseOrFail(const std::string& src) {
     REQUIRE(parseXml(src, root, err));
     INFO(err);
     return root;
+}
+void runLua(lua_State* state, const std::string& source) {
+    int status = luaL_loadbuffer(state, source.data(), source.size(), "@framexml-animation-onload.lua");
+    if (!status) status = lua_pcall(state, 0, 0, 0);
+    INFO((status ? lua_tostring(state, -1) : "Lua passed"));
+    REQUIRE(status == 0);
 }
 }
 
@@ -1150,6 +1163,100 @@ TEST_CASE("animation smoothing spelling is preserved", "[framexml][emit]") {
     const EmitResult r = emitFrameXml(root);
     INFO(r.lua);
     REQUIRE(has(r.lua, ":SetSmoothing(\"out_in\")"));
+}
+
+TEST_CASE("stock timer OnLoad runs after its animation is complete", "[framexml][animation]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name='AnimTimerFrame'><Animations>"
+        "<AnimationGroup name='AnimTimerFrameCountdownAnimGroup'>"
+        "<Animation name='AutoCompleteInfoDelayer' duration='15' order='1'>"
+        "<Scripts><OnLoad>animationLoads = animationLoads + 1; self.ready = true</OnLoad>"
+        "<OnFinished>finishes = finishes + 1; assert(self.ready)</OnFinished></Scripts>"
+        "</Animation><Scripts><OnLoad>groupLoads = groupLoads + 1; self:Play()</OnLoad></Scripts>"
+        "</AnimationGroup></Animations></Frame></Ui>");
+    const std::string emitted = emitFrameXml(root).lua;
+
+    lua_State* state = luaL_newstate();
+    REQUIRE(state != nullptr);
+    luaopen_base(state);
+    luaopen_table(state);
+    lua_settop(state, 0);
+    runLua(state, R"lua(
+        __WoweeFrameMT = {}; __WoweeFrameMT.__index = __WoweeFrameMT
+        function CreateFrame(_, name)
+            local frame = setmetatable({alpha = 1}, __WoweeFrameMT)
+            if name then _G[name] = frame end
+            return frame
+        end
+        function __WoweeFrameMT:SetScript(k, f)
+            self.__scripts = self.__scripts or {}; self.__scripts[k] = f
+        end
+        function __WoweeFrameMT:GetAlpha() return self.alpha end
+        function __WoweeFrameMT:SetAlpha(a) self.alpha = a end
+        function __WoweeFrameMT:SetScale(s) self.scale = s end
+        function __WoweeSetAnimOffset(frame, x, y) frame.x, frame.y = x, y end
+        function __WoweeFireOnLoad(frame)
+            local f = frame.__scripts and frame.__scripts.OnLoad
+            if f then f(frame) end
+        end
+        groupLoads, animationLoads, finishes = 0, 0, 0
+    )lua");
+    runLua(state, wowee::addons::kAnimationGroupLua);
+    runLua(state, emitted);
+    runLua(state, R"lua(
+        assert(animationLoads == 1 and groupLoads == 1)
+        assert(AutoCompleteInfoDelayer.ready)
+        assert(AutoCompleteInfoDelayer:GetDuration() == 15)
+        assert(AnimTimerFrameCountdownAnimGroup:IsPlaying())
+        __WoweeTickAnimations(15)
+        assert(finishes == 1)
+    )lua");
+    lua_close(state);
+}
+
+TEST_CASE("virtual animation OnLoad runs once per concrete replay", "[framexml][animation]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name='TimerTemplate' virtual='true'><Animations>"
+        "<AnimationGroup><Animation duration='1'><Scripts>"
+        "<OnLoad>loads = loads + 1</OnLoad></Scripts></Animation>"
+        "</AnimationGroup></Animations></Frame></Ui>");
+    const std::string emitted = emitFrameXml(root).lua;
+
+    lua_State* state = luaL_newstate();
+    REQUIRE(state != nullptr);
+    luaopen_base(state);
+    luaopen_table(state);
+    lua_settop(state, 0);
+    runLua(state, R"lua(
+        __WoweeFrameMT = {}; __WoweeFrameMT.__index = __WoweeFrameMT
+        __WoweeTemplates, __WoweeTemplateTypes, __WoweeTemplateInherits = {}, {}, {}
+        function CreateFrame(_, name, parent)
+            local frame = setmetatable({alpha = 1, parent = parent}, __WoweeFrameMT)
+            if name then _G[name] = frame end
+            return frame
+        end
+        function __WoweeFrameMT:GetParent() return self.parent end
+        function __WoweeFrameMT:SetScript(k, f)
+            self.__scripts = self.__scripts or {}; self.__scripts[k] = f
+        end
+        function __WoweeFrameMT:GetAlpha() return self.alpha end
+        function __WoweeFrameMT:SetAlpha(a) self.alpha = a end
+        function __WoweeFrameMT:SetScale(s) self.scale = s end
+        function __WoweeSetAnimOffset(frame, x, y) frame.x, frame.y = x, y end
+        loads = 0
+    )lua");
+    runLua(state, wowee::addons::kAnimationGroupLua);
+    runLua(state, emitted);
+    runLua(state, R"lua(
+        assert(loads == 0, 'virtual declaration fired early')
+        local first = CreateFrame('Frame')
+        __WoweeTemplates.TimerTemplate(first)
+        assert(loads == 1)
+        local second = CreateFrame('Frame')
+        __WoweeTemplates.TimerTemplate(second)
+        assert(loads == 2)
+    )lua");
+    lua_close(state);
 }
 
 TEST_CASE("A TitleRegion makes a frame draggable", "[framexml][emit]") {

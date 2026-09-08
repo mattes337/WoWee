@@ -240,3 +240,30 @@ not copied: its XML path skips generic Animation elements, while its runtime
 applies properties only for exact named animation kinds. That implementation
 does not establish the desired behavior; the stock Calendar declaration and
 consumer above provide the source contract for this repair.
+
+## Animation and group OnLoad dispatch
+
+The active stock `FrameXML/AnimTimerFrame.xml` declares
+`AnimTimerFrameCountdownAnimGroup` with a group `OnLoad` that calls
+`self:Play()`. Its 15-second generic child, `AutoCompleteInfoDelayer`, calls
+`GuildRoster()` from animation `OnFinished`. The emitter installed both scripts
+but never invoked animation or group OnLoad. The final frame-level
+`__WoweeFireOnLoad` could not compensate: it reads the frame's `__scripts`
+table, while animation objects store scripts directly on their Lua tables.
+Consequently the countdown group never entered the playing registry.
+
+The emitter now invokes an animation's declared OnLoad after that animation's
+attributes and scripts have been installed. It invokes the group's declared
+OnLoad after every child animation has been created. This lets the stock group
+start with its complete 15-second schedule. No OnUpdate dispatch or other
+animation event behavior was added.
+
+The regression executes emitted Lua in vendored Lua 5.1 with the production
+AnimationGroup literal. It verifies animation OnLoad exactly once, then group
+OnLoad exactly once, observes the complete child duration before Play, and
+ticks 15 seconds to the child's OnFinished. A second generated-Lua case declares
+the animation in a virtual template: declaring the template fires zero times,
+and replaying it on two concrete frames fires once for each frame. Before the
+repair, both cases failed because no OnLoad call was emitted (**7 passed, 2
+failed**). The repaired isolated FrameXML suite passes **333 assertions in 94
+cases**.
