@@ -274,3 +274,130 @@ TEST_CASE("duration groups sparse order values and recomputes changed spans", "[
         assert(g:GetDuration() == 6)
     )lua");
 }
+
+TEST_CASE("repeat loops consume overshoot across every crossed boundary", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local animationFinishes, loops = 0, 0
+        animation:SetScript('OnFinished', function()
+            animationFinishes = animationFinishes + 1
+        end)
+        group:SetLooping('REPEAT')
+        group:SetScript('OnLoop', function() loops = loops + 1 end)
+
+        group:Play()
+        __WoweeTickAnimations(2.5)
+        assert(group:IsPlaying())
+        assert(loops == 2 and animationFinishes == 2)
+        assert(group.elapsed == 0.5)
+        assert(animation:GetElapsed() == 0.5 and animation:GetProgress() == 0.5)
+        assert(frame.alpha == 0.5)
+    )lua");
+}
+
+TEST_CASE("bounce overshoot reverses at each crossed boundary", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local animationFinishes, loops = 0, 0
+        animation:SetScript('OnFinished', function()
+            animationFinishes = animationFinishes + 1
+        end)
+        group:SetLooping('BOUNCE')
+        group:SetScript('OnLoop', function() loops = loops + 1 end)
+
+        group:Play()
+        __WoweeTickAnimations(2.5)
+        assert(group:IsPlaying())
+        assert(loops == 2 and animationFinishes == 2)
+        assert(group.reversed == false and group.elapsed == 0.5)
+        assert(animation:GetProgress() == 0.5 and frame.alpha == 0.5)
+    )lua");
+}
+
+TEST_CASE("loop callbacks preserve a requested stop or replacement run", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local loops = 0
+        group:SetLooping('REPEAT')
+        group:SetScript('OnLoop', function(self)
+            loops = loops + 1
+            self:Stop()
+        end)
+        group:Play()
+        __WoweeTickAnimations(3)
+        assert(loops == 1 and not group:IsPlaying() and frame.alpha == 1)
+
+        group:SetScript('OnLoop', function(self)
+            loops = loops + 1
+            self:Play()
+        end)
+        group:Play()
+        local replacementRun = group.runId + 1
+        __WoweeTickAnimations(3)
+        assert(loops == 2 and group:IsPlaying())
+        assert(group.runId == replacementRun and group.elapsed == 0)
+        assert(animation:GetProgress() == 0)
+    )lua");
+}
+
+TEST_CASE("short loops bound callback work and retain catch-up time", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local animationFinishes, loops = 0, 0
+        animation:SetDuration(0.000001)
+        animation:SetScript('OnFinished', function()
+            animationFinishes = animationFinishes + 1
+        end)
+        group:SetLooping('REPEAT')
+        group:SetScript('OnLoop', function() loops = loops + 1 end)
+
+        group:Play()
+        __WoweeTickAnimations(1)
+        assert(loops == 64 and animationFinishes == 64)
+        assert(group.pendingElapsed > 0.99, 'unprocessed time must remain as debt')
+        local debt = group.pendingElapsed
+        __WoweeTickAnimations(0)
+        assert(loops == 128 and animationFinishes == 128)
+        assert(group.pendingElapsed < debt, 'zero-delta ticks drain retained debt')
+    )lua");
+}
+
+TEST_CASE("invalid negative and nonfinite deltas do not corrupt the clock", "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        group:Play()
+        __WoweeTickAnimations(-1)
+        __WoweeTickAnimations(0 / 0)
+        __WoweeTickAnimations(1 / 0)
+        assert(group:IsPlaying() and group.elapsed == 0)
+        assert(animation:GetElapsed() == 0 and animation:GetProgress() == 0)
+    )lua");
+}
+
+TEST_CASE("OnLoop pause retains overshoot and looping changes apply at the next boundary",
+          "[animation]") {
+    AnimationFixture f;
+    f.run(R"lua(
+        local loops, groupFinishes = 0, 0
+        group:SetLooping('REPEAT')
+        group:SetScript('OnLoop', function(self)
+            loops = loops + 1
+            if loops == 1 then self:Pause() end
+        end)
+        group:SetScript('OnFinished', function() groupFinishes = groupFinishes + 1 end)
+        group:Play()
+        __WoweeTickAnimations(2.5)
+        assert(loops == 1 and group.paused and group.pendingElapsed == 1.5)
+        group:Resume()
+        __WoweeTickAnimations(0)
+        assert(loops == 2 and group.elapsed == 0.5)
+        assert(animation:GetProgress() == 0.5)
+
+        group:SetScript('OnLoop', function(self)
+            loops = loops + 1
+            self:SetLooping('NONE')
+        end)
+        __WoweeTickAnimations(2)
+        assert(loops == 3 and groupFinishes == 1 and not group:IsPlaying())
+    )lua");
+}

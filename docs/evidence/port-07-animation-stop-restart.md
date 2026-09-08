@@ -149,3 +149,38 @@ This change does not certify stock cast bars, pulse/fade visuals, every loop or
 finish path, or live frame cleanup. PORT-07 remains open for those acceptance
 gates. Full client compilation and actual FrameXML behavior are separate from
 this real-Lua deterministic regression.
+
+## Repeat and bounce carryover follow-up
+
+The loop clock now stops at every crossed duration boundary, completes that
+round's animations, invokes `OnLoop`, resets the round, and spends the remaining
+delta on the next round. A 2.5-second tick on a one-second `REPEAT` group now
+fires two animation completions and two loop callbacks, then leaves the third
+round at elapsed/progress 0.5. The equivalent `BOUNCE` case reverses twice and
+also ends at progress 0.5. Before this repair both cases fired once, reset to
+elapsed 0, left progress at 1, and discarded 1.5 seconds.
+
+Loop callbacks retain the lifecycle guard from the prior repair. `Stop()` ends
+catch-up and restores the frame. `Play()` starts a new run at zero and discards
+the old run's remaining delta. `Pause()` keeps the old run's remaining delta as
+`pendingElapsed`; `Resume()` consumes it on a later tick. Changing looping to
+`NONE` from `OnLoop` takes effect when the next boundary is reached. Negative,
+NaN, and infinite external deltas are treated as zero rather than corrupting
+the group clock.
+
+Catch-up is deliberately bounded at 64 loop boundaries per group per external
+tick. Excess time is retained in `pendingElapsed`, including across a pause,
+and later ticks consume up to another 64 boundaries. This prevents a tiny loop
+duration and large frame delta from running an unbounded number of Lua
+callbacks in one frame, but means a badly backlogged visual can remain behind
+wall-clock time for multiple frames. `Play()` intentionally clears that debt
+because it creates a replacement run.
+
+The isolated fail-before fixture is at
+`C:/wowee-port07-loop-carryover`. Its two overshoot cases failed against the
+shared pre-repair literal (**13 passed, 2 failed** under the filtered run).
+With the repair, the full real-Lua fixture passes **75 assertions in 15 cases**,
+including multiple boundaries, `REPEAT`, `BOUNCE`, Stop/Play/Pause and
+SetLooping callbacks, bounded short-loop work, retained debt, and invalid
+deltas. This deterministic coverage does not establish live visual parity or
+close the other PORT-07 items listed above.
