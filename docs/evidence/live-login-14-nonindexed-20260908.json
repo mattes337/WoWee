@@ -1,0 +1,51 @@
+{
+  "result": "fail",
+  "exit_code": 1,
+  "binary_sha256": "d4644f2100e984c584646f40a48ece16dce5d85370d6cd0011ce699dda568f7a",
+  "errors": [
+    "[2026-09-08 21:21:29.129] [ERROR] endFrame[56] vkQueueSubmit FAILED: -4",
+    "[2026-09-08 21:21:29.129] [ERROR] Device lost - first seen by endFrame vkQueueSubmit",
+    "[2026-09-08 21:21:29.130] [ERROR]   graphics queue last reached 'post-process' at stage 0x1",
+    "[2026-09-08 21:21:29.130] [ERROR]   graphics queue last reached 'frame start' at stage 0x2000",
+    "[2026-09-08 21:21:29.130] [ERROR]   upload queue: no checkpoint reached",
+    "[2026-09-08 21:21:29.131] [ERROR]   driver says: ''",
+    "[2026-09-08 21:21:29.131] [ERROR]   fault 0: invalid write at 0x0 (within 0x1000)",
+    "[2026-09-08 21:21:29.131] [ERROR] GPU device lost - exiting application",
+    "[2026-09-08 21:21:29.874] [FATAL] Unhandled exception: WOWEE_TEST_MAX_UPDATES: GPU device lost during smoke run"
+  ],
+  "auth_success": true,
+  "realm_list": true,
+  "world_auth_success": true,
+  "character_list_received": true,
+  "protocol_order_verified": true,
+  "preview_isolation_marker": true,
+  "trace_completed": false,
+  "quit_dispatched": false,
+  "shutdown_completed": false,
+  "screenshot": {
+    "completion_logged": false,
+    "schedule_verified": false,
+    "sha256": null,
+    "pixels_decoded": false,
+    "after_updates": 600,
+    "timing": "completed-update count; not a server-state condition"
+  },
+  "diagnostic_mode": "preview isolation: non-indexed-draw; shader override; not normal-mode certification",
+  "character_fragment_override": {
+    "original_sha256": "4744080e51d0067e5efb1ae746d33681b3b9342cf3d0379f59b6f304992cf0d3",
+    "override_sha256": "2698110bcbab8004a4038b55c5df87ddfde98b7a7655a612759d6fce9b805c84",
+    "scope": "fresh runtime/assets/shaders/character.frag.spv only"
+  },
+  "character_vertex_override": {
+    "original_sha256": "00496682d270a9bcc07925d37b764dc2935769ccdf91eb6b8a2c6d42c4e61e45",
+    "override_sha256": "5c7c0578893be500c1e10e1fd839e03108225a4155ef1e6b4d69c0f37f4a4d7c",
+    "scope": "fresh runtime/assets/shaders/character.vert.spv only"
+  },
+  "default_preview_certified": false,
+  "source_revision": "ecc8821d2150327980b0b8ab3b797c7694c72db0",
+  "artifacts": {
+    "result.json": "3d3c8adb91f8d4c288a2e00af4ea7d10a396876bc1fb5e072421b36666d5e818",
+    "stdout.log": "142164b1b5a71b6a6d79d8fc6b0f2a14a5e7c8826905c996dcd3466e20e52599"
+  },
+  "scope": "Fresh fixture; core validation active; no creation/world entry; no GPUAV or sync validation requested. Actual non-indexed draw marker observed; no screenshot completed. Index fetching and production shader reads bypassed, root cause unresolved."
+}

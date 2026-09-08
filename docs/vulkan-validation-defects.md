@@ -368,6 +368,24 @@ vertex/index fetching from the existing render target/pipeline. Neither test
 has been performed or proposed as a production fix here; no further GPU crash
 replay was run during this audit.
 
+### Non-indexed procedural preview diagnostic
+
+The next procedural test, live-login-14, also failed with device loss at frame
+56. Binary `d4644f2100e984c584646f40a48ece16dce5d85370d6cd0011ce699dda568f7a`
+reports source `ecc8821d2150327980b0b8ab3b797c7694c72db0`. It used the same tiny
+procedural vertex shader and constant magenta fragment shader as run 13, plus
+the default-off `WOWEE_TEST_PREVIEW_NON_INDEXED_DRAW` diagnostic. The exact
+warning marker confirms a preview draw was replaced with `vkCmdDraw(3,1,0,0)`;
+both preview draw terminals use that substitution. Pipeline, descriptor,
+push-constant and buffer binding calls remain intact. Authentication and the
+character list succeeded, but no capture or normal shutdown completed.
+
+This excludes actual preview index fetching from the failing diagnostic path;
+it does not identify the remaining draw/pipeline/render-target failure. Core
+validation was active and reported no pending-command-buffer reset VUID during
+cleanup. Production shaders were unchanged. No further identical replay was
+performed. [Sanitized result and artifact hashes](evidence/live-login-14-nonindexed-20260908.json).
+
 ## DEF-006 - P1 - Replacing a model ID invalidates surviving instance pointers
 
 Status: source-confirmed lifetime defect corrected; focused sanitizer regression passed.

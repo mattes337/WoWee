@@ -1,0 +1,68 @@
+{
+  "binary": "G:\\WoW Projects\\wowee\\build-fork-windows\\bin\\Debug\\wowee.exe",
+  "binary_sha256": "d4644f2100e984c584646f40a48ece16dce5d85370d6cd0011ce699dda568f7a",
+  "closure": "pass",
+  "search": "executable directory and current System32 only",
+  "dlls": {
+    "libcrypto-3-x64.dll": "6b19da2295cf4261605250083461c69610d9f7279dd4af19ec2550a7769b10c4",
+    "SDL2d.dll": "27aa6abd8c56af60d6ffb486a6cab0f6b1d12fa54a4b3877137b8b84756b0f64",
+    "vulkan-1.dll": "220baa4c20e736015b3fadaaa07150397986c7aa2ee323918ee84b89867c24bc",
+    "zlib1.dll": "4cf010fa01b483b1469893c9dbada2b3c6297d84e10e844354aa5be74f813ea9"
+  },
+  "imports": {
+    "wowee.exe": [
+      "vulkan-1.dll",
+      "libcrypto-3-x64.dll",
+      "zlib1.dll",
+      "WS2_32.dll",
+      "SHELL32.dll",
+      "SDL2d.dll",
+      "KERNEL32.dll",
+      "USER32.dll",
+      "MSVCP140D.dll",
+      "IMM32.dll",
+      "VCRUNTIME140D.dll",
+      "VCRUNTIME140_1D.dll",
+      "ucrtbased.dll"
+    ],
+    "SDL2d.dll": [
+      "KERNEL32.dll",
+      "USER32.dll",
+      "GDI32.dll",
+      "WINMM.dll",
+      "IMM32.dll",
+      "ole32.dll",
+      "OLEAUT32.dll",
+      "VERSION.dll",
+      "ADVAPI32.dll",
+      "SETUPAPI.dll",
+      "SHELL32.dll",
+      "VCRUNTIME140D.dll",
+      "ucrtbased.dll"
+    ],
+    "zlib1.dll": [
+      "VCRUNTIME140.dll",
+      "api-ms-win-crt-stdio-l1-1-0.dll",
+      "api-ms-win-crt-heap-l1-1-0.dll",
+      "api-ms-win-crt-convert-l1-1-0.dll",
+      "api-ms-win-crt-string-l1-1-0.dll",
+      "api-ms-win-crt-runtime-l1-1-0.dll",
+      "KERNEL32.dll"
+    ],
+    "libcrypto-3-x64.dll": [
+      "WS2_32.dll",
+      "ADVAPI32.dll",
+      "CRYPT32.dll",
+      "USER32.dll",
+      "KERNEL32.dll",
+      "VCRUNTIME140D.dll",
+      "ucrtbased.dll"
+    ],
+    "vulkan-1.dll": [
+      "CFGMGR32.dll",
+      "KERNEL32.dll",
+      "ADVAPI32.dll"
+    ]
+  },
+  "scope": "local non-system import closure; not a clean-machine certification"
+}

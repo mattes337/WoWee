@@ -1,0 +1,30 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "quit_dispatched": true,
+  "shutdown_completed": true,
+  "errors": [],
+  "screenshot": {
+    "extent": [
+      1280,
+      720
+    ],
+    "bytes": 90965,
+    "sha256": "90d5a4335ebb9517c4c4a74c2c7d0fc39f4f745b08c434db367892d518c08202",
+    "completion_logged": true,
+    "pixels_decoded": true
+  },
+  "binary_sha256": "d4644f2100e984c584646f40a48ece16dce5d85370d6cd0011ce699dda568f7a",
+  "input": {
+    "asset_root": "C:\\wowee-offline-after-nonindexed-20260908\\runtime\\Data",
+    "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
+    "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 120,
+  "timeout_seconds": 90.0,
+  "layer_path": "G:\\Dev\\VulkanSDK\\1.4.357.0\\Bin",
+  "source_revision": "ecc8821d2150327980b0b8ab3b797c7694c72db0",
+  "log_sha256": "54253d8167a0c44b0569a2f8773b62ceb9c4265545c635995277647b7949ec95",
+  "scope": "offline startup and normal shutdown; no visual/presented-frame/gameplay certification"
+}

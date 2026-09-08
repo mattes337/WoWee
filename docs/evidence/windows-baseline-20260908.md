@@ -110,3 +110,15 @@ build retains `/W4`, disables `/WX`, and sets
 `CMAKE_EXE_LINKER_FLAGS_DEBUG=/debug /INCREMENTAL:NO` after an incremental link
 failed for lack of disk space. This proves the current local build/runtime
 contract, not clean-machine dependency bootstrap or gameplay.
+
+The later full build including finite tangents, the non-indexed diagnostic and
+preview rollback passes after one transient concurrent-source link failure was
+removed and the affected Lua translation unit was rebuilt. Successful log:
+`logs/fork-baseline/build-nonindexed-tangent-preview-retry.log`. Source identity
+is `ecc8821d2150327980b0b8ab3b797c7694c72db0`, binary SHA256
+`d4644f2100e984c584646f40a48ece16dce5d85370d6cd0011ce699dda568f7a`.
+That exact binary passes the [four-DLL local closure check](nonindexed-client-dll-closure-20260908.json)
+and a [fresh offline validation smoke](nonindexed-client-offline-smoke-20260908.json)
+with normal shutdown and a fully decoded 1280x720 RGBA capture. Its separately
+recorded non-indexed preview test still fails with device loss; offline startup
+success is not preview or gameplay certification.
