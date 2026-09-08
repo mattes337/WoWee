@@ -212,8 +212,8 @@ remain open rather than being inferred from another implementation.
 
 ## Generic animation property isolation
 
-The Calendar flash timer is also the extracted interface's only generic
-`<Animation>` declaration. It is a clock: button `OnUpdate` scripts read its
+The Calendar flash timer is also an extracted generic `<Animation>` consumer.
+It is a clock: button `OnUpdate` scripts read its
 smooth progress and apply that value to separate flash textures. The emitter
 instead created it as kind `Alpha`. The runtime then wrote the animation
 group's captured base alpha and a zero translation offset to its parent on
@@ -267,3 +267,28 @@ and replaying it on two concrete frames fires once for each frame. Before the
 repair, both cases failed because no OnLoad call was emitted (**7 passed, 2
 failed**). The repaired isolated FrameXML suite passes **333 assertions in 94
 cases**.
+
+## Focused Linux sanitizer validation
+
+A later frozen archive at
+`72a2d495318006a739206fb3060d108055f815a4`, which contains the OnLoad commit
+`16c377939`, was configured in headless-only mode on the same pinned Ubuntu
+24.04 image used by the earlier baseline. The git archive SHA-256 is
+`aa3f843069c3f4276b62141efcc39928c745416aa43b35aa15cb1cfcb6913087`.
+GNU 13.3.0 built only `test_framexml` and `test_animation_group_lua` in Debug
+with AddressSanitizer and UndefinedBehaviorSanitizer. Vulkan headers and
+`glslc` were checked absent before and after installing the compiler, CMake,
+and GLM prerequisites.
+
+With `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1` and
+`UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`, focused CTest passed **2/2**.
+Direct execution reports **333 assertions in 94 FrameXML cases** and **85
+assertions in 17 AnimationGroup Lua cases**. The log is
+`C:/wowee-framexml-asan-72a2d4953/linux-framexml-animation-asan.log` (SHA-256
+`15fef4a88d2b968e2313204368558b1b687d54dd0f43d5a79bb504cc18f33711`); its
+manifest is `C:/wowee-framexml-asan-72a2d4953/manifest.json` (SHA-256
+`890691795340bdded9459c148358c41abb20fcda6afb7e11721c4f9e99b957b0`).
+
+This is focused validation of those two current targets. It does not replace,
+extend, or restate the complete frozen headless baseline at `2b1c97914`, and it
+does not claim that every test configured at the later source identity ran.
