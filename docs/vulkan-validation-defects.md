@@ -135,8 +135,24 @@ Lua `Screenshot(); frame:Hide()` or move can mutate widget state before the
 end-of-frame readback is recorded. The screenshot will capture whichever state
 was rendered into that completed frame, not necessarily the call-site state.
 Although the renderer waits for its copy and file write before reporting saved,
-Lua scripts currently receive neither a completion acknowledgment nor a wait
-primitive that prevents later mutations. The startup capture proves acquired
+Completion events acknowledge the finished write, but no synchronous script
+wait primitive prevents later same-tick mutations. The startup capture proves acquired
 image ownership and successful readback mechanics only. TEST-04 still needs
 explicit script completion/wait semantics and a live same-tick hide/move
 regression; it must not be checked off from this result.
+
+### Stock screenshot completion events
+
+Stock `WorldFrame.lua` registers `SCREENSHOT_SUCCEEDED` and `SCREENSHOT_FAILED`.
+The production request helper now retains terminal outcomes until consumed;
+Application drains them after renderer end-of-frame via AddonManager's existing
+Lua event boundary. Success is emitted only after successful PNG write; queue
+rejection, failed output, and cancellation report failure. Rejection does not
+overwrite an earlier pending request. Draining takes a snapshot, so callbacks
+that queue another screenshot cannot receive that new completion recursively.
+Shutdown closes requests and drains cancellation before UI/renderer teardown;
+requests from teardown callbacks are rejected without creating recursive events.
+Lua Screenshot still returns zero values. Three helper cases verify request
+states, cancellation and consume-once event ordering; real Lua/GPU event delivery
+verification remains pending. These asynchronous events do not change the
+same-tick mutation gap above.

@@ -1749,6 +1749,10 @@ void Application::run() {
 
 void Application::shutdown() {
     LOG_DEBUG("Shutting down application...");
+    if (renderer) {
+        renderer->closeScreenshotRequests();
+        dispatchScreenshotCompletions();
+    }
 
     // Hide the window immediately so the OS doesn't think the app is frozen
     // during the (potentially slow) resource cleanup below.
@@ -4637,6 +4641,7 @@ void Application::render() {
     }
 
     runRenderStage("endFrame", [&] { renderer->endFrame(); });
+    dispatchScreenshotCompletions();
 
     stageStatFrames_ += 1;
     reportStageTimes();
@@ -4649,6 +4654,18 @@ void Application::noteStageTime(const char* stage, float milliseconds) {
     stat.totalMs += milliseconds;
     stat.frames += 1;
     if (milliseconds > stat.worstMs) stat.worstMs = milliseconds;
+}
+
+void Application::dispatchScreenshotCompletions() {
+    if (!renderer) return;
+    // Take a snapshot before invoking Lua. Event handlers may request the next
+    // screenshot, which must not be consumed or reported in this same drain.
+    for (const auto result : renderer->consumeScreenshotCompletions()) {
+        const char* event = result == rendering::ScreenshotResult::Succeeded
+            ? "SCREENSHOT_SUCCEEDED" : "SCREENSHOT_FAILED";
+        if (addonManager_) addonManager_->fireEvent(event);
+        LOG_INFO("Screenshot completion event: ", event);
+    }
 }
 
 void Application::reportStageTimes() {

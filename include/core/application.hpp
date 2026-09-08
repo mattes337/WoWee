@@ -155,6 +155,7 @@ private:
     /// follows the entity, which reads as a ring sliding off a still NPC.
     void syncRenderInstancesToEntities(float deltaTime);
     void render();
+    void dispatchScreenshotCompletions();
     void performLogoutToLogin();
     void processDeferredLogoutToLogin();
 

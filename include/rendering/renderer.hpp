@@ -169,6 +169,8 @@ public:
     // Queues the next complete frame; true means accepted, not saved.
     bool captureScreenshot(const std::string& outputPath);
     ScreenshotResult getScreenshotResult() const { return screenshotRequest_.result(); }
+    std::vector<ScreenshotResult> consumeScreenshotCompletions() { return screenshotRequest_.consumeCompletions(); }
+    void closeScreenshotRequests() { screenshotRequest_.close(); }
 
     // Spell visual effects (SMSG_PLAY_SPELL_VISUAL / SMSG_PLAY_SPELL_IMPACT)
     // Delegates to SpellVisualSystem (owned by Renderer)

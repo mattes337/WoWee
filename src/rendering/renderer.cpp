@@ -705,7 +705,7 @@ bool Renderer::initialize(core::Window* win) {
 
 void Renderer::shutdown() {
     if (screenshotRequest_.result() == ScreenshotResult::Pending) {
-        screenshotRequest_.cancel();
+        screenshotRequest_.close();
         LOG_WARNING("Screenshot cancelled during shutdown: ", screenshotRequest_.path());
     }
     destroySecondaryCommandResources();
@@ -1256,7 +1256,8 @@ void Renderer::setCharacterFollow(uint32_t instanceId) {
 }
 
 bool Renderer::captureScreenshot(const std::string& outputPath) {
-    return vkCtx && screenshotRequest_.queue(outputPath);
+    if (!vkCtx) return screenshotRequest_.reject();
+    return screenshotRequest_.queue(outputPath);
 }
 
 void Renderer::capturePendingScreenshot() {
