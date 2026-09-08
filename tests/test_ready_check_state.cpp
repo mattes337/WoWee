@@ -43,6 +43,9 @@ TEST_CASE("repeated ready check confirmations replace an answer without inflatin
     state.confirm(0, true);
     CHECK(state.count(true) == 0);
     CHECK(state.status(0) == nullptr);
+    state.confirm(300, 2);
+    CHECK(state.status(300) == "notready"sv);
+    CHECK(state.count(true) == 0);
 }
 
 TEST_CASE("leaving a group clears retained ready check answers", "[ready-check]") {

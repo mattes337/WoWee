@@ -10,8 +10,8 @@ namespace wowee::game {
 class ReadyCheckState {
 public:
     void start() { active_ = true; answers_.clear(); }
-    void confirm(uint64_t guid, bool ready) {
-        if (guid != 0) answers_[guid] = ready;
+    void confirm(uint64_t guid, uint8_t response) {
+        if (guid != 0) answers_[guid] = response == 1;
     }
     void finish() { active_ = false; }
     void reset() { active_ = false; answers_.clear(); }

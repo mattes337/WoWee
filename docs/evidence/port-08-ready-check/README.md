@@ -47,10 +47,14 @@ self identity, raid indices, Vanilla/WotLK raid flags, absent self roster entry,
 and unknown/zero GUIDs. Run it with the same build/CTest commands above, replacing
 `ready_check_state` with `ready_check_member`.
 
-Executed September 8, 2026 with MSVC Debug: state tests passed 25 assertions in
+Executed September 8, 2026 with MSVC Debug: state tests passed 27 assertions in
 3 cases; member tests passed 14 assertions in 2 cases. The matching two CTest
 registrations also passed. Full application and live validation are separate
 from these headless results.
+
+The raw response byte follows the captured donor mapping: only `1` is ready;
+other recorded values are not ready. A focused assertion for byte `2` prevents
+accidentally treating every nonzero response as acceptance.
 
 The local extracted PartyMemberFrame, PlayerFrame, and RaidFrame refresh queries
 on READY_CHECK_CONFIRM without using its member argument, so the original GUID

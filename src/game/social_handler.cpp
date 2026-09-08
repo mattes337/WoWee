@@ -601,7 +601,8 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         if (!packet.hasRemaining(9)) { packet.skipAll(); return; }
         uint64_t respGuid = packet.readUInt64();
         uint8_t  isReady  = packet.readUInt8();
-        readyCheckState_.confirm(respGuid, isReady != 0);
+        readyCheckState_.confirm(respGuid, isReady);
+        const bool ready = isReady == 1;
         const auto responder = readyCheckMember(partyData, owner_.getPlayerGuid(), respGuid);
         auto nit = owner_.getPlayerNameCache().find(respGuid);
         std::string rname = responder.name;
@@ -616,15 +617,15 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         if (!rname.empty()) {
             bool found = false;
             for (auto& r : readyCheckResults_) {
-                if (r.name == rname) { r.ready = (isReady != 0); found = true; break; }
+                if (r.name == rname) { r.ready = ready; found = true; break; }
             }
-            if (!found) readyCheckResults_.push_back({ .name = rname, .ready = isReady != 0 });
+            if (!found) readyCheckResults_.push_back({ .name = rname, .ready = ready });
             char rbuf[128];
-            std::snprintf(rbuf, sizeof(rbuf), "%s is %s.", rname.c_str(), isReady ? "Ready" : "Not Ready");
+            std::snprintf(rbuf, sizeof(rbuf), "%s is %s.", rname.c_str(), ready ? "Ready" : "Not Ready");
             owner_.addSystemChatMessage(rbuf);
         }
         if (owner_.addonEventCallbackRef()) {
-            owner_.addonEventCallbackRef()("READY_CHECK_CONFIRM", {responder.unit, isReady ? "1" : "0"});
+            owner_.addonEventCallbackRef()("READY_CHECK_CONFIRM", {responder.unit, ready ? "1" : "0"});
         }
     };
     table[Opcode::MSG_RAID_READY_CHECK_FINISHED] = [this](network::Packet& /*packet*/) {
