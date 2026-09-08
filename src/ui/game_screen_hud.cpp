@@ -1709,7 +1709,11 @@ void GameScreen::takeScreenshot() {
 
     std::string path = dir + "/" + filename;
 
-    if (renderer->captureScreenshot(path)) {
+    if (!renderer->captureScreenshot(path)) {
+        LOG_WARNING("Screenshot request rejected: ", path);
+        return;
+    }
+    if (services_.gameHandler) {
         game::MessageChatData sysMsg;
         sysMsg.type = game::ChatType::SYSTEM;
         sysMsg.language = game::ChatLanguage::UNIVERSAL;

@@ -1365,13 +1365,17 @@ void Renderer::capturePendingScreenshot() {
                     for (size_t i = 0; i < static_cast<size_t>(w) * h; ++i)
                         std::swap(pixels[i * 4], pixels[i * 4 + 2]);
                 }
-                const std::filesystem::path outPath(screenshotRequest_.path());
-                std::error_code error;
-                if (outPath.has_parent_path())
-                    std::filesystem::create_directories(outPath.parent_path(), error);
-                if (!error) ok = stbi_write_png(outPath.string().c_str(),
-                    static_cast<int>(w), static_cast<int>(h), 4, pixels,
-                    static_cast<int>(w * 4)) != 0;
+                try {
+                    const std::filesystem::path outPath(screenshotRequest_.path());
+                    std::error_code error;
+                    if (outPath.has_parent_path())
+                        std::filesystem::create_directories(outPath.parent_path(), error);
+                    if (!error) ok = stbi_write_png(outPath.string().c_str(),
+                        static_cast<int>(w), static_cast<int>(h), 4, pixels,
+                        static_cast<int>(w * 4)) != 0;
+                } catch (const std::exception& error) {
+                    LOG_WARNING("Screenshot output failed: ", error.what());
+                }
             }
         }
     }

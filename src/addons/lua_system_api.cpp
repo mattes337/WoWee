@@ -3765,7 +3765,7 @@ static int lua_IsMouseButtonDown(lua_State* L) {
     return 1;
 }
 
-// Screenshot() → saves one where the client's own binding puts it
+// Screenshot() queues the next completed frame at the client binding's path.
 static int lua_Screenshot(lua_State* L) {
     auto* svc = getLuaServices(L);
     if (svc && svc->takeScreenshot) svc->takeScreenshot();
