@@ -40,7 +40,7 @@ class LiveLoginTest(unittest.TestCase):
         self.assertIn("missing_preview_isolation_marker", missing["failure_reasons"])
         marked = GOOD.replace(
             "[INFO ] Ready to select character",
-            "[INFO ] CharacterRenderer: preview non-indexed draw diagnostic enabled\n"
+            "[WARN ] CharacterRenderer: preview non-indexed draw diagnostic enabled\n"
             "[INFO ] Ready to select character")
         result = classify(0, marked, 1800, preview_isolation="non-indexed-draw")
         self.assertEqual(result["result"], "pass")

@@ -109,7 +109,12 @@ def classify(returncode, log, updates, event_count=8, created_name=None,
         failures.append("process_or_validation_failure")
     if preview_isolation == "non-indexed-draw":
         marker = "CharacterRenderer: preview non-indexed draw diagnostic enabled"
-        report["preview_isolation_marker"] = position(marker) >= 0
+        # The renderer emits this diagnostic as WARN. Keep protocol parsing
+        # INFO-only above, and match this one exact structured message at its
+        # documented severity instead of accepting an arbitrary substring.
+        report["preview_isolation_marker"] = any(
+            re.fullmatch(r"(?:\[[^\]]+\]\s*)?\[WARN\s*\]\s*" + re.escape(marker), line)
+            for line in log.splitlines())
         if not report["preview_isolation_marker"]:
             failures.append("missing_preview_isolation_marker")
     if created_name:
