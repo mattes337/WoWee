@@ -19,8 +19,8 @@ python tools/validate_opcode_maps.py --expansion wotlk --strict-required --requi
 
 Optionally include a specific build's configured CTest manifest:
 
-The committed September 8 snapshot uses the saved 28-test headless/SDL manifest
-from source `915c8752f`, with machine-specific source/build roots replaced by
+The committed September 8 snapshot uses the saved 29-test headless/SDL manifest
+from source `2b1c97914`, with machine-specific source/build roots replaced by
 placeholders. It records that selected build's configuration, not every test in the
 full client build. Actual executed suites and focused additions are documented
 separately in [headless test evidence](headless-tests.md).

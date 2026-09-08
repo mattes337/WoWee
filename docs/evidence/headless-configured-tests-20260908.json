@@ -164,7 +164,7 @@
       {
         "command": 0,
         "file": 1,
-        "line": 75,
+        "line": 76,
         "parent": 30
       },
       {
@@ -183,7 +183,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 79,
+        "line": 80,
         "parent": 34
       },
       {
@@ -208,7 +208,7 @@
       {
         "command": 0,
         "file": 1,
-        "line": 92,
+        "line": 93,
         "parent": 39
       },
       {
@@ -227,7 +227,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 99,
+        "line": 100,
         "parent": 43
       },
       {
@@ -252,7 +252,7 @@
       {
         "command": 0,
         "file": 1,
-        "line": 114,
+        "line": 115,
         "parent": 48
       },
       {
@@ -271,7 +271,7 @@
       {
         "command": 0,
         "file": 1,
-        "line": 126,
+        "line": 127,
         "parent": 52
       },
       {
@@ -290,7 +290,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 132,
+        "line": 133,
         "parent": 56
       },
       {
@@ -315,7 +315,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 139,
+        "line": 140,
         "parent": 61
       },
       {
@@ -340,7 +340,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 152,
+        "line": 153,
         "parent": 66
       },
       {
@@ -365,7 +365,7 @@
       {
         "command": 0,
         "file": 1,
-        "line": 168,
+        "line": 169,
         "parent": 71
       },
       {
@@ -384,7 +384,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 174,
+        "line": 175,
         "parent": 75
       },
       {
@@ -409,7 +409,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 178,
+        "line": 179,
         "parent": 80
       },
       {
@@ -434,7 +434,7 @@
       {
         "command": 0,
         "file": 1,
-        "line": 197,
+        "line": 198,
         "parent": 85
       },
       {
@@ -453,7 +453,7 @@
       {
         "command": 0,
         "file": 1,
-        "line": 213,
+        "line": 214,
         "parent": 89
       },
       {
@@ -472,7 +472,7 @@
       {
         "command": 0,
         "file": 1,
-        "line": 230,
+        "line": 231,
         "parent": 93
       },
       {
@@ -491,7 +491,7 @@
       {
         "command": 0,
         "file": 1,
-        "line": 246,
+        "line": 247,
         "parent": 97
       },
       {
@@ -510,7 +510,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 252,
+        "line": 253,
         "parent": 101
       },
       {
@@ -535,7 +535,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 256,
+        "line": 257,
         "parent": 106
       },
       {
@@ -560,7 +560,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 260,
+        "line": 261,
         "parent": 111
       },
       {
@@ -585,7 +585,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 263,
+        "line": 264,
         "parent": 116
       },
       {
@@ -610,7 +610,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 267,
+        "line": 268,
         "parent": 121
       },
       {
@@ -635,7 +635,7 @@
       {
         "command": 1,
         "file": 1,
-        "line": 271,
+        "line": 272,
         "parent": 126
       },
       {
@@ -643,6 +643,31 @@
         "file": 0,
         "line": 117,
         "parent": 127
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 2,
+        "file": 0,
+        "line": 122,
+        "parent": 129
+      },
+      {
+        "file": 1,
+        "parent": 130
+      },
+      {
+        "command": 1,
+        "file": 1,
+        "line": 277,
+        "parent": 131
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 117,
+        "parent": 132
       }
     ]
   },
@@ -1198,6 +1223,26 @@
       ],
       "config": "Debug",
       "name": "model_replacement",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "headless"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "<build>/tests"
+        }
+      ]
+    },
+    {
+      "backtrace": 133,
+      "command": [
+        "<build>/bin/Debug/test_tangent_basis.exe"
+      ],
+      "config": "Debug",
+      "name": "tangent_basis",
       "properties": [
         {
           "name": "LABELS",

@@ -7,7 +7,7 @@
     "result": "not runtime verified",
     "interface_path": "Data/extracted/interface/FrameXML",
     "stock_provenance": "unverified",
-    "input_sha256": "3ef0eed367af9328db17bce56550c2930fa3711070349c91edeb582b1d4dff56",
+    "input_sha256": "3c3b6ce6bad42ee8e580f589e97df71bef688188818fc5903c82c8c80be4006b",
     "limitations": "Regex detections overlap and include defaults, comments and unreachable code. No coverage percentage or functional completion is implied."
   },
   "wotlk_opcode_warnings": [
@@ -3918,12 +3918,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6035",
+            "evidence": "src/addons/lua_engine.cpp:6036",
             "implementation_symbol": "lua_Tooltip_AddDoubleLine"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6597"
+            "evidence": "src/addons/lua_engine.cpp:6598"
           }
         ],
         "execution_result": "not-run",
@@ -3935,12 +3935,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6150",
+            "evidence": "src/addons/lua_engine.cpp:6151",
             "implementation_symbol": "lua_EditBox_AddHistoryLine"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6597"
+            "evidence": "src/addons/lua_engine.cpp:6598"
           }
         ],
         "execution_result": "not-run",
@@ -3952,12 +3952,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5997",
+            "evidence": "src/addons/lua_engine.cpp:5998",
             "implementation_symbol": "lua_Tooltip_AddLine"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6597"
+            "evidence": "src/addons/lua_engine.cpp:6598"
           }
         ],
         "execution_result": "not-run",
@@ -3969,16 +3969,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5996",
+            "evidence": "src/addons/lua_engine.cpp:5997",
             "implementation_symbol": "lua_MessageFrame_AddMessage"
           },
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7007"
+            "evidence": "src/addons/lua_engine.cpp:7008"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6597"
+            "evidence": "src/addons/lua_engine.cpp:6598"
           }
         ],
         "execution_result": "not-run",
@@ -3990,7 +3990,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6597"
+            "evidence": "src/addons/lua_engine.cpp:6598"
           }
         ],
         "execution_result": "not-run",
@@ -4002,7 +4002,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6598"
+            "evidence": "src/addons/lua_engine.cpp:6599"
           }
         ],
         "execution_result": "not-run",
@@ -4014,7 +4014,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6598"
+            "evidence": "src/addons/lua_engine.cpp:6599"
           }
         ],
         "execution_result": "not-run",
@@ -4026,7 +4026,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6598"
+            "evidence": "src/addons/lua_engine.cpp:6599"
           }
         ],
         "execution_result": "not-run",
@@ -4038,7 +4038,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6038",
+            "evidence": "src/addons/lua_engine.cpp:6039",
             "implementation_symbol": "lua_Tooltip_AppendText"
           }
         ],
@@ -4051,7 +4051,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6274"
+            "evidence": "src/addons/lua_engine.cpp:6275"
           }
         ],
         "execution_result": "not-run",
@@ -4063,7 +4063,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6599"
+            "evidence": "src/addons/lua_engine.cpp:6600"
           }
         ],
         "execution_result": "not-run",
@@ -4075,7 +4075,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6599"
+            "evidence": "src/addons/lua_engine.cpp:6600"
           }
         ],
         "execution_result": "not-run",
@@ -4087,12 +4087,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6046",
+            "evidence": "src/addons/lua_engine.cpp:6047",
             "implementation_symbol": "lua_FontString_CanWordWrap"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4166"
+            "evidence": "src/addons/lua_engine.cpp:4167"
           }
         ],
         "execution_result": "not-run",
@@ -4104,7 +4104,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6999"
+            "evidence": "src/addons/lua_engine.cpp:7000"
           }
         ],
         "execution_result": "not-run",
@@ -4116,7 +4116,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6599"
+            "evidence": "src/addons/lua_engine.cpp:6600"
           }
         ],
         "execution_result": "not-run",
@@ -4128,12 +4128,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6040",
+            "evidence": "src/addons/lua_engine.cpp:6041",
             "implementation_symbol": "lua_MessageFrame_Clear"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6599"
+            "evidence": "src/addons/lua_engine.cpp:6600"
           }
         ],
         "execution_result": "not-run",
@@ -4145,16 +4145,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5949",
+            "evidence": "src/addons/lua_engine.cpp:5950",
             "implementation_symbol": "lua_Region_ClearAllPoints"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4084"
+            "evidence": "src/addons/lua_engine.cpp:4085"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6599"
+            "evidence": "src/addons/lua_engine.cpp:6600"
           }
         ],
         "execution_result": "not-run",
@@ -4166,7 +4166,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6600"
+            "evidence": "src/addons/lua_engine.cpp:6601"
           }
         ],
         "execution_result": "not-run",
@@ -4178,7 +4178,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6600"
+            "evidence": "src/addons/lua_engine.cpp:6601"
           }
         ],
         "execution_result": "not-run",
@@ -4190,12 +4190,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6179",
+            "evidence": "src/addons/lua_engine.cpp:6180",
             "implementation_symbol": "lua_EditBox_ClearFocus"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6600"
+            "evidence": "src/addons/lua_engine.cpp:6601"
           }
         ],
         "execution_result": "not-run",
@@ -4207,12 +4207,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6152",
+            "evidence": "src/addons/lua_engine.cpp:6153",
             "implementation_symbol": "lua_EditBox_ClearHistory"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6600"
+            "evidence": "src/addons/lua_engine.cpp:6601"
           }
         ],
         "execution_result": "not-run",
@@ -4224,12 +4224,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6036",
+            "evidence": "src/addons/lua_engine.cpp:6037",
             "implementation_symbol": "lua_Tooltip_ClearLines"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6600"
+            "evidence": "src/addons/lua_engine.cpp:6601"
           }
         ],
         "execution_result": "not-run",
@@ -4241,7 +4241,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6601"
+            "evidence": "src/addons/lua_engine.cpp:6602"
           }
         ],
         "execution_result": "not-run",
@@ -4253,7 +4253,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6284"
+            "evidence": "src/addons/lua_engine.cpp:6285"
           }
         ],
         "execution_result": "not-run",
@@ -4265,12 +4265,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6189",
+            "evidence": "src/addons/lua_engine.cpp:6190",
             "implementation_symbol": "lua_Frame_CreateFontString"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6601"
+            "evidence": "src/addons/lua_engine.cpp:6602"
           }
         ],
         "execution_result": "not-run",
@@ -4282,7 +4282,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6601"
+            "evidence": "src/addons/lua_engine.cpp:6602"
           }
         ],
         "execution_result": "not-run",
@@ -4294,12 +4294,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6188",
+            "evidence": "src/addons/lua_engine.cpp:6189",
             "implementation_symbol": "lua_Frame_CreateTexture"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6603"
+            "evidence": "src/addons/lua_engine.cpp:6604"
           }
         ],
         "execution_result": "not-run",
@@ -4311,7 +4311,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6603"
+            "evidence": "src/addons/lua_engine.cpp:6604"
           }
         ],
         "execution_result": "not-run",
@@ -4323,7 +4323,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6603"
+            "evidence": "src/addons/lua_engine.cpp:6604"
           }
         ],
         "execution_result": "not-run",
@@ -4335,12 +4335,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6064",
+            "evidence": "src/addons/lua_engine.cpp:6065",
             "implementation_symbol": "lua_Button_Disable"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6603"
+            "evidence": "src/addons/lua_engine.cpp:6604"
           }
         ],
         "execution_result": "not-run",
@@ -4352,7 +4352,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6080",
+            "evidence": "src/addons/lua_engine.cpp:6081",
             "implementation_symbol": "lua_QuestBlobFrame_DrawQuestBlob"
           }
         ],
@@ -4365,7 +4365,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6604"
+            "evidence": "src/addons/lua_engine.cpp:6605"
           }
         ],
         "execution_result": "not-run",
@@ -4377,12 +4377,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6057",
+            "evidence": "src/addons/lua_engine.cpp:6058",
             "implementation_symbol": "lua_Button_Enable"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6604"
+            "evidence": "src/addons/lua_engine.cpp:6605"
           }
         ],
         "execution_result": "not-run",
@@ -4394,12 +4394,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6120",
+            "evidence": "src/addons/lua_engine.cpp:6121",
             "implementation_symbol": "lua_Frame_EnableKeyboard"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6604"
+            "evidence": "src/addons/lua_engine.cpp:6605"
           }
         ],
         "execution_result": "not-run",
@@ -4411,12 +4411,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6084",
+            "evidence": "src/addons/lua_engine.cpp:6085",
             "implementation_symbol": "lua_Frame_EnableMouse"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6604"
+            "evidence": "src/addons/lua_engine.cpp:6605"
           }
         ],
         "execution_result": "not-run",
@@ -4428,11 +4428,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6217"
+            "evidence": "src/addons/lua_engine.cpp:6218"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6604"
+            "evidence": "src/addons/lua_engine.cpp:6605"
           }
         ],
         "execution_result": "not-run",
@@ -4444,7 +4444,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6605"
+            "evidence": "src/addons/lua_engine.cpp:6606"
           }
         ],
         "execution_result": "not-run",
@@ -4456,11 +4456,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7965"
+            "evidence": "src/addons/lua_engine.cpp:7966"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6605"
+            "evidence": "src/addons/lua_engine.cpp:6606"
           }
         ],
         "execution_result": "not-run",
@@ -4472,7 +4472,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6605"
+            "evidence": "src/addons/lua_engine.cpp:6606"
           }
         ],
         "execution_result": "not-run",
@@ -4484,7 +4484,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:8101"
+            "evidence": "src/addons/lua_engine.cpp:8102"
           }
         ],
         "execution_result": "not-run",
@@ -4496,7 +4496,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:8102"
+            "evidence": "src/addons/lua_engine.cpp:8103"
           }
         ],
         "execution_result": "not-run",
@@ -4508,16 +4508,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6083",
+            "evidence": "src/addons/lua_engine.cpp:6084",
             "implementation_symbol": "lua_Region_GetAlpha"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4127"
+            "evidence": "src/addons/lua_engine.cpp:4128"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6605"
+            "evidence": "src/addons/lua_engine.cpp:6606"
           }
         ],
         "execution_result": "not-run",
@@ -4529,7 +4529,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6605"
+            "evidence": "src/addons/lua_engine.cpp:6606"
           }
         ],
         "execution_result": "not-run",
@@ -4541,11 +4541,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6453"
+            "evidence": "src/addons/lua_engine.cpp:6454"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6605"
+            "evidence": "src/addons/lua_engine.cpp:6606"
           }
         ],
         "execution_result": "not-run",
@@ -4557,7 +4557,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6606"
+            "evidence": "src/addons/lua_engine.cpp:6607"
           }
         ],
         "execution_result": "not-run",
@@ -4569,7 +4569,7 @@
         "routes": [
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4137"
+            "evidence": "src/addons/lua_engine.cpp:4138"
           }
         ],
         "execution_result": "not-run",
@@ -4581,16 +4581,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5990",
+            "evidence": "src/addons/lua_engine.cpp:5991",
             "implementation_symbol": "lua_Region_GetBottom"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4098"
+            "evidence": "src/addons/lua_engine.cpp:4099"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6606"
+            "evidence": "src/addons/lua_engine.cpp:6607"
           }
         ],
         "execution_result": "not-run",
@@ -4602,12 +4602,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6060",
+            "evidence": "src/addons/lua_engine.cpp:6061",
             "implementation_symbol": "lua_Button_GetButtonState"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6606"
+            "evidence": "src/addons/lua_engine.cpp:6607"
           }
         ],
         "execution_result": "not-run",
@@ -4619,16 +4619,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6081",
+            "evidence": "src/addons/lua_engine.cpp:6082",
             "implementation_symbol": "lua_Region_GetCenter"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4081"
+            "evidence": "src/addons/lua_engine.cpp:4082"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6606"
+            "evidence": "src/addons/lua_engine.cpp:6607"
           }
         ],
         "execution_result": "not-run",
@@ -4640,12 +4640,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6063",
+            "evidence": "src/addons/lua_engine.cpp:6064",
             "implementation_symbol": "lua_CheckButton_GetChecked"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6606"
+            "evidence": "src/addons/lua_engine.cpp:6607"
           }
         ],
         "execution_result": "not-run",
@@ -4657,7 +4657,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6607"
+            "evidence": "src/addons/lua_engine.cpp:6608"
           }
         ],
         "execution_result": "not-run",
@@ -4669,7 +4669,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6607"
+            "evidence": "src/addons/lua_engine.cpp:6608"
           }
         ],
         "execution_result": "not-run",
@@ -4681,12 +4681,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6187",
+            "evidence": "src/addons/lua_engine.cpp:6188",
             "implementation_symbol": "lua_Frame_GetChildren"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6607"
+            "evidence": "src/addons/lua_engine.cpp:6608"
           }
         ],
         "execution_result": "not-run",
@@ -4698,7 +4698,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5983",
+            "evidence": "src/addons/lua_engine.cpp:5984",
             "implementation_symbol": "lua_ColorSelect_GetColorRGB"
           }
         ],
@@ -4711,7 +4711,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6181",
+            "evidence": "src/addons/lua_engine.cpp:6182",
             "implementation_symbol": "lua_Cooldown_GetCooldownTimes"
           }
         ],
@@ -4724,7 +4724,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6154",
+            "evidence": "src/addons/lua_engine.cpp:6155",
             "implementation_symbol": "lua_EditBox_GetCountInvisibleLetters"
           }
         ],
@@ -4737,12 +4737,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6175",
+            "evidence": "src/addons/lua_engine.cpp:6176",
             "implementation_symbol": "lua_EditBox_GetCursorPosition"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6608"
+            "evidence": "src/addons/lua_engine.cpp:6609"
           }
         ],
         "execution_result": "not-run",
@@ -4754,7 +4754,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6608"
+            "evidence": "src/addons/lua_engine.cpp:6609"
           }
         ],
         "execution_result": "not-run",
@@ -4766,7 +4766,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6609"
+            "evidence": "src/addons/lua_engine.cpp:6610"
           }
         ],
         "execution_result": "not-run",
@@ -4778,7 +4778,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6609"
+            "evidence": "src/addons/lua_engine.cpp:6610"
           }
         ],
         "execution_result": "not-run",
@@ -4790,7 +4790,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6609"
+            "evidence": "src/addons/lua_engine.cpp:6610"
           }
         ],
         "execution_result": "not-run",
@@ -4802,16 +4802,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5974",
+            "evidence": "src/addons/lua_engine.cpp:5975",
             "implementation_symbol": "lua_Region_GetEffectiveScale"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4121"
+            "evidence": "src/addons/lua_engine.cpp:4122"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6610"
+            "evidence": "src/addons/lua_engine.cpp:6611"
           }
         ],
         "execution_result": "not-run",
@@ -4823,7 +4823,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5961",
+            "evidence": "src/addons/lua_engine.cpp:5962",
             "implementation_symbol": "lua_Model_GetFacing"
           }
         ],
@@ -4836,12 +4836,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5979",
+            "evidence": "src/addons/lua_engine.cpp:5980",
             "implementation_symbol": "lua_Region_GetFieldSize"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4094"
+            "evidence": "src/addons/lua_engine.cpp:4095"
           }
         ],
         "execution_result": "not-run",
@@ -4853,7 +4853,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6610"
+            "evidence": "src/addons/lua_engine.cpp:6611"
           }
         ],
         "execution_result": "not-run",
@@ -4865,7 +4865,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6610"
+            "evidence": "src/addons/lua_engine.cpp:6611"
           }
         ],
         "execution_result": "not-run",
@@ -4877,16 +4877,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6026",
+            "evidence": "src/addons/lua_engine.cpp:6027",
             "implementation_symbol": "lua_FontString_GetFont"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4140"
+            "evidence": "src/addons/lua_engine.cpp:4141"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4153"
+            "evidence": "src/addons/lua_engine.cpp:4154"
           }
         ],
         "execution_result": "not-run",
@@ -4898,12 +4898,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5984",
+            "evidence": "src/addons/lua_engine.cpp:5985",
             "implementation_symbol": "lua_FontString_GetFontObject"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4130"
+            "evidence": "src/addons/lua_engine.cpp:4131"
           }
         ],
         "execution_result": "not-run",
@@ -4915,11 +4915,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6499"
+            "evidence": "src/addons/lua_engine.cpp:6500"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6611"
+            "evidence": "src/addons/lua_engine.cpp:6612"
           }
         ],
         "execution_result": "not-run",
@@ -4931,7 +4931,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6611"
+            "evidence": "src/addons/lua_engine.cpp:6612"
           }
         ],
         "execution_result": "not-run",
@@ -4943,12 +4943,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5994",
+            "evidence": "src/addons/lua_engine.cpp:5995",
             "implementation_symbol": "lua_Frame_GetFrameLevel"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6611"
+            "evidence": "src/addons/lua_engine.cpp:6612"
           }
         ],
         "execution_result": "not-run",
@@ -4960,7 +4960,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6611"
+            "evidence": "src/addons/lua_engine.cpp:6612"
           }
         ],
         "execution_result": "not-run",
@@ -4972,12 +4972,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6183",
+            "evidence": "src/addons/lua_engine.cpp:6184",
             "implementation_symbol": "lua_Frame_GetFrameStrata"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6612"
+            "evidence": "src/addons/lua_engine.cpp:6613"
           }
         ],
         "execution_result": "not-run",
@@ -4989,16 +4989,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5987",
+            "evidence": "src/addons/lua_engine.cpp:5988",
             "implementation_symbol": "lua_Region_GetHeight"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4095"
+            "evidence": "src/addons/lua_engine.cpp:4096"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6612"
+            "evidence": "src/addons/lua_engine.cpp:6613"
           }
         ],
         "execution_result": "not-run",
@@ -5010,7 +5010,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6612"
+            "evidence": "src/addons/lua_engine.cpp:6613"
           }
         ],
         "execution_result": "not-run",
@@ -5022,7 +5022,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6155",
+            "evidence": "src/addons/lua_engine.cpp:6156",
             "implementation_symbol": "lua_EditBox_GetHistoryLines"
           }
         ],
@@ -5035,7 +5035,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6117",
+            "evidence": "src/addons/lua_engine.cpp:6118",
             "implementation_symbol": "lua_Frame_GetHitRectInsets"
           }
         ],
@@ -5048,12 +5048,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6070",
+            "evidence": "src/addons/lua_engine.cpp:6071",
             "implementation_symbol": "lua_ScrollFrame_GetHorizontalScroll"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6612"
+            "evidence": "src/addons/lua_engine.cpp:6613"
           }
         ],
         "execution_result": "not-run",
@@ -5065,12 +5065,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6072",
+            "evidence": "src/addons/lua_engine.cpp:6073",
             "implementation_symbol": "lua_ScrollFrame_GetHorizontalScrollRange"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6613"
+            "evidence": "src/addons/lua_engine.cpp:6614"
           }
         ],
         "execution_result": "not-run",
@@ -5082,11 +5082,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6473"
+            "evidence": "src/addons/lua_engine.cpp:6474"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6613"
+            "evidence": "src/addons/lua_engine.cpp:6614"
           }
         ],
         "execution_result": "not-run",
@@ -5098,7 +5098,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5981",
+            "evidence": "src/addons/lua_engine.cpp:5982",
             "implementation_symbol": "lua_EditBox_GetInputLanguage"
           }
         ],
@@ -5111,7 +5111,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6267"
+            "evidence": "src/addons/lua_engine.cpp:6268"
           }
         ],
         "execution_result": "not-run",
@@ -5123,11 +5123,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7376"
+            "evidence": "src/addons/lua_engine.cpp:7377"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6614"
+            "evidence": "src/addons/lua_engine.cpp:6615"
           }
         ],
         "execution_result": "not-run",
@@ -5139,7 +5139,7 @@
         "routes": [
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4149"
+            "evidence": "src/addons/lua_engine.cpp:4150"
           }
         ],
         "execution_result": "not-run",
@@ -5151,7 +5151,7 @@
         "routes": [
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4150"
+            "evidence": "src/addons/lua_engine.cpp:4151"
           }
         ],
         "execution_result": "not-run",
@@ -5163,16 +5163,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5988",
+            "evidence": "src/addons/lua_engine.cpp:5989",
             "implementation_symbol": "lua_Region_GetLeft"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4096"
+            "evidence": "src/addons/lua_engine.cpp:4097"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6614"
+            "evidence": "src/addons/lua_engine.cpp:6615"
           }
         ],
         "execution_result": "not-run",
@@ -5184,7 +5184,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7074"
+            "evidence": "src/addons/lua_engine.cpp:7075"
           }
         ],
         "execution_result": "not-run",
@@ -5196,7 +5196,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6614"
+            "evidence": "src/addons/lua_engine.cpp:6615"
           }
         ],
         "execution_result": "not-run",
@@ -5208,7 +5208,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6165",
+            "evidence": "src/addons/lua_engine.cpp:6166",
             "implementation_symbol": "lua_EditBox_GetMaxLetters"
           }
         ],
@@ -5221,7 +5221,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6164",
+            "evidence": "src/addons/lua_engine.cpp:6165",
             "implementation_symbol": "lua_EditBox_GetMaxLetters"
           }
         ],
@@ -5234,12 +5234,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6042",
+            "evidence": "src/addons/lua_engine.cpp:6043",
             "implementation_symbol": "lua_MessageFrame_GetMessageInfo"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6614"
+            "evidence": "src/addons/lua_engine.cpp:6615"
           }
         ],
         "execution_result": "not-run",
@@ -5251,12 +5251,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6134",
+            "evidence": "src/addons/lua_engine.cpp:6135",
             "implementation_symbol": "lua_StatusBar_GetMinMaxValues"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6615"
+            "evidence": "src/addons/lua_engine.cpp:6616"
           }
         ],
         "execution_result": "not-run",
@@ -5268,7 +5268,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5986",
+            "evidence": "src/addons/lua_engine.cpp:5987",
             "implementation_symbol": "lua_Frame_GetMinimumWidth"
           }
         ],
@@ -5281,7 +5281,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6087",
+            "evidence": "src/addons/lua_engine.cpp:6088",
             "implementation_symbol": "lua_Frame_GetMotionScriptsWhileDisabled"
           }
         ],
@@ -5294,7 +5294,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6615"
+            "evidence": "src/addons/lua_engine.cpp:6616"
           }
         ],
         "execution_result": "not-run",
@@ -5306,16 +5306,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5934",
+            "evidence": "src/addons/lua_engine.cpp:5935",
             "implementation_symbol": "lua_Frame_GetName"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4065"
+            "evidence": "src/addons/lua_engine.cpp:4066"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6615"
+            "evidence": "src/addons/lua_engine.cpp:6616"
           }
         ],
         "execution_result": "not-run",
@@ -5327,7 +5327,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6615"
+            "evidence": "src/addons/lua_engine.cpp:6616"
           }
         ],
         "execution_result": "not-run",
@@ -5339,7 +5339,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6616"
+            "evidence": "src/addons/lua_engine.cpp:6617"
           }
         ],
         "execution_result": "not-run",
@@ -5351,7 +5351,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6176",
+            "evidence": "src/addons/lua_engine.cpp:6177",
             "implementation_symbol": "lua_EditBox_GetNumLetters"
           }
         ],
@@ -5364,12 +5364,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6041",
+            "evidence": "src/addons/lua_engine.cpp:6042",
             "implementation_symbol": "lua_MessageFrame_GetNumMessages"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6616"
+            "evidence": "src/addons/lua_engine.cpp:6617"
           }
         ],
         "execution_result": "not-run",
@@ -5381,16 +5381,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5995",
+            "evidence": "src/addons/lua_engine.cpp:5996",
             "implementation_symbol": "lua_Region_GetNumPoints"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4104"
+            "evidence": "src/addons/lua_engine.cpp:4105"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6616"
+            "evidence": "src/addons/lua_engine.cpp:6617"
           }
         ],
         "execution_result": "not-run",
@@ -5402,11 +5402,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7258"
+            "evidence": "src/addons/lua_engine.cpp:7259"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6616"
+            "evidence": "src/addons/lua_engine.cpp:6617"
           }
         ],
         "execution_result": "not-run",
@@ -5418,12 +5418,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6148",
+            "evidence": "src/addons/lua_engine.cpp:6149",
             "implementation_symbol": "lua_EditBox_GetNumber"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6615"
+            "evidence": "src/addons/lua_engine.cpp:6616"
           }
         ],
         "execution_result": "not-run",
@@ -5435,16 +5435,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6073",
+            "evidence": "src/addons/lua_engine.cpp:6074",
             "implementation_symbol": "lua_Region_GetObjectType"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4102"
+            "evidence": "src/addons/lua_engine.cpp:4103"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6617"
+            "evidence": "src/addons/lua_engine.cpp:6618"
           }
         ],
         "execution_result": "not-run",
@@ -5456,7 +5456,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7986"
+            "evidence": "src/addons/lua_engine.cpp:7987"
           }
         ],
         "execution_result": "not-run",
@@ -5468,7 +5468,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6168",
+            "evidence": "src/addons/lua_engine.cpp:6169",
             "implementation_symbol": "lua_MessageFrame_GetPadding"
           }
         ],
@@ -5481,16 +5481,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6186",
+            "evidence": "src/addons/lua_engine.cpp:6187",
             "implementation_symbol": "lua_Region_GetParent"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4082"
+            "evidence": "src/addons/lua_engine.cpp:4083"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6617"
+            "evidence": "src/addons/lua_engine.cpp:6618"
           }
         ],
         "execution_result": "not-run",
@@ -5502,16 +5502,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6075",
+            "evidence": "src/addons/lua_engine.cpp:6076",
             "implementation_symbol": "lua_Region_GetPoint"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4101"
+            "evidence": "src/addons/lua_engine.cpp:4102"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6617"
+            "evidence": "src/addons/lua_engine.cpp:6618"
           }
         ],
         "execution_result": "not-run",
@@ -5523,7 +5523,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6115",
+            "evidence": "src/addons/lua_engine.cpp:6116",
             "implementation_symbol": "lua_Frame_GetPushedTextOffset"
           }
         ],
@@ -5536,7 +5536,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6617"
+            "evidence": "src/addons/lua_engine.cpp:6618"
           }
         ],
         "execution_result": "not-run",
@@ -5548,16 +5548,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5992",
+            "evidence": "src/addons/lua_engine.cpp:5993",
             "implementation_symbol": "lua_Region_GetRect"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4100"
+            "evidence": "src/addons/lua_engine.cpp:4101"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6617"
+            "evidence": "src/addons/lua_engine.cpp:6618"
           }
         ],
         "execution_result": "not-run",
@@ -5569,7 +5569,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6618"
+            "evidence": "src/addons/lua_engine.cpp:6619"
           }
         ],
         "execution_result": "not-run",
@@ -5581,7 +5581,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6618"
+            "evidence": "src/addons/lua_engine.cpp:6619"
           }
         ],
         "execution_result": "not-run",
@@ -5593,16 +5593,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5989",
+            "evidence": "src/addons/lua_engine.cpp:5990",
             "implementation_symbol": "lua_Region_GetRight"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4097"
+            "evidence": "src/addons/lua_engine.cpp:4098"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6618"
+            "evidence": "src/addons/lua_engine.cpp:6619"
           }
         ],
         "execution_result": "not-run",
@@ -5614,16 +5614,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5973",
+            "evidence": "src/addons/lua_engine.cpp:5974",
             "implementation_symbol": "lua_Region_GetScale"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4119"
+            "evidence": "src/addons/lua_engine.cpp:4120"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6618"
+            "evidence": "src/addons/lua_engine.cpp:6619"
           }
         ],
         "execution_result": "not-run",
@@ -5635,12 +5635,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5933",
+            "evidence": "src/addons/lua_engine.cpp:5934",
             "implementation_symbol": "lua_Frame_GetScript"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6618"
+            "evidence": "src/addons/lua_engine.cpp:6619"
           }
         ],
         "execution_result": "not-run",
@@ -5652,11 +5652,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6474"
+            "evidence": "src/addons/lua_engine.cpp:6475"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6619"
+            "evidence": "src/addons/lua_engine.cpp:6620"
           }
         ],
         "execution_result": "not-run",
@@ -5668,7 +5668,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6619"
+            "evidence": "src/addons/lua_engine.cpp:6620"
           }
         ],
         "execution_result": "not-run",
@@ -5680,11 +5680,11 @@
         "routes": [
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4154"
+            "evidence": "src/addons/lua_engine.cpp:4155"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6619"
+            "evidence": "src/addons/lua_engine.cpp:6620"
           }
         ],
         "execution_result": "not-run",
@@ -5696,7 +5696,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7384"
+            "evidence": "src/addons/lua_engine.cpp:7385"
           }
         ],
         "execution_result": "not-run",
@@ -5708,7 +5708,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6493"
+            "evidence": "src/addons/lua_engine.cpp:6494"
           }
         ],
         "execution_result": "not-run",
@@ -5720,16 +5720,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5978",
+            "evidence": "src/addons/lua_engine.cpp:5979",
             "implementation_symbol": "lua_Region_GetTextHeight"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4093"
+            "evidence": "src/addons/lua_engine.cpp:4094"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6620"
+            "evidence": "src/addons/lua_engine.cpp:6621"
           }
         ],
         "execution_result": "not-run",
@@ -5741,78 +5741,8 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5976",
-            "implementation_symbol": "lua_Region_GetTextWidth"
-          },
-          {
-            "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4091"
-          },
-          {
-            "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6620"
-          }
-        ],
-        "execution_result": "not-run",
-        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
-      },
-      {
-        "name": "GetTexCoord",
-        "disposition": "no-op candidate",
-        "routes": [
-          {
-            "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6620"
-          }
-        ],
-        "execution_result": "not-run",
-        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
-      },
-      {
-        "name": "GetText",
-        "disposition": "provided candidate",
-        "routes": [
-          {
-            "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4146"
-          },
-          {
-            "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6566"
-          },
-          {
-            "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6620"
-          }
-        ],
-        "execution_result": "not-run",
-        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
-      },
-      {
-        "name": "GetTextColor",
-        "disposition": "provided candidate",
-        "routes": [
-          {
-            "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6095",
-            "implementation_symbol": "lua_FontString_GetTextColor"
-          },
-          {
-            "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4143"
-          }
-        ],
-        "execution_result": "not-run",
-        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
-      },
-      {
-        "name": "GetTextHeight",
-        "disposition": "provided candidate",
-        "routes": [
-          {
-            "route": "C++ binding table",
             "evidence": "src/addons/lua_engine.cpp:5977",
-            "implementation_symbol": "lua_Region_GetTextHeight"
+            "implementation_symbol": "lua_Region_GetTextWidth"
           },
           {
             "route": "region registration",
@@ -5827,12 +5757,82 @@
         "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
       },
       {
+        "name": "GetTexCoord",
+        "disposition": "no-op candidate",
+        "routes": [
+          {
+            "route": "no-op allowlist candidate",
+            "evidence": "src/addons/lua_engine.cpp:6621"
+          }
+        ],
+        "execution_result": "not-run",
+        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
+      },
+      {
+        "name": "GetText",
+        "disposition": "provided candidate",
+        "routes": [
+          {
+            "route": "region registration",
+            "evidence": "src/addons/lua_engine.cpp:4147"
+          },
+          {
+            "route": "Lua method shim",
+            "evidence": "src/addons/lua_engine.cpp:6567"
+          },
+          {
+            "route": "no-op allowlist candidate",
+            "evidence": "src/addons/lua_engine.cpp:6621"
+          }
+        ],
+        "execution_result": "not-run",
+        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
+      },
+      {
+        "name": "GetTextColor",
+        "disposition": "provided candidate",
+        "routes": [
+          {
+            "route": "C++ binding table",
+            "evidence": "src/addons/lua_engine.cpp:6096",
+            "implementation_symbol": "lua_FontString_GetTextColor"
+          },
+          {
+            "route": "region registration",
+            "evidence": "src/addons/lua_engine.cpp:4144"
+          }
+        ],
+        "execution_result": "not-run",
+        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
+      },
+      {
+        "name": "GetTextHeight",
+        "disposition": "provided candidate",
+        "routes": [
+          {
+            "route": "C++ binding table",
+            "evidence": "src/addons/lua_engine.cpp:5978",
+            "implementation_symbol": "lua_Region_GetTextHeight"
+          },
+          {
+            "route": "region registration",
+            "evidence": "src/addons/lua_engine.cpp:4093"
+          },
+          {
+            "route": "no-op allowlist candidate",
+            "evidence": "src/addons/lua_engine.cpp:6622"
+          }
+        ],
+        "execution_result": "not-run",
+        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
+      },
+      {
         "name": "GetTextInsets",
         "disposition": "provided candidate",
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6169",
+            "evidence": "src/addons/lua_engine.cpp:6170",
             "implementation_symbol": "lua_EditBox_GetTextInsets"
           }
         ],
@@ -5845,16 +5845,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5975",
+            "evidence": "src/addons/lua_engine.cpp:5976",
             "implementation_symbol": "lua_Region_GetTextWidth"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4090"
+            "evidence": "src/addons/lua_engine.cpp:4091"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6621"
+            "evidence": "src/addons/lua_engine.cpp:6622"
           }
         ],
         "execution_result": "not-run",
@@ -5866,11 +5866,11 @@
         "routes": [
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4134"
+            "evidence": "src/addons/lua_engine.cpp:4135"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6621"
+            "evidence": "src/addons/lua_engine.cpp:6622"
           }
         ],
         "execution_result": "not-run",
@@ -5882,7 +5882,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6051",
+            "evidence": "src/addons/lua_engine.cpp:6052",
             "implementation_symbol": "lua_MessageFrame_GetTimeVisible"
           }
         ],
@@ -5895,11 +5895,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7259"
+            "evidence": "src/addons/lua_engine.cpp:7260"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6621"
+            "evidence": "src/addons/lua_engine.cpp:6622"
           }
         ],
         "execution_result": "not-run",
@@ -5911,16 +5911,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5991",
+            "evidence": "src/addons/lua_engine.cpp:5992",
             "implementation_symbol": "lua_Region_GetTop"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4099"
+            "evidence": "src/addons/lua_engine.cpp:4100"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6621"
+            "evidence": "src/addons/lua_engine.cpp:6622"
           }
         ],
         "execution_result": "not-run",
@@ -5932,7 +5932,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6626"
+            "evidence": "src/addons/lua_engine.cpp:6627"
           }
         ],
         "execution_result": "not-run",
@@ -5944,7 +5944,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6177",
+            "evidence": "src/addons/lua_engine.cpp:6178",
             "implementation_symbol": "lua_EditBox_GetUTF8CursorPosition"
           }
         ],
@@ -5957,7 +5957,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7391"
+            "evidence": "src/addons/lua_engine.cpp:7392"
           }
         ],
         "execution_result": "not-run",
@@ -5969,7 +5969,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6626"
+            "evidence": "src/addons/lua_engine.cpp:6627"
           }
         ],
         "execution_result": "not-run",
@@ -5981,12 +5981,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6136",
+            "evidence": "src/addons/lua_engine.cpp:6137",
             "implementation_symbol": "lua_StatusBar_GetValue"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6626"
+            "evidence": "src/addons/lua_engine.cpp:6627"
           }
         ],
         "execution_result": "not-run",
@@ -5998,7 +5998,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6141",
+            "evidence": "src/addons/lua_engine.cpp:6142",
             "implementation_symbol": "lua_Slider_GetValueStep"
           }
         ],
@@ -6011,12 +6011,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5980",
+            "evidence": "src/addons/lua_engine.cpp:5981",
             "implementation_symbol": "lua_Region_GetVertexColor"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4129"
+            "evidence": "src/addons/lua_engine.cpp:4130"
           }
         ],
         "execution_result": "not-run",
@@ -6028,12 +6028,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6069",
+            "evidence": "src/addons/lua_engine.cpp:6070",
             "implementation_symbol": "lua_ScrollFrame_GetVerticalScroll"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6627"
+            "evidence": "src/addons/lua_engine.cpp:6628"
           }
         ],
         "execution_result": "not-run",
@@ -6045,12 +6045,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6071",
+            "evidence": "src/addons/lua_engine.cpp:6072",
             "implementation_symbol": "lua_ScrollFrame_GetVerticalScrollRange"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6627"
+            "evidence": "src/addons/lua_engine.cpp:6628"
           }
         ],
         "execution_result": "not-run",
@@ -6062,16 +6062,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5971",
+            "evidence": "src/addons/lua_engine.cpp:5972",
             "implementation_symbol": "lua_Region_GetWidth"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4089"
+            "evidence": "src/addons/lua_engine.cpp:4090"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6627"
+            "evidence": "src/addons/lua_engine.cpp:6628"
           }
         ],
         "execution_result": "not-run",
@@ -6083,12 +6083,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6077",
+            "evidence": "src/addons/lua_engine.cpp:6078",
             "implementation_symbol": "lua_Minimap_GetZoom"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6628"
+            "evidence": "src/addons/lua_engine.cpp:6629"
           }
         ],
         "execution_result": "not-run",
@@ -6100,12 +6100,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6078",
+            "evidence": "src/addons/lua_engine.cpp:6079",
             "implementation_symbol": "lua_Minimap_GetZoomLevels"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6628"
+            "evidence": "src/addons/lua_engine.cpp:6629"
           }
         ],
         "execution_result": "not-run",
@@ -6117,12 +6117,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6180",
+            "evidence": "src/addons/lua_engine.cpp:6181",
             "implementation_symbol": "lua_EditBox_HasFocus"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6628"
+            "evidence": "src/addons/lua_engine.cpp:6629"
           }
         ],
         "execution_result": "not-run",
@@ -6134,7 +6134,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6628"
+            "evidence": "src/addons/lua_engine.cpp:6629"
           }
         ],
         "execution_result": "not-run",
@@ -6146,16 +6146,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5936",
+            "evidence": "src/addons/lua_engine.cpp:5937",
             "implementation_symbol": "lua_Region_Hide"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4123"
+            "evidence": "src/addons/lua_engine.cpp:4124"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6628"
+            "evidence": "src/addons/lua_engine.cpp:6629"
           }
         ],
         "execution_result": "not-run",
@@ -6167,7 +6167,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6628"
+            "evidence": "src/addons/lua_engine.cpp:6629"
           }
         ],
         "execution_result": "not-run",
@@ -6179,12 +6179,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6174",
+            "evidence": "src/addons/lua_engine.cpp:6175",
             "implementation_symbol": "lua_EditBox_HighlightText"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6629"
+            "evidence": "src/addons/lua_engine.cpp:6630"
           }
         ],
         "execution_result": "not-run",
@@ -6196,11 +6196,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6342"
+            "evidence": "src/addons/lua_engine.cpp:6343"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6629"
+            "evidence": "src/addons/lua_engine.cpp:6630"
           }
         ],
         "execution_result": "not-run",
@@ -6212,7 +6212,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6629"
+            "evidence": "src/addons/lua_engine.cpp:6630"
           }
         ],
         "execution_result": "not-run",
@@ -6224,7 +6224,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6629"
+            "evidence": "src/addons/lua_engine.cpp:6630"
           }
         ],
         "execution_result": "not-run",
@@ -6236,12 +6236,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6157",
+            "evidence": "src/addons/lua_engine.cpp:6158",
             "implementation_symbol": "lua_EditBox_Insert"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6629"
+            "evidence": "src/addons/lua_engine.cpp:6630"
           }
         ],
         "execution_result": "not-run",
@@ -6253,7 +6253,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6129",
+            "evidence": "src/addons/lua_engine.cpp:6130",
             "implementation_symbol": "lua_Frame_IsClampedToScreen"
           }
         ],
@@ -6266,12 +6266,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6065",
+            "evidence": "src/addons/lua_engine.cpp:6066",
             "implementation_symbol": "lua_Button_IsEnabled"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6630"
+            "evidence": "src/addons/lua_engine.cpp:6631"
           }
         ],
         "execution_result": "not-run",
@@ -6283,7 +6283,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6630"
+            "evidence": "src/addons/lua_engine.cpp:6631"
           }
         ],
         "execution_result": "not-run",
@@ -6295,12 +6295,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5929",
+            "evidence": "src/addons/lua_engine.cpp:5930",
             "implementation_symbol": "lua_Frame_IsEventRegistered"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6630"
+            "evidence": "src/addons/lua_engine.cpp:6631"
           }
         ],
         "execution_result": "not-run",
@@ -6312,7 +6312,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6121",
+            "evidence": "src/addons/lua_engine.cpp:6122",
             "implementation_symbol": "lua_Frame_IsKeyboardEnabled"
           }
         ],
@@ -6325,12 +6325,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6088",
+            "evidence": "src/addons/lua_engine.cpp:6089",
             "implementation_symbol": "lua_Frame_IsMouseEnabled"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6630"
+            "evidence": "src/addons/lua_engine.cpp:6631"
           }
         ],
         "execution_result": "not-run",
@@ -6342,7 +6342,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5993",
+            "evidence": "src/addons/lua_engine.cpp:5994",
             "implementation_symbol": "lua_Region_IsMouseOver"
           }
         ],
@@ -6355,7 +6355,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5962",
+            "evidence": "src/addons/lua_engine.cpp:5963",
             "implementation_symbol": "lua_Frame_IsMovable"
           }
         ],
@@ -6368,16 +6368,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6074",
+            "evidence": "src/addons/lua_engine.cpp:6075",
             "implementation_symbol": "lua_Region_IsObjectType"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4103"
+            "evidence": "src/addons/lua_engine.cpp:4104"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6631"
+            "evidence": "src/addons/lua_engine.cpp:6632"
           }
         ],
         "execution_result": "not-run",
@@ -6389,7 +6389,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7987"
+            "evidence": "src/addons/lua_engine.cpp:7988"
           }
         ],
         "execution_result": "not-run",
@@ -6401,7 +6401,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6631"
+            "evidence": "src/addons/lua_engine.cpp:6632"
           }
         ],
         "execution_result": "not-run",
@@ -6413,7 +6413,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5968",
+            "evidence": "src/addons/lua_engine.cpp:5969",
             "implementation_symbol": "lua_Frame_IsResizable"
           }
         ],
@@ -6426,84 +6426,8 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5937",
-            "implementation_symbol": "lua_Region_IsShown"
-          },
-          {
-            "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4124"
-          },
-          {
-            "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6631"
-          }
-        ],
-        "execution_result": "not-run",
-        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
-      },
-      {
-        "name": "IsToplevel",
-        "disposition": "provided candidate",
-        "routes": [
-          {
-            "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6124",
-            "implementation_symbol": "lua_Frame_IsToplevel"
-          }
-        ],
-        "execution_result": "not-run",
-        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
-      },
-      {
-        "name": "IsUnderMouse",
-        "disposition": "no-op candidate",
-        "routes": [
-          {
-            "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6631"
-          }
-        ],
-        "execution_result": "not-run",
-        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
-      },
-      {
-        "name": "IsUnit",
-        "disposition": "provided candidate",
-        "routes": [
-          {
-            "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6034",
-            "implementation_symbol": "lua_Tooltip_IsUnit"
-          },
-          {
-            "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6632"
-          }
-        ],
-        "execution_result": "not-run",
-        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
-      },
-      {
-        "name": "IsUserPlaced",
-        "disposition": "provided candidate",
-        "routes": [
-          {
-            "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6119",
-            "implementation_symbol": "lua_Frame_IsUserPlaced"
-          }
-        ],
-        "execution_result": "not-run",
-        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
-      },
-      {
-        "name": "IsVisible",
-        "disposition": "provided candidate",
-        "routes": [
-          {
-            "route": "C++ binding table",
             "evidence": "src/addons/lua_engine.cpp:5938",
-            "implementation_symbol": "lua_Region_IsVisible"
+            "implementation_symbol": "lua_Region_IsShown"
           },
           {
             "route": "region registration",
@@ -6518,12 +6442,88 @@
         "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
       },
       {
+        "name": "IsToplevel",
+        "disposition": "provided candidate",
+        "routes": [
+          {
+            "route": "C++ binding table",
+            "evidence": "src/addons/lua_engine.cpp:6125",
+            "implementation_symbol": "lua_Frame_IsToplevel"
+          }
+        ],
+        "execution_result": "not-run",
+        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
+      },
+      {
+        "name": "IsUnderMouse",
+        "disposition": "no-op candidate",
+        "routes": [
+          {
+            "route": "no-op allowlist candidate",
+            "evidence": "src/addons/lua_engine.cpp:6632"
+          }
+        ],
+        "execution_result": "not-run",
+        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
+      },
+      {
+        "name": "IsUnit",
+        "disposition": "provided candidate",
+        "routes": [
+          {
+            "route": "C++ binding table",
+            "evidence": "src/addons/lua_engine.cpp:6035",
+            "implementation_symbol": "lua_Tooltip_IsUnit"
+          },
+          {
+            "route": "no-op allowlist candidate",
+            "evidence": "src/addons/lua_engine.cpp:6633"
+          }
+        ],
+        "execution_result": "not-run",
+        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
+      },
+      {
+        "name": "IsUserPlaced",
+        "disposition": "provided candidate",
+        "routes": [
+          {
+            "route": "C++ binding table",
+            "evidence": "src/addons/lua_engine.cpp:6120",
+            "implementation_symbol": "lua_Frame_IsUserPlaced"
+          }
+        ],
+        "execution_result": "not-run",
+        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
+      },
+      {
+        "name": "IsVisible",
+        "disposition": "provided candidate",
+        "routes": [
+          {
+            "route": "C++ binding table",
+            "evidence": "src/addons/lua_engine.cpp:5939",
+            "implementation_symbol": "lua_Region_IsVisible"
+          },
+          {
+            "route": "region registration",
+            "evidence": "src/addons/lua_engine.cpp:4126"
+          },
+          {
+            "route": "no-op allowlist candidate",
+            "evidence": "src/addons/lua_engine.cpp:6633"
+          }
+        ],
+        "execution_result": "not-run",
+        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
+      },
+      {
         "name": "IterateLibraries",
         "disposition": "provided candidate",
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7080"
+            "evidence": "src/addons/lua_engine.cpp:7081"
           }
         ],
         "execution_result": "not-run",
@@ -6535,12 +6535,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6061",
+            "evidence": "src/addons/lua_engine.cpp:6062",
             "implementation_symbol": "lua_Button_LockHighlight"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6632"
+            "evidence": "src/addons/lua_engine.cpp:6633"
           }
         ],
         "execution_result": "not-run",
@@ -6552,12 +6552,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6126",
+            "evidence": "src/addons/lua_engine.cpp:6127",
             "implementation_symbol": "lua_Frame_Lower"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6632"
+            "evidence": "src/addons/lua_engine.cpp:6633"
           }
         ],
         "execution_result": "not-run",
@@ -6569,7 +6569,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6632"
+            "evidence": "src/addons/lua_engine.cpp:6633"
           }
         ],
         "execution_result": "not-run",
@@ -6581,11 +6581,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7091"
+            "evidence": "src/addons/lua_engine.cpp:7092"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6633"
+            "evidence": "src/addons/lua_engine.cpp:6634"
           }
         ],
         "execution_result": "not-run",
@@ -6597,7 +6597,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7064"
+            "evidence": "src/addons/lua_engine.cpp:7065"
           }
         ],
         "execution_result": "not-run",
@@ -6609,12 +6609,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6039",
+            "evidence": "src/addons/lua_engine.cpp:6040",
             "implementation_symbol": "lua_Tooltip_NumLines"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6633"
+            "evidence": "src/addons/lua_engine.cpp:6634"
           }
         ],
         "execution_result": "not-run",
@@ -6626,7 +6626,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6633"
+            "evidence": "src/addons/lua_engine.cpp:6634"
           }
         ],
         "execution_result": "not-run",
@@ -6638,7 +6638,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6633"
+            "evidence": "src/addons/lua_engine.cpp:6634"
           }
         ],
         "execution_result": "not-run",
@@ -6650,7 +6650,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6633"
+            "evidence": "src/addons/lua_engine.cpp:6634"
           }
         ],
         "execution_result": "not-run",
@@ -6662,7 +6662,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6633"
+            "evidence": "src/addons/lua_engine.cpp:6634"
           }
         ],
         "execution_result": "not-run",
@@ -6674,7 +6674,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6079",
+            "evidence": "src/addons/lua_engine.cpp:6080",
             "implementation_symbol": "lua_Minimap_PingLocation"
           }
         ],
@@ -6687,7 +6687,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6635"
+            "evidence": "src/addons/lua_engine.cpp:6636"
           }
         ],
         "execution_result": "not-run",
@@ -6699,12 +6699,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6125",
+            "evidence": "src/addons/lua_engine.cpp:6126",
             "implementation_symbol": "lua_Frame_Raise"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6635"
+            "evidence": "src/addons/lua_engine.cpp:6636"
           }
         ],
         "execution_result": "not-run",
@@ -6716,7 +6716,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6266"
+            "evidence": "src/addons/lua_engine.cpp:6267"
           }
         ],
         "execution_result": "not-run",
@@ -6728,7 +6728,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6635"
+            "evidence": "src/addons/lua_engine.cpp:6636"
           }
         ],
         "execution_result": "not-run",
@@ -6740,7 +6740,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6684"
+            "evidence": "src/addons/lua_engine.cpp:6685"
           }
         ],
         "execution_result": "not-run",
@@ -6752,7 +6752,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6635"
+            "evidence": "src/addons/lua_engine.cpp:6636"
           }
         ],
         "execution_result": "not-run",
@@ -6764,12 +6764,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5928",
+            "evidence": "src/addons/lua_engine.cpp:5929",
             "implementation_symbol": "lua_Frame_RegisterEvent"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6635"
+            "evidence": "src/addons/lua_engine.cpp:6636"
           }
         ],
         "execution_result": "not-run",
@@ -6781,11 +6781,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6326"
+            "evidence": "src/addons/lua_engine.cpp:6327"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6636"
+            "evidence": "src/addons/lua_engine.cpp:6637"
           }
         ],
         "execution_result": "not-run",
@@ -6797,12 +6797,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5963",
+            "evidence": "src/addons/lua_engine.cpp:5964",
             "implementation_symbol": "lua_Frame_RegisterForDrag"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6636"
+            "evidence": "src/addons/lua_engine.cpp:6637"
           }
         ],
         "execution_result": "not-run",
@@ -6814,7 +6814,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6636"
+            "evidence": "src/addons/lua_engine.cpp:6637"
           }
         ],
         "execution_result": "not-run",
@@ -6826,12 +6826,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6043",
+            "evidence": "src/addons/lua_engine.cpp:6044",
             "implementation_symbol": "lua_MessageFrame_RemoveMessagesByAccessID"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6637"
+            "evidence": "src/addons/lua_engine.cpp:6638"
           }
         ],
         "execution_result": "not-run",
@@ -6843,7 +6843,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6637"
+            "evidence": "src/addons/lua_engine.cpp:6638"
           }
         ],
         "execution_result": "not-run",
@@ -6855,7 +6855,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6637"
+            "evidence": "src/addons/lua_engine.cpp:6638"
           }
         ],
         "execution_result": "not-run",
@@ -6867,7 +6867,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6637"
+            "evidence": "src/addons/lua_engine.cpp:6638"
           }
         ],
         "execution_result": "not-run",
@@ -6879,7 +6879,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6637"
+            "evidence": "src/addons/lua_engine.cpp:6638"
           }
         ],
         "execution_result": "not-run",
@@ -6891,7 +6891,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6638"
+            "evidence": "src/addons/lua_engine.cpp:6639"
           }
         ],
         "execution_result": "not-run",
@@ -6903,7 +6903,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6638"
+            "evidence": "src/addons/lua_engine.cpp:6639"
           }
         ],
         "execution_result": "not-run",
@@ -6915,7 +6915,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6638"
+            "evidence": "src/addons/lua_engine.cpp:6639"
           }
         ],
         "execution_result": "not-run",
@@ -6927,12 +6927,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6055",
+            "evidence": "src/addons/lua_engine.cpp:6056",
             "implementation_symbol": "lua_MessageFrame_ScrollDown"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6638"
+            "evidence": "src/addons/lua_engine.cpp:6639"
           }
         ],
         "execution_result": "not-run",
@@ -6944,12 +6944,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6056",
+            "evidence": "src/addons/lua_engine.cpp:6057",
             "implementation_symbol": "lua_MessageFrame_ScrollToBottom"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6638"
+            "evidence": "src/addons/lua_engine.cpp:6639"
           }
         ],
         "execution_result": "not-run",
@@ -6961,12 +6961,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6054",
+            "evidence": "src/addons/lua_engine.cpp:6055",
             "implementation_symbol": "lua_MessageFrame_ScrollUp"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6638"
+            "evidence": "src/addons/lua_engine.cpp:6639"
           }
         ],
         "execution_result": "not-run",
@@ -6978,7 +6978,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6639"
+            "evidence": "src/addons/lua_engine.cpp:6640"
           }
         ],
         "execution_result": "not-run",
@@ -6990,16 +6990,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5999",
+            "evidence": "src/addons/lua_engine.cpp:6000",
             "implementation_symbol": "lua_Tooltip_SetAction"
           },
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7952"
+            "evidence": "src/addons/lua_engine.cpp:7953"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6639"
+            "evidence": "src/addons/lua_engine.cpp:6640"
           }
         ],
         "execution_result": "not-run",
@@ -7011,16 +7011,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5950",
+            "evidence": "src/addons/lua_engine.cpp:5951",
             "implementation_symbol": "lua_Region_SetAllPoints"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4085"
+            "evidence": "src/addons/lua_engine.cpp:4086"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6639"
+            "evidence": "src/addons/lua_engine.cpp:6640"
           }
         ],
         "execution_result": "not-run",
@@ -7032,16 +7032,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6082",
+            "evidence": "src/addons/lua_engine.cpp:6083",
             "implementation_symbol": "lua_Region_SetAlpha"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4126"
+            "evidence": "src/addons/lua_engine.cpp:4127"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6639"
+            "evidence": "src/addons/lua_engine.cpp:6640"
           }
         ],
         "execution_result": "not-run",
@@ -7053,7 +7053,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6639"
+            "evidence": "src/addons/lua_engine.cpp:6640"
           }
         ],
         "execution_result": "not-run",
@@ -7065,7 +7065,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6640"
+            "evidence": "src/addons/lua_engine.cpp:6641"
           }
         ],
         "execution_result": "not-run",
@@ -7077,11 +7077,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6430"
+            "evidence": "src/addons/lua_engine.cpp:6431"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6640"
+            "evidence": "src/addons/lua_engine.cpp:6641"
           }
         ],
         "execution_result": "not-run",
@@ -7093,7 +7093,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6029",
+            "evidence": "src/addons/lua_engine.cpp:6030",
             "implementation_symbol": "lua_Tooltip_SetAuctionItem"
           }
         ],
@@ -7106,7 +7106,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7509"
+            "evidence": "src/addons/lua_engine.cpp:7510"
           }
         ],
         "execution_result": "not-run",
@@ -7118,7 +7118,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6172",
+            "evidence": "src/addons/lua_engine.cpp:6173",
             "implementation_symbol": "lua_EditBox_SetAutoFocus"
           }
         ],
@@ -7131,12 +7131,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6130",
+            "evidence": "src/addons/lua_engine.cpp:6131",
             "implementation_symbol": "lua_Frame_SetBackdrop"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6640"
+            "evidence": "src/addons/lua_engine.cpp:6641"
           }
         ],
         "execution_result": "not-run",
@@ -7148,12 +7148,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6132",
+            "evidence": "src/addons/lua_engine.cpp:6133",
             "implementation_symbol": "lua_Frame_SetBackdropBorderColor"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6641"
+            "evidence": "src/addons/lua_engine.cpp:6642"
           }
         ],
         "execution_result": "not-run",
@@ -7165,12 +7165,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6131",
+            "evidence": "src/addons/lua_engine.cpp:6132",
             "implementation_symbol": "lua_Frame_SetBackdropColor"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6641"
+            "evidence": "src/addons/lua_engine.cpp:6642"
           }
         ],
         "execution_result": "not-run",
@@ -7182,7 +7182,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6010",
+            "evidence": "src/addons/lua_engine.cpp:6011",
             "implementation_symbol": "lua_Tooltip_ReturnFalse"
           }
         ],
@@ -7195,16 +7195,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6001",
+            "evidence": "src/addons/lua_engine.cpp:6002",
             "implementation_symbol": "lua_Tooltip_SetBagItem"
           },
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7825"
+            "evidence": "src/addons/lua_engine.cpp:7826"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6641"
+            "evidence": "src/addons/lua_engine.cpp:6642"
           }
         ],
         "execution_result": "not-run",
@@ -7216,7 +7216,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6641"
+            "evidence": "src/addons/lua_engine.cpp:6642"
           }
         ],
         "execution_result": "not-run",
@@ -7228,7 +7228,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6642"
+            "evidence": "src/addons/lua_engine.cpp:6643"
           }
         ],
         "execution_result": "not-run",
@@ -7240,7 +7240,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6642"
+            "evidence": "src/addons/lua_engine.cpp:6643"
           }
         ],
         "execution_result": "not-run",
@@ -7252,7 +7252,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6642"
+            "evidence": "src/addons/lua_engine.cpp:6643"
           }
         ],
         "execution_result": "not-run",
@@ -7264,7 +7264,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6642"
+            "evidence": "src/addons/lua_engine.cpp:6643"
           }
         ],
         "execution_result": "not-run",
@@ -7276,11 +7276,11 @@
         "routes": [
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4136"
+            "evidence": "src/addons/lua_engine.cpp:4137"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6643"
+            "evidence": "src/addons/lua_engine.cpp:6644"
           }
         ],
         "execution_result": "not-run",
@@ -7292,11 +7292,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7253"
+            "evidence": "src/addons/lua_engine.cpp:7254"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6643"
+            "evidence": "src/addons/lua_engine.cpp:6644"
           }
         ],
         "execution_result": "not-run",
@@ -7308,7 +7308,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6643"
+            "evidence": "src/addons/lua_engine.cpp:6644"
           }
         ],
         "execution_result": "not-run",
@@ -7320,7 +7320,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6643"
+            "evidence": "src/addons/lua_engine.cpp:6644"
           }
         ],
         "execution_result": "not-run",
@@ -7332,12 +7332,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6059",
+            "evidence": "src/addons/lua_engine.cpp:6060",
             "implementation_symbol": "lua_Button_SetButtonState"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6644"
+            "evidence": "src/addons/lua_engine.cpp:6645"
           }
         ],
         "execution_result": "not-run",
@@ -7349,7 +7349,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7449"
+            "evidence": "src/addons/lua_engine.cpp:7450"
           }
         ],
         "execution_result": "not-run",
@@ -7361,7 +7361,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6644"
+            "evidence": "src/addons/lua_engine.cpp:6645"
           }
         ],
         "execution_result": "not-run",
@@ -7373,12 +7373,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6058",
+            "evidence": "src/addons/lua_engine.cpp:6059",
             "implementation_symbol": "lua_CheckButton_SetChecked"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6644"
+            "evidence": "src/addons/lua_engine.cpp:6645"
           }
         ],
         "execution_result": "not-run",
@@ -7390,7 +7390,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6644"
+            "evidence": "src/addons/lua_engine.cpp:6645"
           }
         ],
         "execution_result": "not-run",
@@ -7402,7 +7402,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6128",
+            "evidence": "src/addons/lua_engine.cpp:6129",
             "implementation_symbol": "lua_Frame_SetClampRectInsets"
           }
         ],
@@ -7415,12 +7415,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6127",
+            "evidence": "src/addons/lua_engine.cpp:6128",
             "implementation_symbol": "lua_Frame_SetClampedToScreen"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6645"
+            "evidence": "src/addons/lua_engine.cpp:6646"
           }
         ],
         "execution_result": "not-run",
@@ -7432,7 +7432,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5982",
+            "evidence": "src/addons/lua_engine.cpp:5983",
             "implementation_symbol": "lua_ColorSelect_SetColorRGB"
           }
         ],
@@ -7445,7 +7445,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6145",
+            "evidence": "src/addons/lua_engine.cpp:6146",
             "implementation_symbol": "lua_ColorSelect_SetValueTexture"
           }
         ],
@@ -7458,7 +7458,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6146",
+            "evidence": "src/addons/lua_engine.cpp:6147",
             "implementation_symbol": "lua_ColorSelect_SetValueThumbTexture"
           }
         ],
@@ -7471,7 +7471,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6143",
+            "evidence": "src/addons/lua_engine.cpp:6144",
             "implementation_symbol": "lua_ColorSelect_SetWheelTexture"
           }
         ],
@@ -7484,7 +7484,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6144",
+            "evidence": "src/addons/lua_engine.cpp:6145",
             "implementation_symbol": "lua_ColorSelect_SetWheelThumbTexture"
           }
         ],
@@ -7497,12 +7497,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6147",
+            "evidence": "src/addons/lua_engine.cpp:6148",
             "implementation_symbol": "lua_Cooldown_SetCooldown"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6645"
+            "evidence": "src/addons/lua_engine.cpp:6646"
           }
         ],
         "execution_result": "not-run",
@@ -7514,7 +7514,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6153",
+            "evidence": "src/addons/lua_engine.cpp:6154",
             "implementation_symbol": "lua_EditBox_SetCountInvisibleLetters"
           }
         ],
@@ -7527,7 +7527,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6265"
+            "evidence": "src/addons/lua_engine.cpp:6266"
           }
         ],
         "execution_result": "not-run",
@@ -7539,7 +7539,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6006",
+            "evidence": "src/addons/lua_engine.cpp:6007",
             "implementation_symbol": "lua_Tooltip_SetCurrencyToken"
           }
         ],
@@ -7552,12 +7552,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6173",
+            "evidence": "src/addons/lua_engine.cpp:6174",
             "implementation_symbol": "lua_EditBox_SetCursorPosition"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6646"
+            "evidence": "src/addons/lua_engine.cpp:6647"
           }
         ],
         "execution_result": "not-run",
@@ -7569,7 +7569,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6646"
+            "evidence": "src/addons/lua_engine.cpp:6647"
           }
         ],
         "execution_result": "not-run",
@@ -7581,7 +7581,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6646"
+            "evidence": "src/addons/lua_engine.cpp:6647"
           }
         ],
         "execution_result": "not-run",
@@ -7593,12 +7593,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6111",
+            "evidence": "src/addons/lua_engine.cpp:6112",
             "implementation_symbol": "lua_Frame_SetDisabledFontObject"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6647"
+            "evidence": "src/addons/lua_engine.cpp:6648"
           }
         ],
         "execution_result": "not-run",
@@ -7610,7 +7610,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6112",
+            "evidence": "src/addons/lua_engine.cpp:6113",
             "implementation_symbol": "lua_Frame_SetDisabledTextColor"
           }
         ],
@@ -7623,7 +7623,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6647"
+            "evidence": "src/addons/lua_engine.cpp:6648"
           }
         ],
         "execution_result": "not-run",
@@ -7635,7 +7635,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6049",
+            "evidence": "src/addons/lua_engine.cpp:6050",
             "implementation_symbol": "lua_Cooldown_SetDrawEdge"
           }
         ],
@@ -7648,16 +7648,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5948",
+            "evidence": "src/addons/lua_engine.cpp:5949",
             "implementation_symbol": "lua_Region_SetDrawLayer"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4131"
+            "evidence": "src/addons/lua_engine.cpp:4132"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6647"
+            "evidence": "src/addons/lua_engine.cpp:6648"
           }
         ],
         "execution_result": "not-run",
@@ -7669,7 +7669,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6014",
+            "evidence": "src/addons/lua_engine.cpp:6015",
             "implementation_symbol": "lua_Tooltip_SetEquipmentSet"
           }
         ],
@@ -7682,12 +7682,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6004",
+            "evidence": "src/addons/lua_engine.cpp:6005",
             "implementation_symbol": "lua_Tooltip_SetExistingSocketGem"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6683"
+            "evidence": "src/addons/lua_engine.cpp:6684"
           }
         ],
         "execution_result": "not-run",
@@ -7699,12 +7699,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5960",
+            "evidence": "src/addons/lua_engine.cpp:5961",
             "implementation_symbol": "lua_Model_SetFacing"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6648"
+            "evidence": "src/addons/lua_engine.cpp:6649"
           }
         ],
         "execution_result": "not-run",
@@ -7716,7 +7716,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6052",
+            "evidence": "src/addons/lua_engine.cpp:6053",
             "implementation_symbol": "lua_MessageFrame_SetFadeDuration"
           }
         ],
@@ -7729,11 +7729,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7252"
+            "evidence": "src/addons/lua_engine.cpp:7253"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6648"
+            "evidence": "src/addons/lua_engine.cpp:6649"
           }
         ],
         "execution_result": "not-run",
@@ -7745,7 +7745,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6648"
+            "evidence": "src/addons/lua_engine.cpp:6649"
           }
         ],
         "execution_result": "not-run",
@@ -7757,12 +7757,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6178",
+            "evidence": "src/addons/lua_engine.cpp:6179",
             "implementation_symbol": "lua_EditBox_SetFocus"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6648"
+            "evidence": "src/addons/lua_engine.cpp:6649"
           }
         ],
         "execution_result": "not-run",
@@ -7774,16 +7774,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6027",
+            "evidence": "src/addons/lua_engine.cpp:6028",
             "implementation_symbol": "lua_FontString_SetFont"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4141"
+            "evidence": "src/addons/lua_engine.cpp:4142"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4152"
+            "evidence": "src/addons/lua_engine.cpp:4153"
           }
         ],
         "execution_result": "not-run",
@@ -7795,12 +7795,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6103",
+            "evidence": "src/addons/lua_engine.cpp:6104",
             "implementation_symbol": "lua_FontString_SetFontObject"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4156"
+            "evidence": "src/addons/lua_engine.cpp:4157"
           }
         ],
         "execution_result": "not-run",
@@ -7812,11 +7812,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6475"
+            "evidence": "src/addons/lua_engine.cpp:6476"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6650"
+            "evidence": "src/addons/lua_engine.cpp:6651"
           }
         ],
         "execution_result": "not-run",
@@ -7828,15 +7828,15 @@
         "routes": [
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4145"
+            "evidence": "src/addons/lua_engine.cpp:4146"
           },
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6425"
+            "evidence": "src/addons/lua_engine.cpp:6426"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6650"
+            "evidence": "src/addons/lua_engine.cpp:6651"
           }
         ],
         "execution_result": "not-run",
@@ -7848,12 +7848,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6184",
+            "evidence": "src/addons/lua_engine.cpp:6185",
             "implementation_symbol": "lua_Frame_SetFrameLevel"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6650"
+            "evidence": "src/addons/lua_engine.cpp:6651"
           }
         ],
         "execution_result": "not-run",
@@ -7865,7 +7865,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6651"
+            "evidence": "src/addons/lua_engine.cpp:6652"
           }
         ],
         "execution_result": "not-run",
@@ -7877,7 +7877,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6037",
+            "evidence": "src/addons/lua_engine.cpp:6038",
             "implementation_symbol": "lua_Tooltip_SetFrameStack"
           }
         ],
@@ -7890,12 +7890,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6182",
+            "evidence": "src/addons/lua_engine.cpp:6183",
             "implementation_symbol": "lua_Frame_SetFrameStrata"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6651"
+            "evidence": "src/addons/lua_engine.cpp:6652"
           }
         ],
         "execution_result": "not-run",
@@ -7907,7 +7907,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6016",
+            "evidence": "src/addons/lua_engine.cpp:6017",
             "implementation_symbol": "lua_Tooltip_SetGlyph"
           }
         ],
@@ -7920,7 +7920,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6011",
+            "evidence": "src/addons/lua_engine.cpp:6012",
             "implementation_symbol": "lua_Tooltip_SetGuildBankItem"
           }
         ],
@@ -7933,16 +7933,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5953",
+            "evidence": "src/addons/lua_engine.cpp:5954",
             "implementation_symbol": "lua_Region_SetHeight"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4088"
+            "evidence": "src/addons/lua_engine.cpp:4089"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6651"
+            "evidence": "src/addons/lua_engine.cpp:6652"
           }
         ],
         "execution_result": "not-run",
@@ -7954,12 +7954,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6110",
+            "evidence": "src/addons/lua_engine.cpp:6111",
             "implementation_symbol": "lua_Frame_SetHighlightFontObject"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6651"
+            "evidence": "src/addons/lua_engine.cpp:6652"
           }
         ],
         "execution_result": "not-run",
@@ -7971,7 +7971,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6113",
+            "evidence": "src/addons/lua_engine.cpp:6114",
             "implementation_symbol": "lua_Frame_SetHighlightTextColor"
           }
         ],
@@ -7984,7 +7984,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6652"
+            "evidence": "src/addons/lua_engine.cpp:6653"
           }
         ],
         "execution_result": "not-run",
@@ -7996,7 +7996,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6151",
+            "evidence": "src/addons/lua_engine.cpp:6152",
             "implementation_symbol": "lua_EditBox_SetHistoryLines"
           }
         ],
@@ -8009,12 +8009,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6116",
+            "evidence": "src/addons/lua_engine.cpp:6117",
             "implementation_symbol": "lua_Frame_SetHitRectInsets"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6652"
+            "evidence": "src/addons/lua_engine.cpp:6653"
           }
         ],
         "execution_result": "not-run",
@@ -8026,12 +8026,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6068",
+            "evidence": "src/addons/lua_engine.cpp:6069",
             "implementation_symbol": "lua_ScrollFrame_SetHorizontalScroll"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6652"
+            "evidence": "src/addons/lua_engine.cpp:6653"
           }
         ],
         "execution_result": "not-run",
@@ -8043,7 +8043,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6017",
+            "evidence": "src/addons/lua_engine.cpp:6018",
             "implementation_symbol": "lua_Tooltip_SetHyperlink"
           }
         ],
@@ -8056,11 +8056,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7323"
+            "evidence": "src/addons/lua_engine.cpp:7324"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6654"
+            "evidence": "src/addons/lua_engine.cpp:6655"
           }
         ],
         "execution_result": "not-run",
@@ -8072,7 +8072,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6085",
+            "evidence": "src/addons/lua_engine.cpp:6086",
             "implementation_symbol": "lua_Frame_SetHyperlinksEnabled"
           }
         ],
@@ -8085,11 +8085,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6472"
+            "evidence": "src/addons/lua_engine.cpp:6473"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6654"
+            "evidence": "src/addons/lua_engine.cpp:6655"
           }
         ],
         "execution_result": "not-run",
@@ -8101,7 +8101,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6156",
+            "evidence": "src/addons/lua_engine.cpp:6157",
             "implementation_symbol": "lua_EditBox_SetIgnoreArrows"
           }
         ],
@@ -8114,7 +8114,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7456"
+            "evidence": "src/addons/lua_engine.cpp:7457"
           }
         ],
         "execution_result": "not-run",
@@ -8126,7 +8126,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6053",
+            "evidence": "src/addons/lua_engine.cpp:6054",
             "implementation_symbol": "lua_MessageFrame_SetInsertMode"
           }
         ],
@@ -8139,12 +8139,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6000",
+            "evidence": "src/addons/lua_engine.cpp:6001",
             "implementation_symbol": "lua_Tooltip_SetInventoryItem"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6657"
+            "evidence": "src/addons/lua_engine.cpp:6658"
           }
         ],
         "execution_result": "not-run",
@@ -8156,12 +8156,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6107",
+            "evidence": "src/addons/lua_engine.cpp:6108",
             "implementation_symbol": "lua_FontString_SetJustifyH"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4147"
+            "evidence": "src/addons/lua_engine.cpp:4148"
           }
         ],
         "execution_result": "not-run",
@@ -8173,12 +8173,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6108",
+            "evidence": "src/addons/lua_engine.cpp:6109",
             "implementation_symbol": "lua_FontString_SetJustifyV"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4148"
+            "evidence": "src/addons/lua_engine.cpp:4149"
           }
         ],
         "execution_result": "not-run",
@@ -8190,7 +8190,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6015",
+            "evidence": "src/addons/lua_engine.cpp:6016",
             "implementation_symbol": "lua_Tooltip_SetLFGCompletionReward"
           }
         ],
@@ -8203,7 +8203,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7598"
+            "evidence": "src/addons/lua_engine.cpp:7599"
           }
         ],
         "execution_result": "not-run",
@@ -8215,7 +8215,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6658"
+            "evidence": "src/addons/lua_engine.cpp:6659"
           }
         ],
         "execution_result": "not-run",
@@ -8227,7 +8227,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7430"
+            "evidence": "src/addons/lua_engine.cpp:7431"
           }
         ],
         "execution_result": "not-run",
@@ -8239,7 +8239,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7437"
+            "evidence": "src/addons/lua_engine.cpp:7438"
           }
         ],
         "execution_result": "not-run",
@@ -8251,24 +8251,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6163",
-            "implementation_symbol": "lua_EditBox_SetMaxLetters"
-          },
-          {
-            "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6658"
-          }
-        ],
-        "execution_result": "not-run",
-        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
-      },
-      {
-        "name": "SetMaxLetters",
-        "disposition": "provided candidate",
-        "routes": [
-          {
-            "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6158",
+            "evidence": "src/addons/lua_engine.cpp:6164",
             "implementation_symbol": "lua_EditBox_SetMaxLetters"
           },
           {
@@ -8280,12 +8263,29 @@
         "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
       },
       {
+        "name": "SetMaxLetters",
+        "disposition": "provided candidate",
+        "routes": [
+          {
+            "route": "C++ binding table",
+            "evidence": "src/addons/lua_engine.cpp:6159",
+            "implementation_symbol": "lua_EditBox_SetMaxLetters"
+          },
+          {
+            "route": "no-op allowlist candidate",
+            "evidence": "src/addons/lua_engine.cpp:6660"
+          }
+        ],
+        "execution_result": "not-run",
+        "limitations": "Shared provider heuristics include dynamic/allowlist names and can overlap globals; registration does not establish method behavior."
+      },
+      {
         "name": "SetMaxLines",
         "disposition": "provided candidate",
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6044",
+            "evidence": "src/addons/lua_engine.cpp:6045",
             "implementation_symbol": "lua_MessageFrame_SetMaxLines"
           }
         ],
@@ -8298,7 +8298,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5970",
+            "evidence": "src/addons/lua_engine.cpp:5971",
             "implementation_symbol": "lua_Frame_SetMaxResize"
           }
         ],
@@ -8311,7 +8311,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7585"
+            "evidence": "src/addons/lua_engine.cpp:7586"
           }
         ],
         "execution_result": "not-run",
@@ -8323,7 +8323,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7442"
+            "evidence": "src/addons/lua_engine.cpp:7443"
           }
         ],
         "execution_result": "not-run",
@@ -8335,12 +8335,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6133",
+            "evidence": "src/addons/lua_engine.cpp:6134",
             "implementation_symbol": "lua_StatusBar_SetMinMaxValues"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6660"
+            "evidence": "src/addons/lua_engine.cpp:6661"
           }
         ],
         "execution_result": "not-run",
@@ -8352,7 +8352,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5969",
+            "evidence": "src/addons/lua_engine.cpp:5970",
             "implementation_symbol": "lua_Frame_SetMinResize"
           }
         ],
@@ -8365,7 +8365,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5985",
+            "evidence": "src/addons/lua_engine.cpp:5986",
             "implementation_symbol": "lua_Frame_SetMinimumWidth"
           }
         ],
@@ -8378,7 +8378,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6660"
+            "evidence": "src/addons/lua_engine.cpp:6661"
           }
         ],
         "execution_result": "not-run",
@@ -8390,7 +8390,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6660"
+            "evidence": "src/addons/lua_engine.cpp:6661"
           }
         ],
         "execution_result": "not-run",
@@ -8402,7 +8402,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6086",
+            "evidence": "src/addons/lua_engine.cpp:6087",
             "implementation_symbol": "lua_Frame_SetMotionScriptsWhileDisabled"
           }
         ],
@@ -8415,12 +8415,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5958",
+            "evidence": "src/addons/lua_engine.cpp:5959",
             "implementation_symbol": "lua_Frame_SetMovable"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6661"
+            "evidence": "src/addons/lua_engine.cpp:6662"
           }
         ],
         "execution_result": "not-run",
@@ -8432,12 +8432,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6171",
+            "evidence": "src/addons/lua_engine.cpp:6172",
             "implementation_symbol": "lua_EditBox_SetMultiLine"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6661"
+            "evidence": "src/addons/lua_engine.cpp:6662"
           }
         ],
         "execution_result": "not-run",
@@ -8449,12 +8449,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6047",
+            "evidence": "src/addons/lua_engine.cpp:6048",
             "implementation_symbol": "lua_FontString_SetNonSpaceWrap"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4167"
+            "evidence": "src/addons/lua_engine.cpp:4168"
           }
         ],
         "execution_result": "not-run",
@@ -8466,12 +8466,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6089",
+            "evidence": "src/addons/lua_engine.cpp:6090",
             "implementation_symbol": "lua_Frame_SetNormalFontObject"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6661"
+            "evidence": "src/addons/lua_engine.cpp:6662"
           }
         ],
         "execution_result": "not-run",
@@ -8483,7 +8483,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6661"
+            "evidence": "src/addons/lua_engine.cpp:6662"
           }
         ],
         "execution_result": "not-run",
@@ -8495,12 +8495,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6149",
+            "evidence": "src/addons/lua_engine.cpp:6150",
             "implementation_symbol": "lua_EditBox_SetNumber"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6662"
+            "evidence": "src/addons/lua_engine.cpp:6663"
           }
         ],
         "execution_result": "not-run",
@@ -8512,12 +8512,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6170",
+            "evidence": "src/addons/lua_engine.cpp:6171",
             "implementation_symbol": "lua_EditBox_SetNumeric"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6662"
+            "evidence": "src/addons/lua_engine.cpp:6663"
           }
         ],
         "execution_result": "not-run",
@@ -8529,7 +8529,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6139",
+            "evidence": "src/addons/lua_engine.cpp:6140",
             "implementation_symbol": "lua_StatusBar_SetOrientation"
           }
         ],
@@ -8542,12 +8542,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5998",
+            "evidence": "src/addons/lua_engine.cpp:5999",
             "implementation_symbol": "lua_Tooltip_SetOwner"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6662"
+            "evidence": "src/addons/lua_engine.cpp:6663"
           }
         ],
         "execution_result": "not-run",
@@ -8559,7 +8559,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6167",
+            "evidence": "src/addons/lua_engine.cpp:6168",
             "implementation_symbol": "lua_MessageFrame_SetPadding"
           }
         ],
@@ -8572,16 +8572,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6185",
+            "evidence": "src/addons/lua_engine.cpp:6186",
             "implementation_symbol": "lua_Region_SetParent"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4078"
+            "evidence": "src/addons/lua_engine.cpp:4079"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6662"
+            "evidence": "src/addons/lua_engine.cpp:6663"
           }
         ],
         "execution_result": "not-run",
@@ -8593,11 +8593,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7869"
+            "evidence": "src/addons/lua_engine.cpp:7870"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6662"
+            "evidence": "src/addons/lua_engine.cpp:6663"
           }
         ],
         "execution_result": "not-run",
@@ -8609,7 +8609,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6663"
+            "evidence": "src/addons/lua_engine.cpp:6664"
           }
         ],
         "execution_result": "not-run",
@@ -8621,7 +8621,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6663"
+            "evidence": "src/addons/lua_engine.cpp:6664"
           }
         ],
         "execution_result": "not-run",
@@ -8633,16 +8633,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5942",
+            "evidence": "src/addons/lua_engine.cpp:5943",
             "implementation_symbol": "lua_Region_SetPoint"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4083"
+            "evidence": "src/addons/lua_engine.cpp:4084"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6663"
+            "evidence": "src/addons/lua_engine.cpp:6664"
           }
         ],
         "execution_result": "not-run",
@@ -8654,7 +8654,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6663"
+            "evidence": "src/addons/lua_engine.cpp:6664"
           }
         ],
         "execution_result": "not-run",
@@ -8666,11 +8666,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7889"
+            "evidence": "src/addons/lua_engine.cpp:7890"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6664"
+            "evidence": "src/addons/lua_engine.cpp:6665"
           }
         ],
         "execution_result": "not-run",
@@ -8682,12 +8682,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6122",
+            "evidence": "src/addons/lua_engine.cpp:6123",
             "implementation_symbol": "lua_Frame_SetPropagateKeyboardInput"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6664"
+            "evidence": "src/addons/lua_engine.cpp:6665"
           }
         ],
         "execution_result": "not-run",
@@ -8699,7 +8699,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6114",
+            "evidence": "src/addons/lua_engine.cpp:6115",
             "implementation_symbol": "lua_Frame_SetPushedTextOffset"
           }
         ],
@@ -8712,7 +8712,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6664"
+            "evidence": "src/addons/lua_engine.cpp:6665"
           }
         ],
         "execution_result": "not-run",
@@ -8724,11 +8724,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7524"
+            "evidence": "src/addons/lua_engine.cpp:7525"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6664"
+            "evidence": "src/addons/lua_engine.cpp:6665"
           }
         ],
         "execution_result": "not-run",
@@ -8740,7 +8740,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7517"
+            "evidence": "src/addons/lua_engine.cpp:7518"
           }
         ],
         "execution_result": "not-run",
@@ -8752,7 +8752,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6013",
+            "evidence": "src/addons/lua_engine.cpp:6014",
             "implementation_symbol": "lua_Tooltip_SetQuestLogRewardSpell"
           }
         ],
@@ -8765,7 +8765,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6002",
+            "evidence": "src/addons/lua_engine.cpp:6003",
             "implementation_symbol": "lua_Tooltip_SetQuestLogSpecialItem"
           }
         ],
@@ -8778,7 +8778,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7531"
+            "evidence": "src/addons/lua_engine.cpp:7532"
           }
         ],
         "execution_result": "not-run",
@@ -8790,7 +8790,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5967",
+            "evidence": "src/addons/lua_engine.cpp:5968",
             "implementation_symbol": "lua_Frame_SetResizable"
           }
         ],
@@ -8803,7 +8803,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6048",
+            "evidence": "src/addons/lua_engine.cpp:6049",
             "implementation_symbol": "lua_Cooldown_SetReverse"
           }
         ],
@@ -8816,12 +8816,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5959",
+            "evidence": "src/addons/lua_engine.cpp:5960",
             "implementation_symbol": "lua_Model_SetFacing"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6666"
+            "evidence": "src/addons/lua_engine.cpp:6667"
           }
         ],
         "execution_result": "not-run",
@@ -8833,16 +8833,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5972",
+            "evidence": "src/addons/lua_engine.cpp:5973",
             "implementation_symbol": "lua_Region_SetScale"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4120"
+            "evidence": "src/addons/lua_engine.cpp:4121"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6666"
+            "evidence": "src/addons/lua_engine.cpp:6667"
           }
         ],
         "execution_result": "not-run",
@@ -8854,12 +8854,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5932",
+            "evidence": "src/addons/lua_engine.cpp:5933",
             "implementation_symbol": "lua_Frame_SetScript"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6666"
+            "evidence": "src/addons/lua_engine.cpp:6667"
           }
         ],
         "execution_result": "not-run",
@@ -8871,12 +8871,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6066",
+            "evidence": "src/addons/lua_engine.cpp:6067",
             "implementation_symbol": "lua_ScrollFrame_SetScrollChild"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6667"
+            "evidence": "src/addons/lua_engine.cpp:6668"
           }
         ],
         "execution_result": "not-run",
@@ -8888,7 +8888,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6684"
+            "evidence": "src/addons/lua_engine.cpp:6685"
           }
         ],
         "execution_result": "not-run",
@@ -8900,7 +8900,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6667"
+            "evidence": "src/addons/lua_engine.cpp:6668"
           }
         ],
         "execution_result": "not-run",
@@ -8912,7 +8912,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7463"
+            "evidence": "src/addons/lua_engine.cpp:7464"
           }
         ],
         "execution_result": "not-run",
@@ -8924,7 +8924,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6667"
+            "evidence": "src/addons/lua_engine.cpp:6668"
           }
         ],
         "execution_result": "not-run",
@@ -8936,7 +8936,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6669"
+            "evidence": "src/addons/lua_engine.cpp:6670"
           }
         ],
         "execution_result": "not-run",
@@ -8948,12 +8948,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6106",
+            "evidence": "src/addons/lua_engine.cpp:6107",
             "implementation_symbol": "lua_FontString_SetShadowColor"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4158"
+            "evidence": "src/addons/lua_engine.cpp:4159"
           }
         ],
         "execution_result": "not-run",
@@ -8965,12 +8965,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6105",
+            "evidence": "src/addons/lua_engine.cpp:6106",
             "implementation_symbol": "lua_FontString_SetShadowOffset"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4157"
+            "evidence": "src/addons/lua_engine.cpp:4158"
           }
         ],
         "execution_result": "not-run",
@@ -8982,7 +8982,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7575"
+            "evidence": "src/addons/lua_engine.cpp:7576"
           }
         ],
         "execution_result": "not-run",
@@ -8994,7 +8994,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6669"
+            "evidence": "src/addons/lua_engine.cpp:6670"
           }
         ],
         "execution_result": "not-run",
@@ -9006,16 +9006,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5951",
+            "evidence": "src/addons/lua_engine.cpp:5952",
             "implementation_symbol": "lua_Region_SetSize"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4086"
+            "evidence": "src/addons/lua_engine.cpp:4087"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6669"
+            "evidence": "src/addons/lua_engine.cpp:6670"
           }
         ],
         "execution_result": "not-run",
@@ -9027,12 +9027,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6003",
+            "evidence": "src/addons/lua_engine.cpp:6004",
             "implementation_symbol": "lua_Tooltip_SetSocketGem"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6683"
+            "evidence": "src/addons/lua_engine.cpp:6684"
           }
         ],
         "execution_result": "not-run",
@@ -9044,12 +9044,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6005",
+            "evidence": "src/addons/lua_engine.cpp:6006",
             "implementation_symbol": "lua_Tooltip_SetSocketedItem"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6683"
+            "evidence": "src/addons/lua_engine.cpp:6684"
           }
         ],
         "execution_result": "not-run",
@@ -9061,11 +9061,11 @@
         "routes": [
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4155"
+            "evidence": "src/addons/lua_engine.cpp:4156"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6670"
+            "evidence": "src/addons/lua_engine.cpp:6671"
           }
         ],
         "execution_result": "not-run",
@@ -9077,11 +9077,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7850"
+            "evidence": "src/addons/lua_engine.cpp:7851"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6670"
+            "evidence": "src/addons/lua_engine.cpp:6671"
           }
         ],
         "execution_result": "not-run",
@@ -9093,16 +9093,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6012",
+            "evidence": "src/addons/lua_engine.cpp:6013",
             "implementation_symbol": "lua_Tooltip_SetSpellByID"
           },
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7894"
+            "evidence": "src/addons/lua_engine.cpp:7895"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6670"
+            "evidence": "src/addons/lua_engine.cpp:6671"
           }
         ],
         "execution_result": "not-run",
@@ -9114,7 +9114,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6670"
+            "evidence": "src/addons/lua_engine.cpp:6671"
           }
         ],
         "execution_result": "not-run",
@@ -9126,12 +9126,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6138",
+            "evidence": "src/addons/lua_engine.cpp:6139",
             "implementation_symbol": "lua_StatusBar_SetStatusBarColor"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6670"
+            "evidence": "src/addons/lua_engine.cpp:6671"
           }
         ],
         "execution_result": "not-run",
@@ -9143,12 +9143,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6137",
+            "evidence": "src/addons/lua_engine.cpp:6138",
             "implementation_symbol": "lua_StatusBar_SetStatusBarTexture"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6685"
+            "evidence": "src/addons/lua_engine.cpp:6686"
           }
         ],
         "execution_result": "not-run",
@@ -9160,7 +9160,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6028",
+            "evidence": "src/addons/lua_engine.cpp:6029",
             "implementation_symbol": "lua_Tooltip_SetTalent"
           }
         ],
@@ -9173,11 +9173,11 @@
         "routes": [
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4135"
+            "evidence": "src/addons/lua_engine.cpp:4136"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6685"
+            "evidence": "src/addons/lua_engine.cpp:6686"
           }
         ],
         "execution_result": "not-run",
@@ -9189,15 +9189,15 @@
         "routes": [
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4144"
+            "evidence": "src/addons/lua_engine.cpp:4145"
           },
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6510"
+            "evidence": "src/addons/lua_engine.cpp:6511"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6685"
+            "evidence": "src/addons/lua_engine.cpp:6686"
           }
         ],
         "execution_result": "not-run",
@@ -9209,12 +9209,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6090",
+            "evidence": "src/addons/lua_engine.cpp:6091",
             "implementation_symbol": "lua_FontString_SetTextColor"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4151"
+            "evidence": "src/addons/lua_engine.cpp:4152"
           }
         ],
         "execution_result": "not-run",
@@ -9226,7 +9226,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6109",
+            "evidence": "src/addons/lua_engine.cpp:6110",
             "implementation_symbol": "lua_Frame_SetNormalFontObject"
           }
         ],
@@ -9239,12 +9239,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6104",
+            "evidence": "src/addons/lua_engine.cpp:6105",
             "implementation_symbol": "lua_FontString_SetTextHeight"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4142"
+            "evidence": "src/addons/lua_engine.cpp:4143"
           }
         ],
         "execution_result": "not-run",
@@ -9256,7 +9256,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6166",
+            "evidence": "src/addons/lua_engine.cpp:6167",
             "implementation_symbol": "lua_EditBox_SetTextInsets"
           }
         ],
@@ -9269,11 +9269,11 @@
         "routes": [
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4133"
+            "evidence": "src/addons/lua_engine.cpp:4134"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6686"
+            "evidence": "src/addons/lua_engine.cpp:6687"
           }
         ],
         "execution_result": "not-run",
@@ -9285,7 +9285,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6142",
+            "evidence": "src/addons/lua_engine.cpp:6143",
             "implementation_symbol": "lua_Slider_SetThumbTexture"
           }
         ],
@@ -9298,7 +9298,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6050",
+            "evidence": "src/addons/lua_engine.cpp:6051",
             "implementation_symbol": "lua_MessageFrame_SetTimeVisible"
           }
         ],
@@ -9311,12 +9311,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6123",
+            "evidence": "src/addons/lua_engine.cpp:6124",
             "implementation_symbol": "lua_Frame_SetToplevel"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6686"
+            "evidence": "src/addons/lua_engine.cpp:6687"
           }
         ],
         "execution_result": "not-run",
@@ -9328,7 +9328,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7470"
+            "evidence": "src/addons/lua_engine.cpp:7471"
           }
         ],
         "execution_result": "not-run",
@@ -9340,7 +9340,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6243"
+            "evidence": "src/addons/lua_engine.cpp:6244"
           }
         ],
         "execution_result": "not-run",
@@ -9352,7 +9352,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7489"
+            "evidence": "src/addons/lua_engine.cpp:7490"
           }
         ],
         "execution_result": "not-run",
@@ -9364,7 +9364,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7536"
+            "evidence": "src/addons/lua_engine.cpp:7537"
           }
         ],
         "execution_result": "not-run",
@@ -9376,7 +9376,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6032",
+            "evidence": "src/addons/lua_engine.cpp:6033",
             "implementation_symbol": "lua_Tooltip_SetTradeSkillItem"
           }
         ],
@@ -9389,7 +9389,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7546"
+            "evidence": "src/addons/lua_engine.cpp:7547"
           }
         ],
         "execution_result": "not-run",
@@ -9401,7 +9401,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7500"
+            "evidence": "src/addons/lua_engine.cpp:7501"
           }
         ],
         "execution_result": "not-run",
@@ -9413,7 +9413,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6687"
+            "evidence": "src/addons/lua_engine.cpp:6688"
           }
         ],
         "execution_result": "not-run",
@@ -9425,12 +9425,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6033",
+            "evidence": "src/addons/lua_engine.cpp:6034",
             "implementation_symbol": "lua_Tooltip_SetUnit"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6687"
+            "evidence": "src/addons/lua_engine.cpp:6688"
           }
         ],
         "execution_result": "not-run",
@@ -9442,7 +9442,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7605"
+            "evidence": "src/addons/lua_engine.cpp:7606"
           }
         ],
         "execution_result": "not-run",
@@ -9454,11 +9454,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7394"
+            "evidence": "src/addons/lua_engine.cpp:7395"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6688"
+            "evidence": "src/addons/lua_engine.cpp:6689"
           }
         ],
         "execution_result": "not-run",
@@ -9470,11 +9470,11 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:7634"
+            "evidence": "src/addons/lua_engine.cpp:7635"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6688"
+            "evidence": "src/addons/lua_engine.cpp:6689"
           }
         ],
         "execution_result": "not-run",
@@ -9486,7 +9486,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6118",
+            "evidence": "src/addons/lua_engine.cpp:6119",
             "implementation_symbol": "lua_Frame_SetUserPlaced"
           }
         ],
@@ -9499,12 +9499,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6135",
+            "evidence": "src/addons/lua_engine.cpp:6136",
             "implementation_symbol": "lua_StatusBar_SetValue"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6688"
+            "evidence": "src/addons/lua_engine.cpp:6689"
           }
         ],
         "execution_result": "not-run",
@@ -9516,12 +9516,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6140",
+            "evidence": "src/addons/lua_engine.cpp:6141",
             "implementation_symbol": "lua_Slider_SetValueStep"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6688"
+            "evidence": "src/addons/lua_engine.cpp:6689"
           }
         ],
         "execution_result": "not-run",
@@ -9533,11 +9533,11 @@
         "routes": [
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4128"
+            "evidence": "src/addons/lua_engine.cpp:4129"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6689"
+            "evidence": "src/addons/lua_engine.cpp:6690"
           }
         ],
         "execution_result": "not-run",
@@ -9549,12 +9549,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6067",
+            "evidence": "src/addons/lua_engine.cpp:6068",
             "implementation_symbol": "lua_ScrollFrame_SetVerticalScroll"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6689"
+            "evidence": "src/addons/lua_engine.cpp:6690"
           }
         ],
         "execution_result": "not-run",
@@ -9566,16 +9566,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5952",
+            "evidence": "src/addons/lua_engine.cpp:5953",
             "implementation_symbol": "lua_Region_SetWidth"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4087"
+            "evidence": "src/addons/lua_engine.cpp:4088"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6689"
+            "evidence": "src/addons/lua_engine.cpp:6690"
           }
         ],
         "execution_result": "not-run",
@@ -9587,12 +9587,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6045",
+            "evidence": "src/addons/lua_engine.cpp:6046",
             "implementation_symbol": "lua_FontString_SetWordWrap"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4165"
+            "evidence": "src/addons/lua_engine.cpp:4166"
           }
         ],
         "execution_result": "not-run",
@@ -9604,12 +9604,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6076",
+            "evidence": "src/addons/lua_engine.cpp:6077",
             "implementation_symbol": "lua_Minimap_SetZoom"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6689"
+            "evidence": "src/addons/lua_engine.cpp:6690"
           }
         ],
         "execution_result": "not-run",
@@ -9621,16 +9621,16 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5935",
+            "evidence": "src/addons/lua_engine.cpp:5936",
             "implementation_symbol": "lua_Region_Show"
           },
           {
             "route": "region registration",
-            "evidence": "src/addons/lua_engine.cpp:4122"
+            "evidence": "src/addons/lua_engine.cpp:4123"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6689"
+            "evidence": "src/addons/lua_engine.cpp:6690"
           }
         ],
         "execution_result": "not-run",
@@ -9642,7 +9642,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6689"
+            "evidence": "src/addons/lua_engine.cpp:6690"
           }
         ],
         "execution_result": "not-run",
@@ -9654,7 +9654,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6690"
+            "evidence": "src/addons/lua_engine.cpp:6691"
           }
         ],
         "execution_result": "not-run",
@@ -9666,7 +9666,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6690"
+            "evidence": "src/addons/lua_engine.cpp:6691"
           }
         ],
         "execution_result": "not-run",
@@ -9678,12 +9678,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5964",
+            "evidence": "src/addons/lua_engine.cpp:5965",
             "implementation_symbol": "lua_Frame_StartMoving"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6690"
+            "evidence": "src/addons/lua_engine.cpp:6691"
           }
         ],
         "execution_result": "not-run",
@@ -9695,7 +9695,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5966",
+            "evidence": "src/addons/lua_engine.cpp:5967",
             "implementation_symbol": "lua_Frame_StartSizing"
           }
         ],
@@ -9708,7 +9708,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6690"
+            "evidence": "src/addons/lua_engine.cpp:6691"
           }
         ],
         "execution_result": "not-run",
@@ -9720,7 +9720,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6691"
+            "evidence": "src/addons/lua_engine.cpp:6692"
           }
         ],
         "execution_result": "not-run",
@@ -9732,12 +9732,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5965",
+            "evidence": "src/addons/lua_engine.cpp:5966",
             "implementation_symbol": "lua_Frame_StopMovingOrSizing"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6691"
+            "evidence": "src/addons/lua_engine.cpp:6692"
           }
         ],
         "execution_result": "not-run",
@@ -9749,7 +9749,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6691"
+            "evidence": "src/addons/lua_engine.cpp:6692"
           }
         ],
         "execution_result": "not-run",
@@ -9761,7 +9761,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6255"
+            "evidence": "src/addons/lua_engine.cpp:6256"
           }
         ],
         "execution_result": "not-run",
@@ -9773,7 +9773,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6692"
+            "evidence": "src/addons/lua_engine.cpp:6693"
           }
         ],
         "execution_result": "not-run",
@@ -9785,7 +9785,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6256"
+            "evidence": "src/addons/lua_engine.cpp:6257"
           }
         ],
         "execution_result": "not-run",
@@ -9797,12 +9797,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6062",
+            "evidence": "src/addons/lua_engine.cpp:6063",
             "implementation_symbol": "lua_Button_UnlockHighlight"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6692"
+            "evidence": "src/addons/lua_engine.cpp:6693"
           }
         ],
         "execution_result": "not-run",
@@ -9814,12 +9814,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5931",
+            "evidence": "src/addons/lua_engine.cpp:5932",
             "implementation_symbol": "lua_Frame_UnregisterAllEvents"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6692"
+            "evidence": "src/addons/lua_engine.cpp:6693"
           }
         ],
         "execution_result": "not-run",
@@ -9831,7 +9831,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6693"
+            "evidence": "src/addons/lua_engine.cpp:6694"
           }
         ],
         "execution_result": "not-run",
@@ -9843,12 +9843,12 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:5930",
+            "evidence": "src/addons/lua_engine.cpp:5931",
             "implementation_symbol": "lua_Frame_UnregisterEvent"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6693"
+            "evidence": "src/addons/lua_engine.cpp:6694"
           }
         ],
         "execution_result": "not-run",
@@ -9860,7 +9860,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6693"
+            "evidence": "src/addons/lua_engine.cpp:6694"
           }
         ],
         "execution_result": "not-run",
@@ -9872,7 +9872,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6694"
+            "evidence": "src/addons/lua_engine.cpp:6695"
           }
         ],
         "execution_result": "not-run",
@@ -9884,7 +9884,7 @@
         "routes": [
           {
             "route": "Lua method shim",
-            "evidence": "src/addons/lua_engine.cpp:6224"
+            "evidence": "src/addons/lua_engine.cpp:6225"
           }
         ],
         "execution_result": "not-run",
@@ -9896,7 +9896,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6694"
+            "evidence": "src/addons/lua_engine.cpp:6695"
           }
         ],
         "execution_result": "not-run",
@@ -9908,7 +9908,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:6695"
+            "evidence": "src/addons/lua_engine.cpp:6696"
           }
         ],
         "execution_result": "not-run",
@@ -9927,7 +9927,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6031",
+            "evidence": "src/addons/lua_engine.cpp:6032",
             "implementation_symbol": "lua_Tooltip_AppendEquippedEnchants"
           }
         ],
@@ -9940,7 +9940,7 @@
         "routes": [
           {
             "route": "C++ binding table",
-            "evidence": "src/addons/lua_engine.cpp:6030",
+            "evidence": "src/addons/lua_engine.cpp:6031",
             "implementation_symbol": "lua_Tooltip_AppendItemEnchants"
           }
         ],
@@ -9953,7 +9953,7 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:8295"
+            "evidence": "src/addons/lua_engine.cpp:8296"
           }
         ],
         "execution_result": "not-run",
@@ -9965,15 +9965,15 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:8128"
-          },
-          {
-            "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:8295"
+            "evidence": "src/addons/lua_engine.cpp:8129"
           },
           {
             "route": "no-op allowlist candidate",
             "evidence": "src/addons/lua_engine.cpp:8296"
+          },
+          {
+            "route": "no-op allowlist candidate",
+            "evidence": "src/addons/lua_engine.cpp:8297"
           }
         ],
         "execution_result": "not-run",
@@ -9985,10 +9985,6 @@
         "routes": [
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:8126"
-          },
-          {
-            "route": "no-op allowlist candidate",
             "evidence": "src/addons/lua_engine.cpp:8127"
           },
           {
@@ -9997,11 +9993,11 @@
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:8131"
+            "evidence": "src/addons/lua_engine.cpp:8129"
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:8294"
+            "evidence": "src/addons/lua_engine.cpp:8132"
           },
           {
             "route": "no-op allowlist candidate",
@@ -10009,7 +10005,11 @@
           },
           {
             "route": "no-op allowlist candidate",
-            "evidence": "src/addons/lua_engine.cpp:8297"
+            "evidence": "src/addons/lua_engine.cpp:8296"
+          },
+          {
+            "route": "no-op allowlist candidate",
+            "evidence": "src/addons/lua_engine.cpp:8298"
           }
         ],
         "execution_result": "not-run",
@@ -11198,7 +11198,7 @@
     },
     "configured_tests": {
       "manifest_status": "configured",
-      "sha256": "da0b9700082f3af4cc68e9bc355e0efe1b3e97d5ab050d69c51145b6e9739ddf",
+      "sha256": "fedfd41432fc465c0d3d01346df60b54d744e9fe1b0d2858ee97871ff723c4b4",
       "tests": [
         {
           "name": "addon_lua_snippets",
@@ -11471,6 +11471,17 @@
           "name": "spline_body",
           "command": [
             "<build>/bin/Debug/test_spline_body.exe"
+          ],
+          "labels": [
+            "headless"
+          ],
+          "disabled": false,
+          "execution_result": "not-run"
+        },
+        {
+          "name": "tangent_basis",
+          "command": [
+            "<build>/bin/Debug/test_tangent_basis.exe"
           ],
           "labels": [
             "headless"
