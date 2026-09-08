@@ -279,3 +279,26 @@ executable honored the requested config-root override. No pre-existing user
 files were restored or deleted speculatively. The driver now requires the
 SHA-256 from separate build/capture evidence and rejects a mismatched binary
 before reading credentials or creating any run output.
+
+## Corrected client login: live-login-03
+
+The rebuilt Debug executable SHA-256
+`a319fbc1bd3c2be83338e74e87b56858a023bf8801709e4294c387e8232ab7f7`
+was released after independent positive/negative GPU capture checks. The
+real SDL trace repeated the same observed account-field click and used the
+**unchanged account A password, salt and verifier**. Runtime evidence now
+shows, in order, successful auth proof, realm-list receipt, successful world
+authentication, `Found 0 character(s)`, and `Ready to select character`.
+
+The driver reports **pass** for this bounded auth/realm/empty-character-list
+scope: exit 0, eight completed SDL input events, normal SDL_QUIT dispatch
+after 1800 completed update/render iterations, completed shutdown, validation
+enabled and no ERROR/FATAL log entries. Evidence is in the ignored project's
+`live-login-03/result.json` and `runtime/logs/live-login.log`. The optional PNG
+is a **startup capture**, not the final character-list screen; its capture
+acknowledgement does not establish the final visual state.
+
+This establishes an identified real client's login and world authentication
+to the isolated real emulator. It does not establish character creation,
+world entry, multiplayer scenarios or gameplay/pathfinding correctness. The
+server's v19/v20 movement-map mismatch remains unchanged and open.

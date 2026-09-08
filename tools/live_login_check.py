@@ -125,6 +125,8 @@ def run(args):
                WOWEE_VULKAN_VALIDATION="1")
     if args.layer_path:
         env["VK_LAYER_PATH"] = str(args.layer_path)
+    if args.screenshot:
+        env["WOWEE_TEST_SCREENSHOT_PATH"] = str(args.output / "screenshot.png")
     env["PATH"] = str(args.binary.parent) + os.pathsep + env.get("PATH", "")
     report = {"result": "prepared-not-run"}
     if args.execute:
@@ -148,6 +150,14 @@ def run(args):
         if log_path.is_file():
             log_path.write_text(log, encoding="utf-8")
         report = classify(code, log, args.updates, len(trace["events"]), args.create_name)
+        if args.screenshot:
+            capture = args.output / "screenshot.png"
+            captured = capture.is_file() and f"Screenshot saved: {capture}" in log
+            report["screenshot"] = {"completion_logged": captured,
+                                    "sha256": sha256(capture) if captured else None,
+                                    "pixels_decoded": False, "timing": "startup capture, not final state"}
+            if not captured:
+                report["result"] = "fail"
     report.update(binary_sha256=binary_hash, expected_binary_sha256=args.expected_binary_sha256, input=identity,
                   updates=args.updates, timeout_seconds=args.timeout,
                   account="WOWEE_EVAL_A", auth_endpoint="127.0.0.1:3724",
@@ -172,6 +182,7 @@ def main():
     parser.add_argument("--updates", type=int, default=1800)
     parser.add_argument("--timeout", type=float, default=90)
     parser.add_argument("--execute", action="store_true", help="otherwise prepare private fixtures only")
+    parser.add_argument("--screenshot", action="store_true", help="require startup capture acknowledgement; pixels need separate inspection")
     parser.add_argument("--create-name", help="optional dedicated test character to create through the UI")
     parser.add_argument("--newhero-x", type=int)
     parser.add_argument("--newhero-y", type=int)
