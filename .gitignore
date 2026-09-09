@@ -1,5 +1,6 @@
 # Build directories
 build/
+.build-docker/
 build_asan/
 build-asan/
 build-android/
