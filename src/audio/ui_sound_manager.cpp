@@ -1,5 +1,6 @@
 #include "audio/ui_sound_manager.hpp"
 #include "audio/sample_load.hpp"
+#include "audio/sound_entries.hpp"
 #include "audio/audio_engine.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "core/logger.hpp"
@@ -172,50 +173,8 @@ bool UiSoundManager::loadSound(const std::string& path, UISample& sample, pipeli
     return loadSampleFile(path, sample, assets, "UISoundManager");
 }
 
-void UiSoundManager::ensureSoundEntriesLoaded() {
-    if (soundEntriesBuilt_) return;
-    soundEntriesBuilt_ = true;          // once, whether or not it works
-    if (!assets_) return;
-
-    auto dbc = assets_->loadDBC("SoundEntries.dbc");
-    if (!dbc || !dbc->isLoaded()) {
-        LOG_WARNING("UISoundManager: SoundEntries.dbc not available; "
-                    "PlaySound falls back to the names mapped by hand");
-        return;
-    }
-    // 3.3.5a layout: 0 ID, 1 SoundType, 2 Name, 3..12 File[0..9],
-    // 13..22 Freq[0..9], 23 DirectoryBase. The same reading zone_manager and
-    // npc_voice_manager already make of this table.
-    if (dbc->getFieldCount() < 24) {
-        LOG_WARNING("UISoundManager: SoundEntries.dbc has ", dbc->getFieldCount(),
-                    " fields, expected at least 24");
-        return;
-    }
-    for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
-        std::string name = dbc->getString(row, 2);
-        if (name.empty()) continue;
-        for (char& ch : name) {
-            ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-        }
-        const std::string dir = dbc->getString(row, 23);
-        std::vector<std::string> paths;
-        for (uint32_t f = 3; f <= 12; ++f) {
-            const std::string file = dbc->getString(row, f);
-            if (file.empty()) continue;
-            paths.push_back(dir.empty() ? file : dir + "\\" + file);
-        }
-        // The first row wins. Names repeat in this table and the later rows
-        // are variants; a UI click wants one sound, not a different one each
-        // time.
-        if (!paths.empty()) soundPathsByName_.emplace(name, std::move(paths));
-    }
-    LOG_INFO("UISoundManager: ", soundPathsByName_.size(),
-             " sound names from SoundEntries.dbc");
-}
-
 bool UiSoundManager::playByName(const std::string& soundName) {
     if (!initialized_ || soundName.empty()) return false;
-    ensureSoundEntriesLoaded();
 
     std::string key = soundName;
     for (char& ch : key) {
@@ -224,11 +183,16 @@ bool UiSoundManager::playByName(const std::string& soundName) {
 
     auto cached = namedSamples_.find(key);
     if (cached == namedSamples_.end()) {
-        auto it = soundPathsByName_.find(key);
-        if (it == soundPathsByName_.end()) return false;
+        // The table rather than a copy of the reading of it. Two things in
+        // this client answer a call that names a SoundEntries row - this and
+        // the glue screens' music and ambience - and a second hand-written
+        // reading of the same twenty-four fields is a second chance to get
+        // one of them wrong.
+        const std::vector<std::string>& paths = soundEntries_.files(assets_, key);
+        if (paths.empty()) return false;
         UISample sample;
         sample.loaded = false;
-        for (const std::string& path : it->second) {
+        for (const std::string& path : paths) {
             if (loadSound(path, sample, assets_)) break;
         }
         // Remembered even when nothing loaded, so a name whose file this

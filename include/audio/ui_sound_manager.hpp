@@ -6,6 +6,8 @@
 #include <string>
 #include <cstdint>
 
+#include "audio/sound_entries.hpp"
+
 namespace wowee {
 namespace pipeline {
 class AssetManager;
@@ -156,12 +158,10 @@ private:
 
     // Helper methods
     bool loadSound(const std::string& path, UISample& sample, pipeline::AssetManager* assets);
-    /// SoundEntries rows by upper-cased name, built on the first playByName.
-    /// Empty after a build that found no table, which is also how the build is
-    /// stopped from being attempted on every click.
-    void ensureSoundEntriesLoaded();
-    bool soundEntriesBuilt_ = false;
-    std::unordered_map<std::string, std::vector<std::string>> soundPathsByName_;
+    /// SoundEntries.dbc, read on the first playByName and asked by name after
+    /// that. Shared with the glue screens' music and ambience, which name
+    /// rows out of the same table.
+    SoundEntryTable soundEntries_;
     /// Samples loaded on demand by name. Kept because a UI sound is played
     /// again and again, and reading it from the archive each time is the one
     /// cost this has that the preloaded libraries do not.
