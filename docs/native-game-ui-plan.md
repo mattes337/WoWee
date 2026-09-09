@@ -1,6 +1,10 @@
 # Original game UI and drop-in client plan
 
-Status: planning only. No implementation is included in this commit.
+Status: stage 1 implemented, unverified against real installations.
+The provider, installation detection and direct archive reads are in place
+(`pipeline::GameInstall`, `pipeline::MpqProvider`, AssetManager); no box below
+is ticked, because none has been exercised against a licensed Vanilla, TBC,
+WotLK or Turtle install. Stages 2-6 are untouched.
 
 Branch: `codex/native-game-ui`, created directly from `master` at
 `3f92198677e4d7c0e59560f36fcfc72da1d0fa4b`.
@@ -196,5 +200,5 @@ restart, and save their state without modifying the original client's files.
 - Mark tasks complete only with evidence. Document untested versions, panels,
   and addon behaviors separately from confirmed failures and completed work.
 
-This commit authorizes no implementation work in this session: it records the
-requested plan only. Implementation begins in a later user-directed step.
+Implementation began with stage 1. Everything the acceptance sections ask for
+remains open until it is run against real installations and recorded here.
