@@ -1388,6 +1388,14 @@ wowee_add_test(test_glue_backdrop_framing
     SOURCES test_glue_backdrop_framing.cpp
             ${TEST_COMMON_SOURCES})
 
+# ── test_glue_scene_lighting ─────────────────────────────────
+# What a glue screen says about its scene - fog, up to four directional
+# lights, which camera - turned into the one of each the shader takes. Same
+# header, same reason it needs no device.
+wowee_add_test(test_glue_scene_lighting
+    SOURCES test_glue_scene_lighting.cpp
+            ${TEST_COMMON_SOURCES})
+
 # ── test_wav_duration ────────────────────────────────────────
 # How long a WAV runs, which is the interval the glue screens' ambience is
 # re-triggered at. Header-only, and no audio device is involved in reading a

@@ -205,6 +205,171 @@ inline GlueBackdropFraming glueBackdropFraming(const float eye[3], const float t
     return out;
 }
 
+/// One directional light a glue screen adds around its scene.
+///
+/// The thirteen numbers GlueParent.lua's RaceLights tables hold, in the order
+/// AddLight takes them after the light-set index: enabled, type, a direction,
+/// an ambient intensity and colour, a diffuse intensity and colour. Every row
+/// in every one of those tables is type 0 - the comment above them says the
+/// current version only supports directional lights - so there is no point
+/// carrying the type past the reading of it.
+struct GlueSceneLight {
+    /// The way the light travels, not the way to the light: the model shader
+    /// negates it, and RaceLights' commonest row is (0, 0, -1), which is a
+    /// light shining straight down a Z-up scene.
+    float direction[3] = {0.0f, 0.0f, -1.0f};
+    float ambientIntensity = 0.0f;
+    float ambientColor[3] = {0.0f, 0.0f, 0.0f};
+    float diffuseIntensity = 0.0f;
+    float diffuseColor[3] = {0.0f, 0.0f, 0.0f};
+};
+
+/// Everything a glue screen says about the scene it is showing, beyond which
+/// model it is. Read back out of the Lua state each frame rather than pushed,
+/// because the screens say all of it once, at load, and never repeat it.
+struct GlueSceneState {
+    std::string model;
+    /// Which of the model's own cameras to look through. Every glue screen
+    /// asks for zero; SecurityMatrix is the only frame in the interface that
+    /// ever names another.
+    int cameraIndex = 0;
+    int sequence = 0;
+    /// SetSequenceTime's second argument, in milliseconds. Recorded and not
+    /// applied - see the note on GlueBackdrop.
+    float sequenceTimeMs = -1.0f;
+    float modelScale = 1.0f;
+    /// False until one of SetFogNear, SetFogFar and SetFogColor is called, and
+    /// false again after ClearFog. Fog is off by default: PatchDownload and
+    /// TrialConvert declare a range in markup and the racial screens set one
+    /// from CharModelFogInfo, but a race with no row there - a death knight,
+    /// which is what the login screen's own lighting is - reaches ClearFog.
+    bool fog = false;
+    float fogStart = 0.0f;
+    float fogEnd = 0.0f;
+    float fogColor[3] = {0.0f, 0.0f, 0.0f};
+    /// SetGlow. Recorded and not applied - see the note on GlueBackdrop.
+    float glow = 0.0f;
+    /// The background light set, which is the one the scene itself is lit by.
+    /// The character and pet sets are recorded beside it in the Lua state and
+    /// are not read here: nothing is drawn into this scene yet.
+    std::vector<GlueSceneLight> lights;
+};
+
+/// The one directional light and the ambient term this client's model shader
+/// takes, worked out from the up-to-four lights a glue screen adds.
+struct GlueSceneLighting {
+    float direction[3] = {0.0f, 0.0f, -1.0f};
+    float lightColor[3] = {0.0f, 0.0f, 0.0f};
+    float ambientColor[3] = {0.0f, 0.0f, 0.0f};
+    /// False when the screen added no lights at all, which is the ordinary
+    /// case: the login screen's own AccountLogin.lua never calls SetLighting,
+    /// and ResetLights means "use the model's own". The caller then keeps
+    /// whatever rig it already had rather than lighting the scene with black.
+    bool authored = false;
+};
+
+/// Merge a glue screen's lights into the pair the shader has room for.
+///
+/// The interface adds up to four directional lights per set and GlueParent's
+/// own comment says they are merged in the engine. This client's per-frame
+/// block has one directional light and one ambient colour, so the merge is:
+///
+///  * every light's ambient intensity times its ambient colour is summed into
+///    the ambient term. Most of these rows are pure ambient - a diffuse colour
+///    of black - and are only there for that sum. The death knight lighting
+///    the login screen uses is a single one of them, which is why the screen
+///    reads as evenly lit blue rather than as lit from anywhere.
+///  * every light's diffuse intensity times its diffuse colour is summed into
+///    the light colour, and the direction is their sum weighted by how bright
+///    each contribution is.
+///
+/// The direction is the compromise: a surface facing the merged direction gets
+/// what all the lights together would give it, and one facing only one of them
+/// gets more than it should. Four lights cannot be four lights here.
+///
+/// Free and header-only so it can be tested without a device, for the same
+/// reason glueBackdropFraming above is.
+inline GlueSceneLighting glueSceneLighting(const GlueSceneLight* lights, size_t count) {
+    GlueSceneLighting out;
+    if (lights == nullptr || count == 0) return out;
+    out.authored = true;
+
+    float dirSum[3] = {0.0f, 0.0f, 0.0f};
+    for (size_t i = 0; i < count; ++i) {
+        const GlueSceneLight& light = lights[i];
+        float contribution[3];
+        for (int c = 0; c < 3; ++c) {
+            out.ambientColor[c] += light.ambientIntensity * light.ambientColor[c];
+            contribution[c] = light.diffuseIntensity * light.diffuseColor[c];
+            out.lightColor[c] += contribution[c];
+        }
+        // Rec. 709 luminance: how much of the picture this light is actually
+        // responsible for. Weighting by intensity alone would let a bright
+        // multiplier on a black colour - which is most of these rows - drag
+        // the direction to where no light is coming from.
+        const float weight = 0.2126f * contribution[0] + 0.7152f * contribution[1] +
+                             0.0722f * contribution[2];
+        if (weight <= 0.0f) continue;
+        const float len = std::sqrt(light.direction[0] * light.direction[0] +
+                                    light.direction[1] * light.direction[1] +
+                                    light.direction[2] * light.direction[2]);
+        if (!std::isfinite(len) || len < 1e-6f) continue;
+        for (int c = 0; c < 3; ++c) dirSum[c] += weight * light.direction[c] / len;
+    }
+
+    const float len = std::sqrt(dirSum[0] * dirSum[0] + dirSum[1] * dirSum[1] +
+                                dirSum[2] * dirSum[2]);
+    // Lights that cancel each other out leave no direction to point at. The
+    // default stands - straight down, which is the direction every purely
+    // ambient row in these tables carries - and the light colour it is applied
+    // with is the sum, which for that case is black anyway.
+    if (std::isfinite(len) && len > 1e-6f) {
+        for (int c = 0; c < 3; ++c) out.direction[c] = dirSum[c] / len;
+    }
+    return out;
+}
+
+/// The two distances the model shader's fog runs between.
+struct GlueSceneFogRange {
+    float start = 0.0f;
+    float end = 0.0f;
+};
+
+/// Where a glue screen's fog starts and ends, in a form the shader can use.
+///
+/// Fog has no "off" in that shader - it always mixes by
+/// (end - dist) / (end - start) - so switching it off is a range nothing in
+/// the scene reaches rather than a flag.
+///
+/// A range whose end is at or before its start is refused for the same reason:
+/// it divides by zero or by a negative, and the result is a NaN or an inverted
+/// fog over every pixel of the scene rather than an obviously wrong number
+/// somewhere. SetFogNear without SetFogFar - which is a legal thing for a
+/// screen to say and leaves the far distance at zero - is exactly that case.
+inline GlueSceneFogRange glueSceneFogRange(bool enabled, float start, float end) {
+    // Far enough that nothing in a glue scene is inside it. The scenes are
+    // authored a couple of hundred units across.
+    constexpr GlueSceneFogRange kNoFog{9999.0f, 10000.0f};
+    if (!enabled) return kNoFog;
+    if (!std::isfinite(start) || !std::isfinite(end)) return kNoFog;
+    if (end <= start) return kNoFog;
+    return GlueSceneFogRange{start, end};
+}
+
+/// Which of a model's own cameras to look through.
+///
+/// SetCamera names one by index. A model that does not carry that many falls
+/// back to its first, which is the one every glue screen actually asks for and
+/// the only one most of these scenes have - a screen naming a camera that is
+/// not there should look slightly wrong rather than not be drawn. Negative
+/// when the model carries none at all, which is the case that cannot be
+/// framed: nothing else in the interface says where to stand.
+inline int glueCameraIndex(int requested, int cameraCount) {
+    if (cameraCount <= 0) return -1;
+    if (requested < 0 || requested >= cameraCount) return 0;
+    return requested;
+}
+
 /// The scene behind the login and character screens.
 ///
 /// WoW's glue screens are not painted backdrops: each is an M2 scene - the
@@ -228,15 +393,30 @@ public:
     GlueBackdrop(const GlueBackdrop&) = delete;
     GlueBackdrop& operator=(const GlueBackdrop&) = delete;
 
-    /// Show `m2Path`, drawn into an image `width` x `height` pixels and framed
-    /// by the model's own camera. True once there is something to show.
+    /// Show `scene`, drawn into an image `width` x `height` pixels and framed
+    /// by the camera the scene names in the model. True once there is
+    /// something to show.
     ///
     /// Safe to call every frame: the view is rebuilt only when the model or
-    /// the size actually changes. False is the honest answer for a model the
-    /// install does not carry, and for one that carries no camera - there is
-    /// no second way to place one of these scenes, so it stays unplaced rather
-    /// than being put somewhere that happens to look right on one screen.
-    bool update(const std::string& m2Path, int width, int height,
+    /// the size actually changes, and the rest of the scene is re-applied only
+    /// where it differs from what is already on the model. False is the honest
+    /// answer for a model the install does not carry, and for one that carries
+    /// no camera - there is no second way to place one of these scenes, so it
+    /// stays unplaced rather than being put somewhere that happens to look
+    /// right on one screen.
+    ///
+    /// Two things the scene carries are recorded and not applied, and are
+    /// named here rather than left to be discovered:
+    ///
+    ///  * `glow`. The model shader has no glow term. It could be added to the
+    ///    ambient colour, which is not what glow is - it would brighten the
+    ///    lit surfaces of the scene rather than make it bloom - and a wrong
+    ///    effect wearing the right name is worse than a missing one.
+    ///  * `sequenceTimeMs`. Nothing here can seek an animation; the renderer
+    ///    plays them and reads the clock back but does not take one. The only
+    ///    caller in the whole interface is SecurityMatrix's sparkle, which
+    ///    this client does not draw.
+    bool update(const GlueSceneState& scene, int width, int height,
                 pipeline::AssetManager* assets,
                 rendering::Renderer* renderer, float deltaTime);
 

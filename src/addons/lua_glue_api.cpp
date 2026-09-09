@@ -34,10 +34,12 @@
 //     real, kept with wowee's own configuration rather than in the original
 //     client's WTF, so launching either client does not overwrite what the
 //     other saved.
-//   * The background scenes are real: which frame holds one and which model it
-//     holds are recorded here, and the client draws the model through the
-//     camera the artist baked into it - see ui::GlueBackdrop. The lighting
-//     GlueParent's SetLighting asks for around it is not applied.
+//   * The background scenes are real: which frame holds one, which model it
+//     holds, which of the model's cameras and animations it wants, and the fog
+//     and lights GlueParent's SetLighting puts around it are all recorded here
+//     and drawn by the client - see ui::GlueBackdrop. Two of the things a
+//     screen can say about a scene are recorded and not drawn, and are named
+//     on GlueBackdrop::update: the glow, and where in an animation to sit.
 //   * The music and the ambience are real: both name a row in
 //     SoundEntries.dbc and both reach the audio coordinator, which reads the
 //     table and plays what the row names.
@@ -985,28 +987,79 @@ std::string rememberedString(lua_State* L, const char* key) {
     return out;
 }
 
-/// Which scene each glue model frame was told to show, by the frame's own name.
+/// What each glue model frame was told about its scene, by the frame's name.
 ///
 /// One table rather than a field per screen, because the screens do not agree
 /// on how they say it: CharacterSelect.lua and CharacterCreate.lua name their
 /// frame first (SetCharSelectModelFrame, SetCharCustomizeFrame) and then hand
 /// over a path through SetBackgroundModel, while AccountLogin.lua sets its own
-/// model on itself. What the client needs out of all three is the same pair -
-/// this frame, that model - so that is what is kept, and the drawing half can
+/// model on itself. What the client needs out of all three is the same thing -
+/// this frame, that scene - so that is what is kept, and the drawing half can
 /// ask about whichever frame is on screen without knowing which route said so.
-constexpr const char* kGlueModelPaths = "wowee_glue_model_paths";
+///
+/// Each entry is a table: `path`, and then whatever of `camera`, `sequence`,
+/// `sequenceTime`, `scale`, `fog`, `fogStart`, `fogEnd`, `fogR/G/B`, `glow`
+/// and the three light lists the screen has said so far. Read back by
+/// Application::updateGlueBackdrop, which is the only other place that knows
+/// these names.
+constexpr const char* kGlueScenes = "wowee_glue_scenes";
 
-void recordModelPath(lua_State* L, const std::string& frameName, const char* path) {
-    if (frameName.empty() || !path || !*path) return;
-    lua_getfield(L, LUA_REGISTRYINDEX, kGlueModelPaths);
+/// Pushes frame `frameName`'s entry, creating it and the outer table if they
+/// are not there yet. Leaves exactly one value on the stack, and false with
+/// nothing on it for a frame with no name to file it under.
+bool pushSceneEntry(lua_State* L, const std::string& frameName) {
+    if (frameName.empty()) return false;
+    lua_getfield(L, LUA_REGISTRYINDEX, kGlueScenes);
     if (!lua_istable(L, -1)) {
         lua_pop(L, 1);
         lua_newtable(L);
         lua_pushvalue(L, -1);
-        lua_setfield(L, LUA_REGISTRYINDEX, kGlueModelPaths);
+        lua_setfield(L, LUA_REGISTRYINDEX, kGlueScenes);
     }
+    lua_getfield(L, -1, frameName.c_str());
+    if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        lua_newtable(L);
+        lua_pushvalue(L, -1);
+        lua_setfield(L, -3, frameName.c_str());
+    }
+    lua_remove(L, -2);              // the outer table; the entry is what is wanted
+    return true;
+}
+
+void recordModelPath(lua_State* L, const std::string& frameName, const char* path) {
+    if (frameName.empty() || !path || !*path) return;
+    if (!pushSceneEntry(L, frameName)) return;
     lua_pushstring(L, path);
-    lua_setfield(L, -2, frameName.c_str());
+    lua_setfield(L, -2, "path");
+    lua_pop(L, 1);
+}
+
+/// The name of the frame a widget method was called on. Empty for an
+/// anonymous frame, which nothing here can file anything under.
+std::string modelFrameName(lua_State* L) {
+    if (!lua_istable(L, 1)) return {};
+    lua_pushstring(L, "__name");
+    lua_rawget(L, 1);
+    const char* name = lua_tostring(L, -1);
+    std::string out = name ? name : "";
+    lua_pop(L, 1);
+    return out;
+}
+
+void recordSceneNumber(lua_State* L, const char* key, double value) {
+    const std::string frame = modelFrameName(L);
+    if (!pushSceneEntry(L, frame)) return;
+    lua_pushnumber(L, value);
+    lua_setfield(L, -2, key);
+    lua_pop(L, 1);
+}
+
+void recordSceneBool(lua_State* L, const char* key, bool value) {
+    const std::string frame = modelFrameName(L);
+    if (!pushSceneEntry(L, frame)) return;
+    lua_pushboolean(L, value ? 1 : 0);
+    lua_setfield(L, -2, key);
     lua_pop(L, 1);
 }
 
@@ -1049,12 +1102,186 @@ int lua_GlueSetModelPath(lua_State* L) {
     if (!lua_istable(L, 1)) return 0;
     const char* path = lua_tostring(L, 2);
     if (!path || !*path) return 0;
-    lua_pushstring(L, "__name");
-    lua_rawget(L, 1);
-    const char* name = lua_tostring(L, -1);
-    if (name && *name) recordModelPath(L, name, path);
+    recordModelPath(L, modelFrameName(L), path);
+    return 0;
+}
+
+// --- The rest of what a model frame is told -------------------------------
+//
+// Recorded rather than acted on here, for the same reason SetModel is: this
+// layer cannot reach a renderer, and the frame these are called on is the one
+// the client draws the scene into. Application::updateGlueBackdrop reads the
+// entry back for whichever glue frame is on screen and hands it to
+// ui::GlueBackdrop, which is where the fog, the lights and the camera actually
+// take effect.
+//
+// All of them were no-ops before, and a no-op is invisible: AccountLogin.xml's
+// fogNear="0" fogFar="1200" glow="0.08" and GlueParent's whole SetLighting -
+// every light behind every glue screen - reached this client and stopped.
+
+int lua_GlueSetCamera(lua_State* L) {
+    recordSceneNumber(L, "camera", luaL_optnumber(L, 2, 0));
+    return 0;
+}
+
+int lua_GlueSetSequence(lua_State* L) {
+    recordSceneNumber(L, "sequence", luaL_optnumber(L, 2, 0));
+    return 0;
+}
+
+/// SetSequenceTime(sequence, milliseconds): which animation, and where in it.
+int lua_GlueSetSequenceTime(lua_State* L) {
+    recordSceneNumber(L, "sequence", luaL_optnumber(L, 2, 0));
+    recordSceneNumber(L, "sequenceTime", luaL_optnumber(L, 3, 0));
+    return 0;
+}
+
+int lua_GlueSetModelScale(lua_State* L) {
+    recordSceneNumber(L, "scale", luaL_optnumber(L, 2, 1.0));
+    return 0;
+}
+
+int lua_GlueSetGlow(lua_State* L) {
+    recordSceneNumber(L, "glow", luaL_optnumber(L, 2, 0));
+    return 0;
+}
+
+/// Any of the three fog setters turns fog on, and ClearFog turns it off.
+///
+/// There is no separate switch in the interface's vocabulary: a screen that
+/// wants fog says where it starts and ends, and one that does not calls
+/// ClearFog. AccountLogin.xml names a range and no colour, so the colour has
+/// to default to something - black, which is what the original leaves it as
+/// and what a scene fades into on the login screen.
+int lua_GlueSetFogNear(lua_State* L) {
+    recordSceneBool(L, "fog", true);
+    recordSceneNumber(L, "fogStart", luaL_optnumber(L, 2, 0));
+    return 0;
+}
+
+int lua_GlueSetFogFar(lua_State* L) {
+    recordSceneBool(L, "fog", true);
+    recordSceneNumber(L, "fogEnd", luaL_optnumber(L, 2, 0));
+    return 0;
+}
+
+int lua_GlueSetFogColor(lua_State* L) {
+    recordSceneBool(L, "fog", true);
+    recordSceneNumber(L, "fogR", luaL_optnumber(L, 2, 0));
+    recordSceneNumber(L, "fogG", luaL_optnumber(L, 3, 0));
+    recordSceneNumber(L, "fogB", luaL_optnumber(L, 4, 0));
+    return 0;
+}
+
+int lua_GlueClearFog(lua_State* L) {
+    recordSceneBool(L, "fog", false);
+    return 0;
+}
+
+/// The three light lists a frame carries, emptied.
+///
+/// GlueParent's own comment is the specification: ResetLights puts all six
+/// light sets back to the background's defaults, and adding a light to any one
+/// set replaces every default in that set. This client does not read a model's
+/// own lights, so "back to default" means "back to the rig the client lights
+/// an unlit glue scene with" - which is what an empty list is read as.
+int lua_GlueResetLights(lua_State* L) {
+    const std::string frame = modelFrameName(L);
+    if (!pushSceneEntry(L, frame)) return 0;
+    for (const char* key : {"lights", "characterLights", "petLights"}) {
+        lua_newtable(L);
+        lua_setfield(L, -2, key);
+    }
     lua_pop(L, 1);
     return 0;
+}
+
+/// AddLight(set, enabled, type, dirX, dirY, dirZ, ambIntensity, ambR, ambG,
+///          ambB, difIntensity, difR, difG, difB)
+///
+/// Fourteen numbers after the frame: the light set, and then the thirteen a
+/// RaceLights row holds, which GlueParent unpacks straight into the call.
+/// Stored as they arrive, because the reading of them belongs with the
+/// renderer that has to merge them and not with the recording.
+///
+/// A light the row marks disabled is dropped here rather than carried: the
+/// interface's own loop already skips those, so one arriving means a caller
+/// that did not, and a disabled light is not a light.
+int lua_GlueAddLightTo(lua_State* L, const char* key) {
+    const std::string frame = modelFrameName(L);
+    if (!pushSceneEntry(L, frame)) return 0;
+    if (luaL_optnumber(L, 3, 1) == 0) { lua_pop(L, 1); return 0; }   // not enabled
+
+    lua_getfield(L, -1, key);
+    if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        lua_newtable(L);
+        lua_pushvalue(L, -1);
+        lua_setfield(L, -3, key);
+    }
+    lua_newtable(L);
+    for (int arg = 2; arg <= 15; ++arg) {
+        lua_pushnumber(L, luaL_optnumber(L, arg, 0));
+        lua_rawseti(L, -2, arg - 1);
+    }
+    // Four per set is the ceiling the interface documents. Past it the extra
+    // ones are dropped rather than growing the list without limit, because a
+    // screen that keeps adding without resetting is the shape of a leak.
+    const lua_Integer count = static_cast<lua_Integer>(lua_objlen(L, -2));
+    if (count >= 4) {
+        lua_pop(L, 2);
+    } else {
+        lua_rawseti(L, -2, count + 1);
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+    return 0;
+}
+
+int lua_GlueAddLight(lua_State* L)          { return lua_GlueAddLightTo(L, "lights"); }
+int lua_GlueAddCharacterLight(lua_State* L) { return lua_GlueAddLightTo(L, "characterLights"); }
+int lua_GlueAddPetLight(lua_State* L)       { return lua_GlueAddLightTo(L, "petLights"); }
+
+/// Put the model-frame methods on the frame metatable.
+///
+/// Called by the client immediately before it loads GlueXML, and not from
+/// registerGlueLuaAPI below, because the metatable does not exist yet when
+/// this file's globals are registered - the engine builds it afterwards. Only
+/// a run that is loading the glue screens does this; with the world's
+/// interface up these stay exactly the no-ops they were.
+int lua_GlueInstallModelMethods(lua_State* L) {
+    const struct {
+        const char* name;
+        lua_CFunction func;
+    } methods[] = {
+        {"SetModel",           lua_GlueSetModelPath},
+        {"SetCamera",          lua_GlueSetCamera},
+        {"SetSequence",        lua_GlueSetSequence},
+        {"SetSequenceTime",    lua_GlueSetSequenceTime},
+        {"SetModelScale",      lua_GlueSetModelScale},
+        {"SetGlow",            lua_GlueSetGlow},
+        {"SetFogNear",         lua_GlueSetFogNear},
+        {"SetFogFar",          lua_GlueSetFogFar},
+        {"SetFogColor",        lua_GlueSetFogColor},
+        {"ClearFog",           lua_GlueClearFog},
+        {"ResetLights",        lua_GlueResetLights},
+        {"AddLight",           lua_GlueAddLight},
+        {"AddCharacterLight",  lua_GlueAddCharacterLight},
+        {"AddPetLight",        lua_GlueAddPetLight},
+    };
+    lua_getglobal(L, "__WoweeFrameMT");
+    if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    for (const auto& [name, func] : methods) {
+        lua_pushcfunction(L, func);
+        lua_setfield(L, -2, name);
+    }
+    lua_pop(L, 1);
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -1215,10 +1442,15 @@ void registerGlueLuaAPI(lua_State* L) {
         {"PlayGlueAmbience",            lua_PlayGlueAmbience},
         {"StopGlueAmbience",            lua_StopGlueAmbience},
 
-        // The model frames. Which frame holds the scene and which scene it
-        // holds are recorded here and drawn by the client - see
-        // ui::GlueBackdrop. The facing pair below is still recorded only.
-        {"__WoweeSetModelPath",         lua_GlueSetModelPath},
+        // The model frames. Which frame holds the scene, which scene it holds
+        // and everything the screen says about it are recorded here and drawn
+        // by the client - see ui::GlueBackdrop. The facing pair below is still
+        // recorded only.
+        //
+        // The methods themselves go on the frame metatable, which does not
+        // exist yet at this point; the client installs them through the call
+        // below before it loads GlueXML.
+        {"__WoweeInstallGlueModelMethods", lua_GlueInstallModelMethods},
         {"SetCharSelectModelFrame",     lua_SetCharSelectModelFrame},
         {"SetCharCustomizeFrame",       lua_SetCharCustomizeFrame},
         {"SetCharSelectBackground",     lua_SetCharSelectBackground},

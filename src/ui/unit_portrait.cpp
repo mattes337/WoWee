@@ -309,9 +309,25 @@ struct GlueBackdrop::View {
     bool everComposited = false;
     uint32_t instanceId = 0;
 
+    /// What the model on screen was last built and lit from, so a screen that
+    /// says the same thing every frame - and they all do, because the client
+    /// reads it back rather than being told when it changes - reloads nothing.
+    int appliedCamera = -1;
+    int appliedSequence = -1;
+    float appliedScale = 1.0f;
+    /// The fog and lights, applied straight into the per-frame block on every
+    /// composite. Cheap enough that there is nothing to compare against.
+    GlueSceneFogRange fog{9999.0f, 10000.0f};
+    glm::vec3 fogColor{0.0f, 0.0f, 0.0f};
+    GlueSceneLighting lighting;
+
     bool build(int w, int h, rendering::Renderer* renderer);
     void destroy();
-    bool loadScene(const std::string& rawPath);
+    bool loadScene(const std::string& rawPath, const GlueSceneState& scene);
+    /// Point the camera through the model's `index`'th own camera. False when
+    /// the model has none, or the one it has cannot frame anything.
+    bool frameThrough(int index);
+    void applyScene(const GlueSceneState& scene);
     void composite();
 };
 
@@ -541,12 +557,15 @@ void GlueBackdrop::View::destroy() {
     instanceId = 0;
     placed = false;
     everComposited = false;
+    appliedCamera = -1;
+    appliedSequence = -1;
+    appliedScale = 1.0f;
     width = 0;
     height = 0;
     ctx = nullptr;
 }
 
-bool GlueBackdrop::View::loadScene(const std::string& rawPath) {
+bool GlueBackdrop::View::loadScene(const std::string& rawPath, const GlueSceneState& scene) {
     if (!models || !assets || !camera) return false;
 
     // .mdx means .m2, the same way .tga means .blp elsewhere in this
@@ -571,6 +590,8 @@ bool GlueBackdrop::View::loadScene(const std::string& rawPath) {
     }
     models->clear();
     placed = false;
+    appliedCamera = -1;
+    appliedSequence = -1;
 
     pipeline::M2Model model;
     if (!pipeline::loadM2WithSkin(*assets, m2Path, model)) {
@@ -578,52 +599,123 @@ bool GlueBackdrop::View::loadScene(const std::string& rawPath) {
         return false;
     }
 
-    // The camera is the placement. These scenes are authored where the artist
-    // put them - the Northrend login dome sits a couple of hundred units from
-    // its own origin - and nothing in the interface says where to stand: the
-    // glue screens only ever call SetCamera(0). A scene with no camera cannot
-    // be placed at all, and is left out rather than framed by a guess.
-    if (model.cameras.empty()) {
-        LOG_WARNING("GlueBackdrop: ", m2Path, " carries no camera; not drawn");
-        return false;
-    }
-    const pipeline::M2Camera& cam = model.cameras[0];
-    const float aspect = static_cast<float>(width) / static_cast<float>(height);
-    const float eye[3] = {cam.positionBase.x, cam.positionBase.y, cam.positionBase.z};
-    const float at[3] = {cam.targetBase.x, cam.targetBase.y, cam.targetBase.z};
-    const GlueBackdropFraming framing = glueBackdropFraming(eye, at, cam.fov, aspect);
-    if (!framing.usable) {
-        LOG_WARNING("GlueBackdrop: ", m2Path, " has a camera that cannot frame anything"
-                    " (fov ", cam.fov, " rad); not drawn");
-        return false;
-    }
-
     if (!models->loadModel(model, kBackdropModelId)) {
         LOG_WARNING("GlueBackdrop: could not upload ", m2Path);
         return false;
     }
-    // Identity: no facing, no scale, no position. See the camera note above.
-    instanceId = models->createInstance(kBackdropModelId, glm::vec3(0.0f));
+    // No facing and no position: the camera is the placement. These scenes are
+    // authored where the artist put them - the Northrend login dome sits a
+    // couple of hundred units from its own origin - and nothing in the
+    // interface says where to stand. The scale is the one thing the interface
+    // does say, and every glue screen leaves it at one.
+    appliedScale = scene.modelScale > 0.0f ? scene.modelScale : 1.0f;
+    instanceId = models->createInstance(kBackdropModelId, glm::vec3(0.0f),
+                                        glm::vec3(0.0f), appliedScale);
     if (instanceId == 0) {
         LOG_WARNING("GlueBackdrop: could not place ", m2Path);
         return false;
     }
     // A whole scene rather than a figure: no distance culling, no stand mark.
     models->setInstanceSceneModel(instanceId, true);
-    // GlueParent.lua's SetLighting opens every one of these on sequence 0.
-    models->playAnimation(instanceId, 0, true);
+
+    // The camera is what decides whether this is drawn at all, so it is asked
+    // for after the model is up but before anything says the scene is placed.
+    if (!frameThrough(scene.cameraIndex)) return false;
+    placed = true;
+    return true;
+}
+
+bool GlueBackdrop::View::frameThrough(int index) {
+    const pipeline::M2Model* model = models ? models->getModelData(kBackdropModelId) : nullptr;
+    if (model == nullptr || camera == nullptr) return false;
+
+    const int pick = glueCameraIndex(index, static_cast<int>(model->cameras.size()));
+    if (pick < 0) {
+        // A scene with no camera cannot be placed at all, and is left out
+        // rather than framed by a guess.
+        LOG_WARNING("GlueBackdrop: ", loadedPath, " carries no camera; not drawn");
+        return false;
+    }
+    if (pick != index) {
+        LOG_WARNING("GlueBackdrop: ", loadedPath, " has ", model->cameras.size(),
+                    " camera(s), so SetCamera(", index, ") falls back to the first");
+    }
+
+    const pipeline::M2Camera& cam = model->cameras[static_cast<size_t>(pick)];
+    const float aspect = static_cast<float>(width) / static_cast<float>(height);
+    const float eye[3] = {cam.positionBase.x, cam.positionBase.y, cam.positionBase.z};
+    const float at[3] = {cam.targetBase.x, cam.targetBase.y, cam.targetBase.z};
+    const GlueBackdropFraming framing = glueBackdropFraming(eye, at, cam.fov, aspect);
+    if (!framing.usable) {
+        LOG_WARNING("GlueBackdrop: ", loadedPath, " camera ", pick,
+                    " cannot frame anything (fov ", cam.fov, " rad); not drawn");
+        return false;
+    }
 
     camera->setPosition(cam.positionBase);
     camera->setRotation(framing.yawDegrees, framing.pitchDegrees);
     camera->setFov(framing.fovYDegrees);
     camera->setAspectRatio(aspect);
+    appliedCamera = index;
 
-    placed = true;
-    LOG_INFO("GlueBackdrop: ", m2Path, " through camera 0 at (",
+    LOG_INFO("GlueBackdrop: ", loadedPath, " through camera ", pick, " at (",
              cam.positionBase.x, ",", cam.positionBase.y, ",", cam.positionBase.z,
              ") looking at (", cam.targetBase.x, ",", cam.targetBase.y, ",",
              cam.targetBase.z, "), ", camera->getFovDegrees(), " deg vertical");
     return true;
+}
+
+void GlueBackdrop::View::applyScene(const GlueSceneState& scene) {
+    // The fog and the lights, every frame: they are two vectors in the
+    // per-frame block and comparing them would cost more than writing them.
+    fog = glueSceneFogRange(scene.fog, scene.fogStart, scene.fogEnd);
+    fogColor = glm::vec3(scene.fogColor[0], scene.fogColor[1], scene.fogColor[2]);
+    lighting = glueSceneLighting(scene.lights.data(), scene.lights.size());
+
+    if (!placed || instanceId == 0) return;
+
+    // A scale change has to rebuild the instance: the renderer takes one when
+    // an instance is made and has no way to change it afterwards. The model
+    // itself stays uploaded, so this is cheap - and nothing in GlueXML scales
+    // a backdrop, so in practice it never runs.
+    const float wantScale = scene.modelScale > 0.0f ? scene.modelScale : 1.0f;
+    if (std::abs(wantScale - appliedScale) > 1e-4f) {
+        models->removeInstance(instanceId);
+        appliedScale = wantScale;
+        instanceId = models->createInstance(kBackdropModelId, glm::vec3(0.0f),
+                                           glm::vec3(0.0f), appliedScale);
+        if (instanceId == 0) {
+            placed = false;
+            return;
+        }
+        models->setInstanceSceneModel(instanceId, true);
+        appliedSequence = -1;
+    }
+
+    if (scene.cameraIndex != appliedCamera) {
+        // A camera that cannot frame anything leaves the previous one in
+        // place; the scene was drawable a moment ago and half a swap is worse
+        // than no swap.
+        if (!frameThrough(scene.cameraIndex)) appliedCamera = scene.cameraIndex;
+    }
+
+    if (scene.sequence != appliedSequence) {
+        // Sequence 0 is what every glue screen opens on; the backdrop used to
+        // be given it unconditionally, which was right by accident.
+        //
+        // Passed through as an animation id, which is not quite what
+        // SetSequence names - that is a position in the model's sequence list,
+        // and this renderer looks the number up as M2Sequence::id. The two
+        // agree at zero, and zero is the only value any glue screen asks for.
+        const uint32_t want = scene.sequence < 0 ? 0u : static_cast<uint32_t>(scene.sequence);
+        if (models->hasAnimation(instanceId, want)) {
+            models->playAnimation(instanceId, want, true);
+        } else if (want != 0) {
+            LOG_WARNING("GlueBackdrop: ", loadedPath, " has no sequence ", want,
+                        "; staying on the one it is playing");
+        }
+        appliedSequence = scene.sequence;
+    }
 }
 
 void GlueBackdrop::View::composite() {
@@ -645,18 +737,33 @@ void GlueBackdrop::View::composite() {
     ubo.view = camera->getViewMatrix();
     ubo.projection = camera->getProjectionMatrix();
     ubo.lightSpaceMatrix = glm::mat4(1.0f);
-    // The interface's own lighting for these scenes - GlueParent.lua's
-    // SetLighting, with a fog colour and up to four directional lights per
-    // race - reaches this client as no-ops, so none of it is applied here.
-    // What is applied is the studio rig the racial backdrops already use in
-    // the character preview, which is the client's existing answer for a glue
-    // scene rather than a second one invented for this.
-    ubo.lightDir = glm::vec4(glm::normalize(glm::vec3(0.5f, -0.7f, 0.5f)), 0.0f);
-    ubo.lightColor = glm::vec4(1.0f, 0.95f, 0.9f, 0.0f);
-    ubo.ambientColor = glm::vec4(0.45f, 0.45f, 0.5f, 0.0f);
+    // The interface's own lighting for the scene, when the screen said any.
+    //
+    // GlueParent.lua's SetLighting is where that comes from: a fog colour and
+    // range out of CharModelFogInfo and up to four directional lights out of
+    // RaceLights, merged into the one directional light and one ambient colour
+    // this per-frame block has room for.
+    //
+    // A screen that adds no lights keeps the studio rig below, which is what
+    // the character preview lights its racial backdrops with. That is the
+    // ordinary case rather than the exception: ResetLights means "use the
+    // model's own lights", which this client does not read, and the stock
+    // login screen never calls SetLighting at all.
+    if (lighting.authored) {
+        ubo.lightDir = glm::vec4(lighting.direction[0], lighting.direction[1],
+                                 lighting.direction[2], 0.0f);
+        ubo.lightColor = glm::vec4(lighting.lightColor[0], lighting.lightColor[1],
+                                   lighting.lightColor[2], 0.0f);
+        ubo.ambientColor = glm::vec4(lighting.ambientColor[0], lighting.ambientColor[1],
+                                     lighting.ambientColor[2], 0.0f);
+    } else {
+        ubo.lightDir = glm::vec4(glm::normalize(glm::vec3(0.5f, -0.7f, 0.5f)), 0.0f);
+        ubo.lightColor = glm::vec4(1.0f, 0.95f, 0.9f, 0.0f);
+        ubo.ambientColor = glm::vec4(0.45f, 0.45f, 0.5f, 0.0f);
+    }
     ubo.viewPos = glm::vec4(camera->getPosition(), 0.0f);
-    ubo.fogColor = glm::vec4(0.05f, 0.05f, 0.1f, 0.0f);
-    ubo.fogParams = glm::vec4(9999.0f, 10000.0f, 0.0f, 0.0f);
+    ubo.fogColor = glm::vec4(fogColor, 0.0f);
+    ubo.fogParams = glm::vec4(fog.start, fog.end, 0.0f, 0.0f);
     ubo.shadowParams = glm::vec4(0.0f);
     std::memcpy(uboMapped, &ubo, sizeof(rendering::GPUPerFrameData));
 
@@ -684,10 +791,10 @@ GlueBackdrop::~GlueBackdrop() {
     shutdown();
 }
 
-bool GlueBackdrop::update(const std::string& m2Path, int width, int height,
+bool GlueBackdrop::update(const GlueSceneState& scene, int width, int height,
                           pipeline::AssetManager* assets,
                           rendering::Renderer* renderer, float deltaTime) {
-    if (m2Path.empty() || !assets || !renderer) return false;
+    if (scene.model.empty() || !assets || !renderer) return false;
     if (width <= 0 || height <= 0) return false;
 
     // In pixels, and bounded: the login scene fills the window, and a window
@@ -709,10 +816,11 @@ bool GlueBackdrop::update(const std::string& m2Path, int width, int height,
         }
     }
 
-    if (view_->loadedPath != m2Path) {
-        view_->loadedPath = m2Path;
-        view_->loadScene(m2Path);
+    if (view_->loadedPath != scene.model) {
+        view_->loadedPath = scene.model;
+        view_->loadScene(scene.model, scene);
     }
+    view_->applyScene(scene);
     if (!view_->placed) return false;
 
     view_->models->update(deltaTime, view_->camera->getPosition());

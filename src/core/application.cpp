@@ -132,11 +132,66 @@ ui::GlueBackdrop& glueBackdrop() {
     return backdrop;
 }
 
+/// One number out of the scene entry sitting on top of the Lua stack.
+double sceneNumber(lua_State* L, const char* key, double fallback) {
+    lua_getfield(L, -1, key);
+    const double value = lua_isnumber(L, -1) ? lua_tonumber(L, -1) : fallback;
+    lua_pop(L, 1);
+    return value;
+}
+
+/// One light list out of the scene entry on top of the Lua stack, in the
+/// fourteen-number shape lua_glue_api.cpp files it in: light set, enabled,
+/// type, direction, ambient intensity and colour, diffuse intensity and
+/// colour.
+std::vector<ui::GlueSceneLight> sceneLights(lua_State* L, const char* key) {
+    std::vector<ui::GlueSceneLight> out;
+    lua_getfield(L, -1, key);
+    if (lua_istable(L, -1)) {
+        const size_t count = lua_objlen(L, -1);
+        for (size_t i = 1; i <= count; ++i) {
+            lua_rawgeti(L, -1, static_cast<int>(i));
+            if (lua_istable(L, -1) && lua_objlen(L, -1) >= 14) {
+                double n[15] = {0.0};
+                for (int f = 1; f <= 14; ++f) {
+                    lua_rawgeti(L, -1, f);
+                    n[f] = lua_isnumber(L, -1) ? lua_tonumber(L, -1) : 0.0;
+                    lua_pop(L, 1);
+                }
+                // n[1] is the light set - LIGHT_LIVE is 0 and LIGHT_GHOST is
+                // 1, and a glue backdrop is never a ghost. n[2] is enabled,
+                // already filtered when it was recorded, and n[3] is the
+                // light type, which the interface's own comment says is
+                // always directional.
+                if (n[1] == 0.0) {
+                    ui::GlueSceneLight light;
+                    light.direction[0] = static_cast<float>(n[4]);
+                    light.direction[1] = static_cast<float>(n[5]);
+                    light.direction[2] = static_cast<float>(n[6]);
+                    light.ambientIntensity = static_cast<float>(n[7]);
+                    light.ambientColor[0] = static_cast<float>(n[8]);
+                    light.ambientColor[1] = static_cast<float>(n[9]);
+                    light.ambientColor[2] = static_cast<float>(n[10]);
+                    light.diffuseIntensity = static_cast<float>(n[11]);
+                    light.diffuseColor[0] = static_cast<float>(n[12]);
+                    light.diffuseColor[1] = static_cast<float>(n[13]);
+                    light.diffuseColor[2] = static_cast<float>(n[14]);
+                    out.push_back(light);
+                }
+            }
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+    return out;
+}
+
 /// Put the scene the glue screens asked for behind the one that is showing.
 ///
-/// GlueXML says which frame holds a scene and which scene it holds - the login
-/// screen by setting a model on itself, the character screens through
-/// SetBackgroundModel - and lua_glue_api.cpp records both. Which of those
+/// GlueXML says which frame holds a scene and everything about it - the login
+/// screen by setting a model on itself and declaring its fog in markup, the
+/// character screens through SetBackgroundModel and SetLighting - and
+/// lua_glue_api.cpp records all of it under the frame's name. Which of those
 /// frames is on screen is a question only the widget tree can answer, so it is
 /// asked here rather than guessed from the client's own state: one glue screen
 /// is up at a time and it is the one whose frame is visible.
@@ -148,13 +203,36 @@ void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* asset
     // Read the whole table out first. Searching the widget tree with the
     // table still on the stack would leave the iteration half-done on the
     // frame that finds a match.
-    std::vector<std::pair<std::string, std::string>> declared;
-    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_glue_model_paths");
+    std::vector<std::pair<std::string, ui::GlueSceneState>> declared;
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_glue_scenes");
     if (lua_istable(L, -1)) {
         lua_pushnil(L);
         while (lua_next(L, -2) != 0) {
-            if (lua_type(L, -2) == LUA_TSTRING && lua_type(L, -1) == LUA_TSTRING) {
-                declared.emplace_back(lua_tostring(L, -2), lua_tostring(L, -1));
+            if (lua_type(L, -2) == LUA_TSTRING && lua_istable(L, -1)) {
+                lua_getfield(L, -1, "path");
+                const char* path = lua_tostring(L, -1);
+                std::string model = path ? path : "";
+                lua_pop(L, 1);
+                if (!model.empty()) {
+                    ui::GlueSceneState scene;
+                    scene.model = std::move(model);
+                    scene.cameraIndex = static_cast<int>(sceneNumber(L, "camera", 0.0));
+                    scene.sequence = static_cast<int>(sceneNumber(L, "sequence", 0.0));
+                    scene.sequenceTimeMs =
+                        static_cast<float>(sceneNumber(L, "sequenceTime", -1.0));
+                    scene.modelScale = static_cast<float>(sceneNumber(L, "scale", 1.0));
+                    scene.glow = static_cast<float>(sceneNumber(L, "glow", 0.0));
+                    lua_getfield(L, -1, "fog");
+                    scene.fog = lua_toboolean(L, -1) != 0;
+                    lua_pop(L, 1);
+                    scene.fogStart = static_cast<float>(sceneNumber(L, "fogStart", 0.0));
+                    scene.fogEnd = static_cast<float>(sceneNumber(L, "fogEnd", 0.0));
+                    scene.fogColor[0] = static_cast<float>(sceneNumber(L, "fogR", 0.0));
+                    scene.fogColor[1] = static_cast<float>(sceneNumber(L, "fogG", 0.0));
+                    scene.fogColor[2] = static_cast<float>(sceneNumber(L, "fogB", 0.0));
+                    scene.lights = sceneLights(L, "lights");
+                    declared.emplace_back(lua_tostring(L, -2), std::move(scene));
+                }
             }
             lua_pop(L, 1);
         }
@@ -164,12 +242,12 @@ void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* asset
 
     auto& widgets = engine.widgets();
     ui::Widget* frame = nullptr;
-    const std::string* scene = nullptr;
-    for (const auto& [frameName, modelPath] : declared) {
+    const ui::GlueSceneState* scene = nullptr;
+    for (const auto& [frameName, sceneState] : declared) {
         ui::Widget* w = widgets.findByName(frameName);
         if (w == nullptr || !w->visible || w->rectW <= 0.0f || w->rectH <= 0.0f) continue;
         frame = w;
-        scene = &modelPath;
+        scene = &sceneState;
         break;
     }
     if (frame == nullptr) return;
@@ -1104,30 +1182,34 @@ bool Application::initialize() {
             addonManager_->setGlueXmlDir(interfaceRoot + "/interface/GlueXML");
             if (const char* wantGlue = std::getenv("WOWEE_LOAD_GLUEXML");
                 wantGlue && std::string(wantGlue) != "0") {
-                // Model:SetModel(path) answers with a no-op for every widget in
-                // the world's interface, and the login screen's backdrop is the
-                // one thing said only through it - AccountLogin_OnLoad names
-                // UI_MainMenu_Northrend on itself and nothing else ever repeats
-                // it. Point the method at the recorder in the glue API before
-                // that OnLoad runs.
+                // Everything a model frame is told answers with a no-op for
+                // every widget in the world's interface, and a glue screen's
+                // scene is said through nothing else: AccountLogin_OnLoad
+                // names UI_MainMenu_Northrend on itself, AccountLogin.xml
+                // declares its fog range and its glow, and GlueParent's
+                // SetLighting adds every light behind every one of these
+                // screens. Point the fourteen methods at the recorders in the
+                // glue API before that OnLoad runs.
                 //
                 // Here rather than in the glue API's own registration because
                 // the frame metatable does not exist yet at that point, and
                 // only for a run that is loading GlueXML - with the flag unset
-                // the method stays exactly the no-op it was.
+                // they stay exactly the no-ops they were.
                 if (auto* engine = addonManager_->getLuaEngine();
                     engine != nullptr && engine->getState() != nullptr) {
                     lua_State* L = engine->getState();
-                    lua_getglobal(L, "__WoweeFrameMT");
-                    if (lua_istable(L, -1)) {
-                        lua_getglobal(L, "__WoweeSetModelPath");
-                        if (lua_isfunction(L, -1)) {
-                            lua_setfield(L, -2, "SetModel");
-                        } else {
-                            lua_pop(L, 1);
+                    lua_getglobal(L, "__WoweeInstallGlueModelMethods");
+                    if (lua_isfunction(L, -1) && lua_pcall(L, 0, 1, 0) == 0) {
+                        if (!lua_toboolean(L, -1)) {
+                            LOG_WARNING("The glue model methods could not be "
+                                        "installed: the frame metatable is not "
+                                        "there, so the login backdrop will have "
+                                        "no model, no lighting and no fog");
                         }
+                        lua_pop(L, 1);
+                    } else {
+                        lua_pop(L, 1);
                     }
-                    lua_pop(L, 1);
                 }
                 addonManager_->loadGlueXml(addonManager_->getGlueXmlDir());
             }
