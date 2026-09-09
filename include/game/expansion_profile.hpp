@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -46,6 +47,23 @@ struct ExpansionProfile {
 };
 
 /**
+ * The expansion profiles built into the executable, for a run that has no
+ * Data/expansions/ beside it at all - a wowee.exe dropped next to the original
+ * game executable and nothing else. Disk is still read first; see
+ * ExpansionRegistry::initialize.
+ *
+ * Both members are empty in a build that embeds nothing, and the registry then
+ * has only the filesystem to look at.
+ */
+struct EmbeddedExpansions {
+    /// The profile ids the store carries ("classic", "tbc", "wotlk", ...).
+    std::function<std::vector<std::string>()> ids;
+    /// Contents of one file, named by its path under the data root
+    /// ("expansions/turtle/expansion.json"). False when it is not there.
+    std::function<bool(const std::string& path, std::string& contents)> read;
+};
+
+/**
  * Scans Data/expansions/ for available expansion profiles and manages the active selection.
  */
 class ExpansionRegistry {
@@ -53,9 +71,12 @@ public:
     /**
      * Scan dataRoot/expansions/ for expansion.json files.
      * @param dataRoot Path to Data/ directory (e.g. "./Data")
+     * @param embedded Profiles carried inside the binary, used only when the
+     *        scan found none - see the definition for why it is all or nothing
      * @return Number of profiles discovered
      */
-    size_t initialize(const std::string& dataRoot);
+    size_t initialize(const std::string& dataRoot,
+                      const EmbeddedExpansions& embedded = {});
 
     /** All discovered profiles. */
     [[nodiscard]] const std::vector<ExpansionProfile>& getAllProfiles() const { return profiles_; }
@@ -82,6 +103,11 @@ private:
     void activeChanged();
 
     bool loadProfile(const std::string& jsonPath, const std::string& dirPath);
+
+    /// The body of one expansion.json, already read. @p sourceName is only
+    /// what a rejected profile is named by in the log.
+    bool parseProfile(const std::string& json, const std::string& dirPath,
+                      const std::string& sourceName);
 };
 
 } // namespace game

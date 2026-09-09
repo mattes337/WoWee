@@ -1,5 +1,7 @@
 #include "core/application.hpp"
 #include "core/env_flag.hpp"
+#include "game/embedded_expansions.hpp"  // generated; see cmake/EmbedResources.cmake
+#include "pipeline/virtual_path.hpp"
 #include "core/character_paths.hpp"
 #include "ui/settings_schema.hpp"
 #include "pipeline/m2_asset_loader.hpp"
@@ -111,6 +113,65 @@ namespace wowee {
 namespace core {
 
 namespace {
+
+/// The expansion profile files built into the executable, keyed by their path
+/// under the data root - "expansions/turtle/opcodes.json". Generated from
+/// Data/expansions/ by cmake/EmbedResources.cmake.
+///
+/// Every caller below reads disk first and comes here second. This is the copy
+/// a wowee.exe dropped beside the original game executable runs on, with no
+/// Data/ next to it and none anywhere else either.
+bool readEmbeddedProfileFile(const std::string& path, std::string& contents) {
+    size_t count = 0;
+    const generated::EmbeddedFile* table = generated::embeddedExpansions(count);
+    if (table == nullptr) return false;
+
+    // The path arrives spelled against whatever data root the run was given,
+    // and an "_extends" may already have been joined onto it:
+    // "./Data/expansions/turtle/../classic/opcodes.json", or the absolute form
+    // of that. normalizeVirtual applies the ".." and lower-cases - the same
+    // walk archive paths get - and the keys are relative to the data root, so
+    // drop leading components until what is left is one the table knows. The
+    // longest candidate is tried first, so a deeper key always wins.
+    std::string key = pipeline::normalizeVirtual(path);
+    for (char& c : key) {
+        if (c == '\\') c = '/';
+    }
+    while (!key.empty()) {
+        for (size_t i = 0; i < count; ++i) {
+            if (key == table[i].path) {
+                contents.assign(reinterpret_cast<const char*>(table[i].words),
+                                table[i].sizeBytes);
+                return true;
+            }
+        }
+        const size_t slash = key.find('/');
+        if (slash == std::string::npos) break;
+        key.erase(0, slash + 1);
+    }
+    return false;
+}
+
+/// The ids of the profiles in that table. An "expansions/<id>/expansion.json"
+/// entry is what makes an id a profile, the same file the on-disk scan looks
+/// for - the other three are read only once a profile has been accepted.
+std::vector<std::string> embeddedProfileIds() {
+    static const std::string kPrefix = "expansions/";
+    static const std::string kSuffix = "/expansion.json";
+
+    std::vector<std::string> ids;
+    size_t count = 0;
+    const generated::EmbeddedFile* table = generated::embeddedExpansions(count);
+    for (size_t i = 0; i < count; ++i) {
+        const std::string key = table[i].path;
+        if (key.size() <= kPrefix.size() + kSuffix.size()) continue;
+        if (key.compare(0, kPrefix.size(), kPrefix) != 0) continue;
+        if (key.compare(key.size() - kSuffix.size(), kSuffix.size(), kSuffix) != 0) continue;
+        ids.push_back(key.substr(kPrefix.size(),
+                                 key.size() - kPrefix.size() - kSuffix.size()));
+    }
+    return ids;
+}
 
 std::optional<float> movingEntityFloor(rendering::Renderer* renderer,
                                         const glm::vec3& renderPos,
@@ -296,8 +357,10 @@ bool Application::initialize() {
     const char* dataPathEnv = std::getenv("WOW_DATA_PATH");
     std::string dataPath = dataPathEnv ? dataPathEnv : "./Data";
 
-    // Scan for available expansion profiles
-    expansionRegistry_->initialize(dataPath);
+    // Scan for available expansion profiles, and fall back to the ones built
+    // into this binary when there is no Data/expansions/ to scan.
+    expansionRegistry_->initialize(
+        dataPath, game::EmbeddedExpansions{&embeddedProfileIds, &readEmbeddedProfileFile});
 
     // The installation wowee was dropped into, if there is one. Found relative
     // to this executable rather than the working directory, so launching from
@@ -2166,14 +2229,20 @@ bool Application::setAssetExpansionOverride(const std::string& id) {
 void Application::loadExpansionTables(const game::ExpansionProfile& profile) {
     if (!gameHandler) return;
 
+    // Each of the three loads below reads dataPath first and the copy built
+    // into this binary second, so a profile edited under Data/ wins and a
+    // wowee.exe with no Data/ beside it still comes up with a wire protocol.
+    // The resolver is also how turtle's "_extends": "../classic/opcodes.json"
+    // reaches classic when neither file is on disk.
     const std::string opcodesPath = profile.dataPath + "/opcodes.json";
-    if (!gameHandler->getOpcodeTable().loadFromJson(opcodesPath)) {
+    if (!gameHandler->getOpcodeTable().loadFromJson(opcodesPath, &readEmbeddedProfileFile)) {
         LOG_ERROR("Failed to load opcodes from ", opcodesPath);
     }
     game::setActiveOpcodeTable(&gameHandler->getOpcodeTable());
 
     const std::string updateFieldsPath = profile.dataPath + "/update_fields.json";
-    if (!gameHandler->getUpdateFieldTable().loadFromJson(updateFieldsPath)) {
+    if (!gameHandler->getUpdateFieldTable().loadFromJson(updateFieldsPath,
+                                                        &readEmbeddedProfileFile)) {
         LOG_ERROR("Failed to load update fields from ", updateFieldsPath);
     }
     game::setActiveUpdateFieldTable(&gameHandler->getUpdateFieldTable());
@@ -2193,7 +2262,7 @@ void Application::loadExpansionTables(const game::ExpansionProfile& profile) {
 
     if (dbcLayout_) {
         const std::string dbcLayoutsPath = profile.dataPath + "/dbc_layouts.json";
-        if (!dbcLayout_->loadFromJson(dbcLayoutsPath)) {
+        if (!dbcLayout_->loadFromJson(dbcLayoutsPath, &readEmbeddedProfileFile)) {
             LOG_ERROR("Failed to load DBC layouts from ", dbcLayoutsPath);
         }
         pipeline::setActiveDBCLayout(dbcLayout_.get());

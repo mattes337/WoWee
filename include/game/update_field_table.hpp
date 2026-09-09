@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <unordered_map>
 
@@ -150,8 +151,24 @@ enum class UF : uint16_t {
  */
 class UpdateFieldTable {
 public:
-    /** Load from JSON file. Returns true if successful. */
-    bool loadFromJson(const std::string& path);
+    /// Hands back the contents of a profile file named by its path, for a
+    /// build that carries the profiles inside it rather than beside it.
+    /// Returns false when the store does not have that file.
+    using JsonResolver =
+        std::function<bool(const std::string& path, std::string& contents)>;
+
+    /**
+     * Load from JSON file. Returns true if successful.
+     *
+     * @param resolver consulted when the file is not on disk. Disk first,
+     *        resolver second: a profile edited under Data/ is what a developer
+     *        means by editing it, and the embedded copy is the fallback for a
+     *        binary shipped without one beside it.
+     */
+    bool loadFromJson(const std::string& path, const JsonResolver& resolver = {});
+
+    /** Same, from JSON already in memory. @p sourceName names it in log lines. */
+    bool loadFromMemory(const std::string& json, const std::string& sourceName);
 
     /** Get the wire index for a logical field. Returns 0xFFFF if unknown. */
     [[nodiscard]] uint16_t index(UF field) const;

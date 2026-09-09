@@ -103,23 +103,51 @@ std::string ExpansionProfile::versionString() const {
     return ss.str();
 }
 
-size_t ExpansionRegistry::initialize(const std::string& dataRoot) {
+size_t ExpansionRegistry::initialize(const std::string& dataRoot,
+                                     const EmbeddedExpansions& embedded) {
     profiles_.clear();
     activeId_.clear();
 
     std::string expansionsDir = dataRoot + "/expansions";
     std::error_code ec;
-    if (!std::filesystem::is_directory(expansionsDir, ec)) {
-        LOG_WARNING("ExpansionRegistry: no expansions/ directory at ", expansionsDir);
-        return 0;
+    if (std::filesystem::is_directory(expansionsDir, ec)) {
+        for (auto& entry : std::filesystem::directory_iterator(expansionsDir, ec)) {
+            if (!entry.is_directory()) continue;
+            std::string jsonPath = entry.path().string() + "/expansion.json";
+            if (std::filesystem::exists(jsonPath, ec)) {
+                loadProfile(jsonPath, entry.path().string());
+            }
+        }
     }
 
-    for (auto& entry : std::filesystem::directory_iterator(expansionsDir, ec)) {
-        if (!entry.is_directory()) continue;
-        std::string jsonPath = entry.path().string() + "/expansion.json";
-        if (std::filesystem::exists(jsonPath, ec)) {
-            loadProfile(jsonPath, entry.path().string());
+    // Disk first, embedded second, and only when disk produced nothing at all.
+    // An expansions/ directory that exists is the one being worked on, and a
+    // built-in profile appearing beside a hand-edited one would be a second
+    // answer to the same question. The embedded copies are what a wowee.exe
+    // dropped beside the original game executable runs on.
+    if (profiles_.empty() && embedded.ids && embedded.read) {
+        for (const std::string& id : embedded.ids()) {
+            const std::string key = "expansions/" + id + "/expansion.json";
+            std::string json;
+            if (!embedded.read(key, json)) continue;
+            // dataPath still names where the profile would be on disk, so
+            // everything downstream - the opcode, update-field and DBC-layout
+            // tables, the CSV DBC fallback - keeps asking for one path, and
+            // reaches the embedded copy through the same resolver when there
+            // is nothing at that path to read.
+            parseProfile(json, expansionsDir + "/" + id, key);
         }
+        if (!profiles_.empty()) {
+            LOG_INFO("ExpansionRegistry: nothing to read at ", expansionsDir,
+                     "; using the ", profiles_.size(),
+                     " profile(s) built into this binary");
+        }
+    }
+
+    if (profiles_.empty()) {
+        LOG_WARNING("ExpansionRegistry: no expansions/ directory at ", expansionsDir,
+                    " and none built in");
+        return 0;
     }
 
     // Sort by build number (ascending: classic < tbc < wotlk < cata)
@@ -191,7 +219,11 @@ bool ExpansionRegistry::loadProfile(const std::string& jsonPath, const std::stri
     if (!f.is_open()) return false;
 
     std::string json((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    return parseProfile(json, dirPath, jsonPath);
+}
 
+bool ExpansionRegistry::parseProfile(const std::string& json, const std::string& dirPath,
+                                     const std::string& sourceName) {
     ExpansionProfile p;
     p.id = jsonValue(json, "id");
     p.name = jsonValue(json, "name");
@@ -273,7 +305,7 @@ bool ExpansionRegistry::loadProfile(const std::string& jsonPath, const std::stri
     p.classes = jsonUintArray(json, "classes");
 
     if (p.id.empty() || p.build == 0) {
-        LOG_WARNING("ExpansionRegistry: skipping invalid profile at ", jsonPath);
+        LOG_WARNING("ExpansionRegistry: skipping invalid profile at ", sourceName);
         return false;
     }
 

@@ -569,6 +569,49 @@ set(WOWEE_EMBED_SHADERS_ARGS
 )
 execute_process(COMMAND ${CMAKE_COMMAND} ${WOWEE_EMBED_SHADERS_ARGS})
 
+# ---- Embedded expansion profiles ----
+#
+# The other thing the client cannot start without. Without an opcode table
+# there is no wire protocol, so a wowee.exe with no Data/expansions/ beside it
+# comes up and cannot talk to a server at all. Data/expansions/ on disk still
+# wins when it is there - see ExpansionRegistry::initialize and
+# Application::loadExpansionTables for why that order and not the other one.
+#
+# The four files each profile is read by, named rather than globbed whole: the
+# same directory carries cata/movement_sequences.json, which is 120 KB, has no
+# expansion.json beside it to make it a profile, and is read only by
+# tests/test_cata_movement.cpp out of the source tree.
+#
+# Keyed relative to Data/expansions/ and prefixed back to "expansions/<id>/...",
+# because turtle's opcodes.json is a delta that names classic's by a relative
+# path - "_extends": "../classic/opcodes.json" - and that has to resolve inside
+# the table as well as on disk.
+set(WOWEE_EMBEDDED_EXPANSIONS_CPP ${CMAKE_BINARY_DIR}/generated/game/embedded_expansions.cpp)
+set(WOWEE_EMBEDDED_EXPANSIONS_HPP ${CMAKE_BINARY_DIR}/generated/game/embedded_expansions.hpp)
+set(WOWEE_EMBED_EXPANSIONS_ARGS
+    -DSRC_DIR=${CMAKE_CURRENT_SOURCE_DIR}/Data/expansions
+    -DPATTERN=*/expansion.json|*/opcodes.json|*/update_fields.json|*/dbc_layouts.json
+    -DPREFIX=expansions/
+    # JSON, not SPIR-V: a length that is not a whole number of 32-bit words is
+    # ordinary rather than a reason to leave the file out.
+    -DPAD_WORDS=ON
+    -DSTRUCT=EmbeddedFile
+    -DFUNC=embeddedExpansions
+    -DHEADER=game/embedded_expansions.hpp
+    -DOUT_CPP=${WOWEE_EMBEDDED_EXPANSIONS_CPP}
+    -DOUT_HPP=${WOWEE_EMBEDDED_EXPANSIONS_HPP}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedResources.cmake
+)
+# The same set, as paths, so the build-time rule further down can depend on
+# them: editing a profile has to regenerate the table.
+file(GLOB WOWEE_EXPANSION_PROFILE_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/Data/expansions/*/expansion.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/Data/expansions/*/opcodes.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/Data/expansions/*/update_fields.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/Data/expansions/*/dbc_layouts.json
+)
+execute_process(COMMAND ${CMAKE_COMMAND} ${WOWEE_EMBED_EXPANSIONS_ARGS})
+
 # StormLib: the extraction tool needs it, and so does reading an untouched
 # installation's archives at runtime. Without it wowee still runs against an
 # extracted tree; only the drop-in path that needs no extraction goes missing.
@@ -694,6 +737,10 @@ set(WOWEE_SOURCES
 
     # Game
     src/game/expansion_profile.cpp
+    # The profile JSON application.cpp falls back to when there is no
+    # Data/expansions/ on disk. Generated - see the embedded expansion profiles
+    # block next to compile_shaders() above.
+    ${WOWEE_EMBEDDED_EXPANSIONS_CPP}
     src/game/opcode_table.cpp
     src/game/update_field_table.cpp
     src/game/game_handler.cpp
@@ -1330,6 +1377,16 @@ add_custom_command(
     VERBATIM
 )
 
+# And the same for the expansion profiles. These are tracked JSON with nothing
+# generating them, so the rule fires exactly when one of them is edited.
+add_custom_command(
+    OUTPUT ${WOWEE_EMBEDDED_EXPANSIONS_CPP} ${WOWEE_EMBEDDED_EXPANSIONS_HPP}
+    COMMAND ${CMAKE_COMMAND} ${WOWEE_EMBED_EXPANSIONS_ARGS}
+    DEPENDS ${WOWEE_EXPANSION_PROFILE_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedResources.cmake
+    COMMENT "Embedding expansion profiles into the executable"
+    VERBATIM
+)
+
 # Version header generated from `git describe`. Regenerated on every build (the
 # script rewrites the header only when the version changed), so tagging a release
 # is enough to update the version shown in the client.
@@ -1650,6 +1707,13 @@ install(TARGETS wowee
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/assets
     DESTINATION bin
     PATTERN "Original Music" EXCLUDE)
+
+# Data/ has no install rule and needs none. The only two things tracked under
+# it are the expansion profiles, which are embedded above and read out of the
+# binary when there is no directory to read, and Data/opcodes/, which the
+# opcodes-generate target consumes at build time and nothing opens at runtime.
+# Everything else that appears there is extraction output, made on the machine
+# it is used on.
 
 # On Windows, install any DLLs that were bundled into the build output dir
 # (populated by the CI workflow's DLL-bundling step before cpack runs)

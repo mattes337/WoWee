@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -32,14 +33,33 @@ enum class LogicalOpcode : uint16_t {
  */
 class OpcodeTable {
 public:
+    /// Hands back the contents of a profile file named by its path, for a
+    /// build that carries the profiles inside it rather than beside it.
+    /// Returns false when the store does not have that file.
+    using JsonResolver =
+        std::function<bool(const std::string& path, std::string& contents)>;
+
     /**
      * Load opcode mappings from a JSON file.
      * Format:
      * { "CMSG_PING": "0x1DC", "SMSG_AUTH_CHALLENGE": "0x1EC", ... }
      * or a delta file with:
      * { "_extends": "../classic/opcodes.json", "_remove": ["MSG_FOO"], ...overrides }
+     *
+     * @param resolver consulted for any file the load reaches - the named one,
+     *        or one an "_extends" chain names - that is not on disk. Disk
+     *        first, resolver second: a profile edited under Data/ is what a
+     *        developer means by editing it, and the embedded copy is the
+     *        fallback for a binary shipped without one beside it.
      */
-    bool loadFromJson(const std::string& path);
+    bool loadFromJson(const std::string& path, const JsonResolver& resolver = {});
+
+    /**
+     * Same, from JSON already in memory. @p sourceName names it in log lines
+     * and is the path an "_extends" inside it resolves against.
+     */
+    bool loadFromMemory(const std::string& json, const std::string& sourceName,
+                        const JsonResolver& resolver = {});
 
     /** LogicalOpcode → wire value for sending packets. Returns 0xFFFF if unknown. */
     [[nodiscard]] uint16_t toWire(LogicalOpcode op) const;
@@ -61,6 +81,12 @@ private:
     // toWire() then becomes a bounds check + array read instead of a hash lookup
     // (wireOpcode() is called from ~300 sites, several per-frame on movement).
     // Entries default to 0xFFFF meaning "unmapped".
+    /// Move a finished pair of scratch maps into the live tables. Both load
+    /// entry points end here, so the flattening happens once.
+    bool bake(std::unordered_map<uint16_t, uint16_t>& scratch,
+              std::unordered_map<uint16_t, uint16_t>& wireToLogical,
+              const std::string& sourceName);
+
     std::vector<uint16_t> logicalToWire_;
     size_t logicalToWireSize_ = 0;  // count of mapped entries
 

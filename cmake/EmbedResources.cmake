@@ -1,19 +1,36 @@
 # Embeds a set of files into one generated C++ translation unit, so the binary
 # carries them and needs nothing beside it on disk. This is what lets wowee.exe
-# be dropped next to the original game executable with no assets/ directory
-# copied along with it.
+# be dropped next to the original game executable with no assets/ or Data/
+# directory copied along with it.
 #
 # Run as a script (cmake -P), twice over the life of a build tree:
 #
 #   * once at configure time, so the generated sources exist before anything
 #     tries to compile them, and
 #   * from a build-time custom command whose DEPENDS are the files being
-#     embedded, so recompiling a shader regenerates the table.
+#     embedded, so editing one of them regenerates the table.
 #
-# Expects: SRC_DIR   directory to read files from
-#          PATTERN   glob within SRC_DIR (e.g. "*.spv")
-#          PREFIX    prepended to each file's name to form its lookup key,
-#                    which is what the C++ call sites already spell
+# Expects: SRC_DIR   directory to read files from, and the root each file's
+#                    lookup key is spelled relative to. A file directly in it
+#                    is keyed by its name; one in a subdirectory carries the
+#                    subdirectory - "turtle/opcodes.json" - so a reference from
+#                    inside one embedded file to another can be resolved
+#                    against the key.
+#          PATTERN   globs within SRC_DIR, separated by "|" when there is more
+#                    than one ("*.spv", "*/expansion.json|*/opcodes.json").
+#                    "|" and not the usual ";" because the list has to survive
+#                    being passed as a single -D argument.
+#          PREFIX    prepended to each key, which is what the C++ call sites
+#                    already spell
+#          PAD_WORDS zero-pad a file whose length is not a whole number of
+#                    32-bit words up to one, instead of leaving it out.
+#                    sizeBytes stays the real length, so a reader sees the file
+#                    and not the padding. Text needs this; SPIR-V does not, and
+#                    a .spv that needed it would be malformed.
+#          STRUCT    name of the generated entry struct
+#          FUNC      name of the generated accessor
+#          HEADER    the include path OUT_HPP is reachable at, written into
+#                    OUT_CPP's #include
 #          OUT_CPP   generated translation unit
 #          OUT_HPP   generated header declaring the lookup
 
@@ -23,8 +40,23 @@ endif()
 if(NOT DEFINED PREFIX)
     set(PREFIX "")
 endif()
+if(NOT DEFINED STRUCT)
+    set(STRUCT "EmbeddedResource")
+endif()
+if(NOT DEFINED FUNC)
+    set(FUNC "embeddedShaders")
+endif()
+if(NOT DEFINED HEADER)
+    set(HEADER "rendering/embedded_shaders.hpp")
+endif()
 
-file(GLOB EMBED_FILES "${SRC_DIR}/${PATTERN}")
+string(REPLACE "|" ";" EMBED_PATTERNS "${PATTERN}")
+set(EMBED_GLOBS "")
+foreach(EMBED_PATTERN ${EMBED_PATTERNS})
+    list(APPEND EMBED_GLOBS "${SRC_DIR}/${EMBED_PATTERN}")
+endforeach()
+
+file(GLOB EMBED_FILES ${EMBED_GLOBS})
 # Sorted, so the generated file is byte-identical across machines and a
 # re-run that changed nothing does not rewrite it (see copy_if_different
 # at the end, which is what keeps a no-op run from rebuilding the world).
@@ -45,20 +77,26 @@ namespace generated {
 
 /// One embedded file: the path callers name it by, and its contents.
 ///
-/// Words rather than bytes because vkCreateShaderModule wants a const
-/// uint32_t*, and a uint32_t array is aligned for that by construction - a
-/// byte array would have to be copied somewhere aligned before it could be
-/// used. sizeBytes is what Vulkan calls codeSize.
-struct EmbeddedResource {
+/// Words rather than bytes because one of these tables holds SPIR-V and
+/// vkCreateShaderModule wants a const uint32_t*: a uint32_t array is aligned
+/// for that by construction, where a byte array would have to be copied
+/// somewhere aligned before it could be used. sizeBytes is the file's length -
+/// what Vulkan calls codeSize.
+///
+/// A file whose length is not a whole number of words is zero-padded up to
+/// one, and sizeBytes still says how long the file is. Reading it as text is
+/// therefore reinterpret_cast<const char*>(words) for sizeBytes bytes, and
+/// never strlen: the padding is past the end, not a terminator.
+struct ${STRUCT} {
     const char* path;
     const uint32_t* words;
     size_t sizeBytes;
 };
 
 /// The table. Returns nullptr with count 0 when nothing was embedded - a tree
-/// with no compiled shaders in it still builds, and the filesystem is then the
-/// only place a shader can come from.
-const EmbeddedResource* embeddedShaders(size_t& count);
+/// with nothing to embed still builds, and the filesystem is then the only
+/// place these files can come from.
+const ${STRUCT}* ${FUNC}(size_t& count);
 
 } // namespace generated
 } // namespace wowee
@@ -66,7 +104,7 @@ const EmbeddedResource* embeddedShaders(size_t& count);
 
 file(WRITE "${OUT_CPP}.tmp"
 "// Generated by cmake/EmbedResources.cmake - do not edit.
-#include \"rendering/embedded_shaders.hpp\"
+#include \"${HEADER}\"
 
 namespace wowee {
 namespace generated {
@@ -78,19 +116,35 @@ set(EMBED_ENTRIES "")
 set(EMBED_INDEX 0)
 
 foreach(EMBED_FILE ${EMBED_FILES})
-    get_filename_component(EMBED_NAME "${EMBED_FILE}" NAME)
+    # Keyed by where the file sits under SRC_DIR, not by its name alone: two
+    # profiles both hold an opcodes.json, and one of them names the other.
+    file(RELATIVE_PATH EMBED_KEY "${SRC_DIR}" "${EMBED_FILE}")
 
     file(READ "${EMBED_FILE}" EMBED_HEX HEX)
     string(LENGTH "${EMBED_HEX}" EMBED_HEX_LEN)
     math(EXPR EMBED_SIZE "${EMBED_HEX_LEN} / 2")
-
-    # SPIR-V is a stream of 32-bit words. Anything that is not a whole number
-    # of them is not a module this table can hand to Vulkan, so leave it out
-    # rather than emit an array the loader would reject at runtime.
     math(EXPR EMBED_REMAINDER "${EMBED_HEX_LEN} % 8")
-    if(NOT EMBED_SIZE GREATER 0 OR NOT EMBED_REMAINDER EQUAL 0)
-        message(WARNING "EmbedResources: skipping ${EMBED_NAME}, ${EMBED_SIZE} bytes is not a whole number of 32-bit words")
+
+    if(NOT EMBED_SIZE GREATER 0)
+        message(WARNING "EmbedResources: skipping ${EMBED_KEY}, it is empty")
         continue()
+    endif()
+    if(NOT EMBED_REMAINDER EQUAL 0)
+        if(PAD_WORDS)
+            # Up to the next whole word with zero bytes. EMBED_SIZE is not
+            # touched, so the table still reports the real length.
+            while(NOT EMBED_REMAINDER EQUAL 0)
+                string(APPEND EMBED_HEX "00")
+                math(EXPR EMBED_REMAINDER "(${EMBED_REMAINDER} + 2) % 8")
+            endwhile()
+        else()
+            # SPIR-V is a stream of 32-bit words. Anything that is not a whole
+            # number of them is not a module this table can hand to Vulkan, so
+            # leave it out rather than emit an array the loader would reject at
+            # runtime.
+            message(WARNING "EmbedResources: skipping ${EMBED_KEY}, ${EMBED_SIZE} bytes is not a whole number of 32-bit words")
+            continue()
+        endif()
     endif()
 
     # Little-endian: four hex bytes aa bb cc dd become the word 0xddccbbaa.
@@ -104,7 +158,7 @@ foreach(EMBED_FILE ${EMBED_FILES})
         "\\1\n    " EMBED_WORDS "${EMBED_WORDS}")
 
     file(APPEND "${OUT_CPP}.tmp"
-"// ${PREFIX}${EMBED_NAME} (${EMBED_SIZE} bytes)
+"// ${PREFIX}${EMBED_KEY} (${EMBED_SIZE} bytes)
 const uint32_t kResource${EMBED_INDEX}[] = {
     ${EMBED_WORDS}
 };
@@ -112,20 +166,20 @@ const uint32_t kResource${EMBED_INDEX}[] = {
 ")
 
     list(APPEND EMBED_ENTRIES
-         "    {\"${PREFIX}${EMBED_NAME}\", kResource${EMBED_INDEX}, ${EMBED_SIZE}},")
+         "    {\"${PREFIX}${EMBED_KEY}\", kResource${EMBED_INDEX}, ${EMBED_SIZE}},")
     math(EXPR EMBED_INDEX "${EMBED_INDEX} + 1")
 endforeach()
 
 if(EMBED_ENTRIES)
     string(REPLACE ";" "\n" EMBED_TABLE "${EMBED_ENTRIES}")
     file(APPEND "${OUT_CPP}.tmp"
-"const EmbeddedResource kTable[] = {
+"const ${STRUCT} kTable[] = {
 ${EMBED_TABLE}
 };
 
 } // namespace
 
-const EmbeddedResource* embeddedShaders(size_t& count) {
+const ${STRUCT}* ${FUNC}(size_t& count) {
     count = sizeof(kTable) / sizeof(kTable[0]);
     return kTable;
 }
@@ -139,7 +193,7 @@ else()
     file(APPEND "${OUT_CPP}.tmp"
 "} // namespace
 
-const EmbeddedResource* embeddedShaders(size_t& count) {
+const ${STRUCT}* ${FUNC}(size_t& count) {
     count = 0;
     return nullptr;
 }

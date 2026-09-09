@@ -100,28 +100,24 @@ static std::vector<std::string> parseStringArrayField(const std::string& json, c
 }
 
 static bool loadOpcodeJsonRecursive(const std::filesystem::path& path,
+                                    const OpcodeTable::JsonResolver& resolver,
                                     std::unordered_map<uint16_t, uint16_t>& logicalToWire,
                                     std::unordered_map<uint16_t, uint16_t>& wireToLogical,
-                                    std::unordered_set<std::string>& loadingStack) {
-    const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(path);
-    const std::string canonicalKey = canonicalPath.string();
-    if (!loadingStack.insert(canonicalKey).second) {
-        LOG_WARNING("OpcodeTable: inheritance cycle at ", canonicalKey);
-        return false;
-    }
+                                    std::unordered_set<std::string>& loadingStack);
 
-    std::ifstream f(canonicalPath);
-    if (!f.is_open()) {
-        LOG_WARNING("OpcodeTable: cannot open ", canonicalPath.string());
-        loadingStack.erase(canonicalKey);
-        return false;
-    }
-
-    std::string json((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+/// The body of one opcodes.json, already read. @p sourcePath is where it came
+/// from, and is what an "_extends" inside it is resolved against - on disk,
+/// or through @p resolver when there is no disk copy to walk.
+static bool parseOpcodeJson(const std::string& json,
+                            const std::filesystem::path& sourcePath,
+                            const OpcodeTable::JsonResolver& resolver,
+                            std::unordered_map<uint16_t, uint16_t>& logicalToWire,
+                            std::unordered_map<uint16_t, uint16_t>& wireToLogical,
+                            std::unordered_set<std::string>& loadingStack) {
     bool ok = true;
 
     if (auto extends = parseStringField(json, "_extends")) {
-        ok = loadOpcodeJsonRecursive(canonicalPath.parent_path() / *extends,
+        ok = loadOpcodeJsonRecursive(sourcePath.parent_path() / *extends, resolver,
                                      logicalToWire, wireToLogical, loadingStack) && ok;
     }
 
@@ -166,9 +162,44 @@ static bool loadOpcodeJsonRecursive(const std::filesystem::path& path,
         }
     });
 
+    return ok;
+}
+
+static bool loadOpcodeJsonRecursive(const std::filesystem::path& path,
+                                    const OpcodeTable::JsonResolver& resolver,
+                                    std::unordered_map<uint16_t, uint16_t>& logicalToWire,
+                                    std::unordered_map<uint16_t, uint16_t>& wireToLogical,
+                                    std::unordered_set<std::string>& loadingStack) {
+    // weakly_canonical applies any ".." the _extends chain introduced, and
+    // does so without the file having to exist - which it does not, in the
+    // build that carries the profiles inside it.
+    const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(path);
+    const std::string canonicalKey = canonicalPath.string();
+    if (!loadingStack.insert(canonicalKey).second) {
+        LOG_WARNING("OpcodeTable: inheritance cycle at ", canonicalKey);
+        return false;
+    }
+
+    // Disk first, embedded second. A profile edited under Data/ is what a
+    // developer means by editing it; the resolver is what a wowee.exe dropped
+    // beside the original game executable, with no Data/ anywhere, runs on.
+    std::string json;
+    std::ifstream f(canonicalPath);
+    if (f.is_open()) {
+        json.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+    } else if (!resolver || !resolver(canonicalKey, json)) {
+        LOG_WARNING("OpcodeTable: cannot open ", canonicalKey,
+                    resolver ? " and no embedded copy of it either" : "");
+        loadingStack.erase(canonicalKey);
+        return false;
+    }
+
+    const bool ok = parseOpcodeJson(json, canonicalPath, resolver,
+                                    logicalToWire, wireToLogical, loadingStack);
     loadingStack.erase(canonicalKey);
     return ok;
 }
+
 const char* OpcodeTable::logicalToName(LogicalOpcode op) {
     uint16_t val = static_cast<uint16_t>(op);
     for (auto entry : kOpcodeNames) {
@@ -177,7 +208,7 @@ const char* OpcodeTable::logicalToName(LogicalOpcode op) {
     return "UNKNOWN";
 }
 
-bool OpcodeTable::loadFromJson(const std::string& path) {
+bool OpcodeTable::loadFromJson(const std::string& path, const JsonResolver& resolver) {
     // Resolved JSON inheritance is the single source of truth for opcode mappings.
     // Load into a scratch map (the recursive loader supports add/remove via
     // _extends/_remove), then bake it into the flat vector for fast toWire().
@@ -185,13 +216,39 @@ bool OpcodeTable::loadFromJson(const std::string& path) {
     std::unordered_map<uint16_t, uint16_t> scratch;
     std::unordered_map<uint16_t, uint16_t> newWireToLogical;
     std::unordered_set<std::string> loadingStack;
-    if (!loadOpcodeJsonRecursive(std::filesystem::path(path),
+    if (!loadOpcodeJsonRecursive(std::filesystem::path(path), resolver,
                                  scratch, newWireToLogical, loadingStack) ||
         scratch.empty()) {
         LOG_WARNING("OpcodeTable: no opcodes loaded from ", path);
         return false;
     }
 
+    return bake(scratch, newWireToLogical, path);
+}
+
+bool OpcodeTable::loadFromMemory(const std::string& json, const std::string& sourceName,
+                                 const JsonResolver& resolver) {
+    std::unordered_map<uint16_t, uint16_t> scratch;
+    std::unordered_map<uint16_t, uint16_t> newWireToLogical;
+    std::unordered_set<std::string> loadingStack;
+
+    // Named in the cycle set before parsing, so a file that inherits from
+    // itself is caught here too and not only down the recursive path.
+    const std::filesystem::path source = std::filesystem::weakly_canonical(sourceName);
+    loadingStack.insert(source.string());
+
+    if (!parseOpcodeJson(json, source, resolver, scratch, newWireToLogical, loadingStack) ||
+        scratch.empty()) {
+        LOG_WARNING("OpcodeTable: no opcodes loaded from ", sourceName);
+        return false;
+    }
+
+    return bake(scratch, newWireToLogical, sourceName);
+}
+
+bool OpcodeTable::bake(std::unordered_map<uint16_t, uint16_t>& scratch,
+                       std::unordered_map<uint16_t, uint16_t>& newWireToLogical,
+                       const std::string& sourceName) {
     // Bake into the flat lookup table. Sized to cover the highest logical id we saw;
     // unmapped slots stay 0xFFFF (the same sentinel toWire used to return on miss).
     uint16_t maxIdx = 0;
@@ -207,7 +264,7 @@ bool OpcodeTable::loadFromJson(const std::string& path) {
     wireToLogical_ = std::move(newWireToLogical);
     logicalToWireSize_ = scratch.size();
 
-    LOG_INFO("OpcodeTable: loaded ", logicalToWireSize_, " opcodes from ", path);
+    LOG_INFO("OpcodeTable: loaded ", logicalToWireSize_, " opcodes from ", sourceName);
     return true;
 }
 

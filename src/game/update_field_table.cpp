@@ -104,15 +104,24 @@ static const UFNameEntry kUFNames[] = {
 };
 
 
-bool UpdateFieldTable::loadFromJson(const std::string& path) {
+bool UpdateFieldTable::loadFromJson(const std::string& path, const JsonResolver& resolver) {
+    // Disk first, embedded second. A profile edited under Data/ is what a
+    // developer means by editing it; the resolver is what a wowee.exe dropped
+    // beside the original game executable, with no Data/ anywhere, runs on.
+    std::string json;
     std::ifstream f(path);
-    if (!f.is_open()) {
-        LOG_WARNING("UpdateFieldTable: cannot open ", path);
+    if (f.is_open()) {
+        json.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+    } else if (!resolver || !resolver(path, json)) {
+        LOG_WARNING("UpdateFieldTable: cannot open ", path,
+                    resolver ? " and no embedded copy of it either" : "");
         return false;
     }
 
-    std::string json((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    return loadFromMemory(json, path);
+}
 
+bool UpdateFieldTable::loadFromMemory(const std::string& json, const std::string& sourceName) {
     fieldMap_.clear();
     size_t loaded = 0;
 
@@ -134,11 +143,11 @@ bool UpdateFieldTable::loadFromJson(const std::string& path) {
     });
 
     if (loaded == 0) {
-        LOG_WARNING("UpdateFieldTable: no fields loaded from ", path);
+        LOG_WARNING("UpdateFieldTable: no fields loaded from ", sourceName);
         return false;
     }
 
-    LOG_INFO("UpdateFieldTable: loaded ", loaded, " fields from ", path);
+    LOG_INFO("UpdateFieldTable: loaded ", loaded, " fields from ", sourceName);
     return true;
 }
 
