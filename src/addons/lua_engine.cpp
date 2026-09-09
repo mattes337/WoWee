@@ -5787,6 +5787,11 @@ void LuaEngine::registerCoreAPI() {
     registerActionLuaAPI(L_);
     registerLfgLuaAPI(L_);
     registerSocketLuaAPI(L_);
+    // The login and character screens. Registered for every state rather than
+    // only while glue is up: the names are few, none of them collides with a
+    // world global, and a state that has them is one where a glue screen loaded
+    // out of order still finds them.
+    registerGlueLuaAPI(L_);
 
     // WoW aliases
     lua_getglobal(L_, "string");
@@ -6824,6 +6829,13 @@ void LuaEngine::registerCoreAPI() {
         "AddToAutoHide=1,AllowAttributeChanges=1,Animate=1,\n"
         "CallMethod=1,CanSaveTabardNow=1,ChildUpdate=1,Clear=1,ClearAllPoints=1,\n"
         "ClearBinding=1,ClearBindings=1,ClearFocus=1,ClearHistory=1,ClearLines=1,\n"
+        // The glue screens' own model-frame calls. GlueParent's SetLighting
+        // clears the fog on the login model before it lights it, and a name
+        // the metatable does not answer is nil - "attempt to call method
+        // 'ClearFog'" took down AccountLogin's whole OnLoad, and the login
+        // screen with it.
+        "ClearFog=1,SetFogColor=1,SetFogNear=1,SetFogFar=1,SetGlow=1,\n"
+        "ResetLights=1,AddLight=1,AddCharacterLight=1,AddPetLight=1,\n"
         "ClearModel=1,CreateFontString=1,CreatePlayerArrowFrame=1,\n"
         // DrawQuestBlob is a real binding now, applied after this set.
         "CreateTexture=1,CreateTitleRegion=1,CycleVariation=1,Disable=1,\n"

@@ -141,28 +141,88 @@ directory.
 
 ### 2. Make the original UI runtime work across application states
 
-- [ ] Load ordered TOC/XML/Lua dependencies and relative includes through the
+- [x] Load ordered TOC/XML/Lua dependencies and relative includes through the
   provider, including shared UI files, GlueXML, FrameXML, and Blizzard addons.
+  Every read goes through `AddonManager::readUiFile`, disk first and the
+  installation's archives behind it, including a real directory that is missing
+  a file - an extraction is routinely partial. Relative includes are walked by
+  `pipeline::virtual_path` before the read, because the asset manager refuses a
+  path still holding "..". Evidence below.
 - [ ] Define Glue and world Lua lifecycle boundaries from the target files:
   initialization, event ordering, state transitions, logout, reconnect, and
   reload. Prevent stale world widgets and callbacks leaking onto login screens.
+  Glue and the world interface have separate manifests and separate lifetimes -
+  the client loads one or the other, never both, which is what keeps the world's
+  frames off the login screen. **The transitions themselves - world entry
+  tearing glue down, logout building it again, reconnect - are not wired.**
 - [ ] Audit required globals, functions, widget methods, templates, scripts,
   animations, fonts, anchors, clipping, layers, model widgets, and focus/input.
   Implement observable behavior instead of satisfying calls with silent stubs.
+  The world interface's audit stands from before this branch. The glue screens'
+  is begun, driven by what a real load calls: eight glue globals are bound and
+  the model frame's own methods answer. **Two failures remain, named below.**
 - [ ] Integrate UI update, rendering, and input routing in every relevant state;
   retain native rendering for surfaces the original client itself supplies.
+  The widget pass and the addon update run in the pre-world states while glue
+  is loaded. **Input routing is still gated on the world's `addonsLoaded_`, and
+  the native screens still draw underneath.**
 - [ ] Capture structured Lua errors and missing API calls. Runtime acceptance
   uses missing-API fallback disabled and exercised interaction paths.
+  Errors and missing calls are captured and reported per pass.
+  **No fallback-off run of the glue screens yet.**
 
 Acceptance: original files load and draw at supported resolutions/UI scales,
 with reproducible input tests and no missing-call errors on the tested paths.
+
+Evidence (2026-09-09), `framexml_run` against installations with no extracted
+interface, reading TOC, XML and Lua out of the archives:
+
+| | WotLK 3.3.5a | Turtle 1.18 |
+| --- | --- | --- |
+| FrameXML manifest | 139 files | 104 files |
+| loaded | 13 Lua + 126 XML | 11 Lua + 91 XML |
+| failed | 0 | 2 |
+| load errors | 0 | 9 |
+| load-on-demand addons | 21, none failing | 13, one failing |
+| the game's own faces | 5 of 5 | - |
+
+Turtle's two failures are its own custom Lua raising inside files that resolved
+correctly - `Turtle_TransmogUI.lua` and `ChatThrottleLib.lua`, both named in the
+log by their archive paths.
+
+GlueXML, WotLK: the manifest's 31 files, 1 Lua and 29 XML loaded, 1 failed.
+The one that remains is a gap rather than a file that could not be found:
+
+- `SecurityMatrix.xml` - `securitymatrix.lua:119` indexes
+  `_G["SecurityMatrixFrameElementSparkle1_1Highlight"]`, which the XML emitter
+  does not create: a named child inside a template is not being published as a
+  global. Only reached by a realm using an authenticator matrix.
+
+Three names the glue screens call are still undefined and answer through the
+fallback: `Cinematics_PlayMovie`, and the `TokenEntry` and `WoWAccountSelect`
+OnLoads, whose files 3.3.5a's GlueXML.toc does not list.
+
+Nothing in the client loads glue by default. `WOWEE_LOAD_GLUEXML=1` turns it
+on: the screens build, and the vocabulary behind their buttons - login, cancel,
+realm selection, Enter World - is stage 3's work and is not there yet.
 
 ### 3. Complete original GlueXML screens
 
 - [ ] Wire original login, realm selection, connection progress, errors,
   cancellation, and disconnect dialogs to real authentication/network state.
+  The screens load and build; nothing behind their buttons is bound.
+  AccountLogin's login button calls `DefaultServerLogin`, its cancel and
+  GlueDialog's call `CancelLogin`, and neither exists - nor do `SetCurrentScreen`,
+  `PlayGlueMusic`, `StopGlueMusic`, `QuitGame`, `LaunchURL`, `StatusDialogClick`
+  or the account-list pair. The native `AuthScreen` still polls `AuthHandler`
+  state directly and would have to become an event pump for these to mean
+  anything.
 - [ ] Wire character list, selection, preview models, creation/customization,
   deletion confirmation, addon selection, and Enter World to real client state.
+  `GetNumCharacters` and the two model-frame setters are bound;
+  `SetCharSelectModelFrame` and `SetCharCustomizeFrame` record which frame was
+  asked for and nothing draws into it yet. The character list, Enter World,
+  creation and customization are unbound.
 - [ ] Render installation-provided loading art and progress through the native
   loading mechanism where the original files do not define a Lua/XML screen.
 - [ ] Verify return journeys: failed login, cancelled connection, failed world
@@ -195,11 +255,20 @@ is complete only when every in-scope row passes or its limitation is agreed.
 - [ ] Discover `Interface/AddOns` beside the original client and implement TOC
   metadata, dependencies, optional dependencies, load ordering, load-on-demand,
   enable/disable, and build-appropriate compatibility handling.
+  Discovery, dependencies, optional dependencies, load ordering, load-on-demand
+  and enable/disable are done - the installation's own `Interface/AddOns` is
+  scanned, and so are the addons inside its archives. **`## Interface:` is
+  parsed and not yet acted on: there is no out-of-date gate and no per-addon
+  handler convention.**
 - [ ] Implement addon events, timers, hooks, slash commands, saved variables,
   reload, and build-appropriate secure/protected UI behavior needed by addons.
-- [ ] Keep Wowee addon preferences and saved-variable writes separate from the
+- [x] Keep Wowee addon preferences and saved-variable writes separate from the
   original client's WTF data by default. Define optional import explicitly so
   launching either client does not overwrite the other's settings.
+  Saved variables were being written into each addon's own folder, which under
+  a drop-in is the player's own client. They live in `<config>/savedvariables`
+  now, beside the enable/disable list that was already there. No import is
+  defined, which is the plan's "explicitly": nothing is read from WTF.
 - [ ] Validate representative unmodified addons: a simple frame, event-driven
   HUD, bags/action bars, configuration UI, and a load-on-demand dependency.
   Publish a tested compatibility matrix; do not promise arbitrary addon parity.
@@ -218,12 +287,21 @@ restart, and save their state without modifying the original client's files.
   explicitly recorded as an unmet goal, not hidden in developer setup.
 - [ ] Detect supported installations automatically and show useful startup
   errors for missing/corrupt files, unsupported builds, or graphics failures.
+  Detection is done and drives the active expansion. **Every startup failure is
+  still a log line: there is no message box anywhere in the tree, and the
+  Windows binary is a console subsystem one, so a double-click that fails
+  flashes a console and closes.**
 - [ ] Validate on a clean Windows machine without development tools: copy only
   `wowee.exe` beside the original executable, launch from another working
   directory, log in, select/create a character, enter the world, use settings
   and addons, logout, restart, and launch the original client afterward.
 - [ ] Verify no archive modifications, original configuration changes, or
   required extraction output; repeat with a read-only game-data directory.
+  Two writes into the installation are gone: the log, which created a `logs/`
+  folder inside it, and saved variables, which were written into the player's
+  own addon folders. Archives are opened read-only. **The read-only run itself
+  has not been done, though every framexml_run above read its installation
+  through a read-only mount.**
 - [ ] Run the complete drop-in journey against Vanilla, TBC, WotLK, and Turtle
   separately, including their own original UI, settings, and compatible addons.
   Record build, locale, patch set, and server fixture for each run. Completion

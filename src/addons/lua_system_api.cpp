@@ -1835,6 +1835,14 @@ static int lua_SetCVar(lua_State* L) {
 
 static int lua_GetNumAddOns(lua_State* L) {
     lua_getfield(L, LUA_REGISTRYINDEX, "wowee_addon_count");
+    // Zero, not nil, before anything has published a list. The glue screens
+    // run before the world's addon list exists, and AddonList.lua's
+    // `for i = 1, GetNumAddOns()` raised "'for' limit must be a number" on a
+    // nil - which took down the whole addon-selection screen.
+    if (lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        lua_pushnumber(L, 0);
+    }
     return 1;
 }
 

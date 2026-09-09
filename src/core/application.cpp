@@ -798,6 +798,21 @@ bool Application::initialize() {
                 installAddonRoots.push_back(install.root + "/Interface/AddOns");
             }
             addonManager_->scanAddons(addonsDir, installAddonRoots);
+            // The login and character screens, when asked for.
+            //
+            // Off unless asked, and not because it does not load: it does, out
+            // of the installation's own archives. The screens it builds call a
+            // vocabulary this client only partly answers - the login button
+            // reaches DefaultServerLogin, the cancel reaches CancelLogin, and
+            // neither exists yet - so a glue screen that draws and cannot log
+            // in is worse than the native one it would replace. The flag is
+            // how the work on those bindings is done without shipping a
+            // half-wired login.
+            addonManager_->setGlueXmlDir(interfaceRoot + "/interface/GlueXML");
+            if (const char* wantGlue = std::getenv("WOWEE_LOAD_GLUEXML");
+                wantGlue && std::string(wantGlue) != "0") {
+                addonManager_->loadGlueXml(addonManager_->getGlueXmlDir());
+            }
             // Wire Lua errors to UI error display
             addonManager_->getLuaEngine()->setLuaErrorCallback([gh = gameHandler.get()](const std::string& err) {
                 // Not addUIError: that reports by firing an event, which runs
@@ -3679,6 +3694,17 @@ void Application::update(float deltaTime) {
             addons::LuaEngine::setUiSoundsSuppressed(false);
         }
     }
+    // The glue screens' own frame, in the states they own it.
+    //
+    // OnUpdate is not a nicety there: RealmList re-polls the realm list from
+    // its own OnUpdate, and GlueParent fades its dialogs from theirs, so a
+    // glue screen that is never updated is one whose realm list never refreshes
+    // and whose dialogs never appear. In the world this runs inside
+    // updateInGame; here it runs beside it, for the states that are not it.
+    if (addonManager_ && addonManager_->glueLoaded() && state != AppState::IN_GAME) {
+        addonManager_->update(deltaTime);
+    }
+
     // Update based on current state
     updateCheckpoint = "state switch";
     switch (state) {
@@ -3859,7 +3885,16 @@ void Application::render() {
     // frame FrameXML had built stayed on screen through a logout and sat on top
     // of character select - /logout ran, the character left the world, and the
     // interface it had been using never went away.
-    const bool drawWidgets = state == AppState::IN_GAME;
+    // And while the glue screens are the ones built. They are a widget tree
+    // like any other and are drawn by the same pass; what keeps them apart
+    // from the world's is that only one of the two is ever loaded, which is
+    // the lifetime loadGlueXml documents.
+    const bool glueOnScreen = addonManager_ && addonManager_->glueLoaded() &&
+                              (state == AppState::AUTHENTICATION ||
+                               state == AppState::REALM_SELECTION ||
+                               state == AppState::CHARACTER_SELECTION ||
+                               state == AppState::CHARACTER_CREATION);
+    const bool drawWidgets = state == AppState::IN_GAME || glueOnScreen;
     if (drawWidgets && addonManager_ && addonManager_->getLuaEngine() && renderer) {
         runRenderStage("addonWidgets", [&] {
             const ImGuiIO& io = ImGui::GetIO();

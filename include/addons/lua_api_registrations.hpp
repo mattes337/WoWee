@@ -16,6 +16,11 @@ void registerSocketLuaAPI(lua_State* L);
 void registerSocialLuaAPI(lua_State* L);
 void registerSystemLuaAPI(lua_State* L);
 
+/// What the login and character screens call. GlueXML is a separate interface
+/// from FrameXML with a vocabulary of its own; this is the part of it that is
+/// not shared.
+void registerGlueLuaAPI(lua_State* L);
+
 /// Re-apply every CVar restored from disk, now that the services behind them
 /// exist. See applyCVarSideEffects.
 void applyStoredCVarSideEffects(lua_State* L);
