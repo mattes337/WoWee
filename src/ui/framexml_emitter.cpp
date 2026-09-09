@@ -1352,6 +1352,28 @@ struct Emitter {
         if (node.attr("numeric")) {
             line(var + ":SetNumeric(" + (node.attrBool("numeric") ? "true" : "false") + ")");
         }
+        // <TextInsets><AbsInset left="12" right="5" bottom="5"/></TextInsets>
+        //
+        // Where the text and the caret sit inside the box, which is not the
+        // box: every edit box in the interface draws a border over its own
+        // edge and insets its contents past it. This was reachable only from
+        // Lua, so a box that declared it in markup - which is all of
+        // Blizzard's - got zero on all four sides and drew its caret on top of
+        // its own left border. The login box says twelve.
+        //
+        // A missing side is zero rather than a reason to skip the element.
+        // AccountLoginAccountEdit names left, right and bottom and no top, and
+        // requiring all four would have left it exactly as it was.
+        for (const XmlNode& child : node.children) {
+            if (child.name != "TextInsets") continue;
+            for (const XmlNode& ins : child.children) {
+                if (ins.name != "AbsInset") continue;
+                line(var + ":SetTextInsets(" + ins.attrOr("left", "0") + ", " +
+                     ins.attrOr("right", "0") + ", " + ins.attrOr("top", "0") + ", " +
+                     ins.attrOr("bottom", "0") + ")");
+            }
+            break;
+        }
         // How many sent lines the box keeps, which the client walks with the
         // arrow keys. The chat box asks for thirty-two; the money fields, the
         // mail recipient and the knowledge base ask for none, and a box told to
@@ -1568,7 +1590,8 @@ const char* const kElementNames[] = {
     "PlayerModel", "PushedTextOffset", "PushedTexture", "QuestPOIFrame",
     "ResizeBounds", "Script", "Scripts", "ScrollChild", "ScrollFrame",
     "ScrollingMessageFrame", "Shadow", "SimpleHTML", "Size", "Slider",
-    "StatusBar", "TabardModel", "TexCoords", "Texture", "ThumbTexture",
+    "StatusBar", "TabardModel", "TexCoords", "TextInsets", "Texture",
+    "ThumbTexture",
     "TileSize", "TitleRegion", "Translation", "Ui", "WorldFrame",
     "maxResize", "minResize",
 };
