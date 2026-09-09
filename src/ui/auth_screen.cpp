@@ -1071,6 +1071,16 @@ void AuthScreen::setStatus(const std::string& message, bool isError, bool promin
     statusMessage = message;
     statusIsError = isError;
     statusProminent = prominent;
+    // The disconnect notice, and the only kind of status that is one. It is
+    // recorded separately and counted because it is also the client's own
+    // announcement of DISCONNECTED_FROM_SERVER: the original screens have a
+    // dialog for exactly this and there is nowhere else the client says it.
+    // Counting rather than flagging, so two disconnects in a row are two
+    // notices rather than one that never appeared to change.
+    if (prominent && !message.empty()) {
+        prominentStatusMessage_ = message;
+        ++prominentStatusSerial_;
+    }
 }
 
 std::string AuthScreen::getConfigPath() {

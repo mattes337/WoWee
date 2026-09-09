@@ -356,6 +356,11 @@ struct LuaServices {
     /// from its own realmlist file, and this client takes it from the server
     /// its native login screen last used. False when there is none to take,
     /// which is a fresh install that has never logged in.
+    /// glueCancelLogin is also where StatusDialogClick goes. GlueDialog's
+    /// progress and failure types all call that from their one button, and for
+    /// a dialog a login put up the button can only mean stop - which is what
+    /// cancelling is. One field rather than two, so there is one answer to
+    /// "what happens when the player gives up".
     std::function<bool(const std::string& account, const std::string& password)> glueLogin;
     std::function<void()> glueCancelLogin;
 

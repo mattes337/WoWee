@@ -20,7 +20,11 @@
 //   * Logging in is real, and so is cancelling: DefaultServerLogin
 //     authenticates against the server this client last used, because the
 //     original client's own DefaultServerLogin carries no address either - it
-//     reads one from its realmlist file.
+//     reads one from its realmlist file. What the login is doing is real too:
+//     the status dialog's Connecting, Authenticating and the line saying why
+//     it stopped are the auth handler's own states, announced as the three
+//     status-dialog events GlueDialog.lua registers for, and this is the
+//     button on that dialog.
 //   * Character creation's race, class, gender and appearance are real, and so
 //     is CreateCharacter. Its *hair* half is not: the names of a race's hair
 //     and facial-hair categories live in ChrRaces.dbc and nothing in this
@@ -473,6 +477,23 @@ int lua_DefaultServerLogin(lua_State* L) {
 }
 
 int lua_CancelLogin(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    if (svc && svc->glueCancelLogin) svc->glueCancelLogin();
+    return 0;
+}
+
+/// The button on the status dialog.
+///
+/// GlueDialog.lua's own types call it from every button that dismisses one of
+/// the dialogs a login puts up - "CANCEL" while the login is still running,
+/// "OKAY" and "OKAY_HTML" once it has stopped - and "DISCONNECTED" calls it
+/// from OnShow. In every one of those the dialog is about a login, and the
+/// only thing its button can mean is "stop": abandon the one in progress, or
+/// clear away what is left of the one that failed. That is CancelLogin's job
+/// exactly, so it is CancelLogin's code - with nothing in progress it
+/// disconnects an already-disconnected handler and lands on the screen the
+/// client is already on.
+int lua_StatusDialogClick(lua_State* L) {
     auto* svc = getLuaServices(L);
     if (svc && svc->glueCancelLogin) svc->glueCancelLogin();
     return 0;
@@ -1014,6 +1035,7 @@ void registerGlueLuaAPI(lua_State* L) {
         {"IsScanDLLFinished",       lua_NothingPending},
         {"DefaultServerLogin",      lua_DefaultServerLogin},
         {"CancelLogin",             lua_CancelLogin},
+        {"StatusDialogClick",       lua_StatusDialogClick},
         {"QuitGame",                lua_QuitGame},
         {"SetCurrentScreen",        lua_SetCurrentScreen},
 

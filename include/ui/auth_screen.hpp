@@ -8,6 +8,7 @@
 #include "ui/ui_services.hpp"
 #include "auth/auth_handler.hpp"
 #include <vulkan/vulkan.h>
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <functional>
@@ -71,6 +72,21 @@ public:
     void setStatus(const std::string& message, bool isError = false,
                    bool prominent = false);
 
+    /// The last thing announced across the top of the screen, and a count of
+    /// how many have been.
+    ///
+    /// The prominent status is this client's disconnect notice - it is set
+    /// from exactly one place, on the way back to the login screen after the
+    /// world dropped. The original screens say the same thing through
+    /// DISCONNECTED_FROM_SERVER, and this pair is how that is noticed without
+    /// a second announcement point: the serial changes once per notice, so a
+    /// reader running every frame can tell a new one from the same one still
+    /// being shown. Zero until the first.
+    [[nodiscard]] uint64_t prominentStatusSerial() const { return prominentStatusSerial_; }
+    [[nodiscard]] const std::string& prominentStatusMessage() const {
+        return prominentStatusMessage_;
+    }
+
 private:
     UIServices services_;  // Injected service references
 
@@ -123,6 +139,11 @@ private:
     /// Drawn across the screen rather than only in the panel. For the things
     /// that happened to the player rather than to a form they filled in.
     bool statusProminent = false;
+    /// The last of those, kept apart from statusMessage because that one is
+    /// overwritten by the next ordinary line - typing into the form clears it -
+    /// while a reader outside this screen needs the notice itself.
+    std::string prominentStatusMessage_;
+    uint64_t prominentStatusSerial_ = 0;
     bool statusIsError = false;
     std::string failureReason;    // Specific reason from auth handler
     float authTimer = 0.0f;       // Timeout tracker

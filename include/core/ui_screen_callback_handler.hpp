@@ -59,6 +59,13 @@ public:
                                       const std::string& password);
 
     /// Abandon one and go back to the login screen, as CancelLogin does.
+    ///
+    /// Also what GlueDialog's StatusDialogClick reaches: every one of its
+    /// progress and failure types calls that from its button, and for a login
+    /// in progress abandoning it is precisely what the button says. With
+    /// nothing in progress the same call is inert - the handler is already
+    /// disconnected and the client is already on the login screen - and still
+    /// closes the dialog, which is the other half of what the button is for.
     void cancelGlueLogin();
 
     using GlueEventFn = std::function<void(const std::string&,
@@ -90,6 +97,33 @@ public:
     void noteClientScreen(const std::string& glueScreenName);
 
 private:
+    /// What the login is doing, said as the status dialog GlueDialog.lua
+    /// listens for.
+    ///
+    /// GlueDialog_OnLoad registers OPEN_STATUS_DIALOG, UPDATE_STATUS_DIALOG
+    /// and CLOSE_STATUS_DIALOG and nothing else, and every screen of the
+    /// original login flow that is not a form is one of those three: the
+    /// "Connecting" that appears when the button is pressed, the
+    /// "Authenticating" that replaces it in place, and the line that says why
+    /// it stopped. OPEN_STATUS_DIALOG carries GlueDialog's own type name -
+    /// "CANCEL" while something can still be abandoned, "OKAY" when it is
+    /// over - and the text to put in it.
+    ///
+    /// Only for a login the original screen started. This client's own login
+    /// screen says all of this itself, from the same handler state, and
+    /// following that one too would say everything twice.
+    void updateGlueStatusDialog();
+
+    /// Put a line in the status dialog, opening it if it is not up.
+    ///
+    /// Deduplicated, because the caller runs every frame: the same line again
+    /// is not said again, and a new line in a dialog that is already the right
+    /// type goes through UPDATE_STATUS_DIALOG, which re-texts it where it
+    /// stands. Re-opening it instead would re-run OnShow every frame.
+    void showGlueStatus(const char* dialogType, const std::string& text);
+    /// Take it away, if this put it up.
+    void closeGlueStatus();
+
     ui::UIManager& uiManager_;
     game::GameHandler& gameHandler_;
     auth::AuthHandler& authHandler_;
@@ -114,6 +148,21 @@ private:
     /// authenticates and then sits there.
     bool glueLoginActive_ = false;
 
+    /// Whether the status dialog is following that login. Set when one
+    /// starts, cleared once the login has reached somewhere it cannot leave
+    /// on its own - a realm list, a failure, a disconnect - so the dialog that
+    /// says so stays up until the player dismisses it.
+    bool glueStatusFollow_ = false;
+
+    /// Why the last glue login failed, in the auth handler's own words.
+    ///
+    /// AuthHandler holds one failure callback and this client's own login
+    /// screen owns it, so the reason is taken by installing ours for the
+    /// duration of a glue login. The native screen re-installs its own at the
+    /// start of every attempt it makes, and it reads the reason only for an
+    /// attempt it started, so neither can be left reading the other's.
+    std::string glueFailureReason_;
+
     /// What updateGlueScreens has already announced. The character count
     /// starts at a value no list can have, so the first list of any size -
     /// including an account with no characters on it - is news.
@@ -123,6 +172,13 @@ private:
     size_t   announcedCharacterCount_ = kNoCharacterListYet;
     uint64_t announcedCharacterGuid_  = 0;
     std::string announcedGlueScreen_;
+    /// The status dialog that is up, by GlueDialog type name, and the line in
+    /// it. Empty type means none.
+    std::string announcedStatusDialog_;
+    std::string announcedStatusText_;
+    /// The disconnect notice already passed on. AuthScreen counts them; this
+    /// is the last count seen, so the one notice is announced once.
+    uint64_t announcedDisconnectSerial_ = 0;
 };
 
 } // namespace core

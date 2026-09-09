@@ -238,6 +238,34 @@ bool UIScreenCallbackHandler::selectedRealmInfo(std::string& name, bool& isPvp,
 
 namespace {
 
+/// The lines the status dialog shows while a login runs.
+///
+/// The first three are GlueStrings.lua's own values - LOGIN_STATE_CONNECTING,
+/// LOGIN_STATE_AUTHENTICATING and REALM_LIST_IN_PROGRESS - repeated here
+/// rather than read from it because OPEN_STATUS_DIALOG carries the finished
+/// text and there is no path from this side of the client into the glue Lua
+/// state to resolve a global. That makes them English where the installation's
+/// own strings are not; they are the only strings here that could have been.
+/// The rest are this client's own sentences, about situations the original
+/// client does not have.
+constexpr const char* kGlueConnecting     = "Connecting";
+constexpr const char* kGlueAuthenticating = "Authenticating";
+constexpr const char* kGlueRealmList      = "Retrieving realm list";
+constexpr const char* kGlueEnterName      = "Please enter your account name.";
+constexpr const char* kGlueEnterPassword  = "Please enter your password.";
+constexpr const char* kGlueNoServer =
+    "No server to log in to. This screen's login button carries no address - "
+    "use this client's own login screen once, and it will reuse that server.";
+constexpr const char* kGlueUnreachable = "Could not reach";
+/// A code this screen has no box for. The original asks for one through its
+/// token dialog, whose OK button calls a TokenEntered this client does not
+/// bind - so saying what happened and letting the login be dismissed is the
+/// honest answer, where a dialog that accepted a code and dropped it is not.
+constexpr const char* kGlueSecurityCode =
+    "This account needs an authenticator or PIN code. Use this client's own "
+    "login screen to enter it.";
+constexpr const char* kGlueFailed = "Authentication failed";
+
 /// The auth server this client's own login screen last used, as "host:port".
 ///
 /// login.cfg's `active` line, which the login screen writes on every attempt.
@@ -266,8 +294,14 @@ bool activeAuthServer(std::string& host, uint16_t& port) {
 
 bool UIScreenCallbackHandler::beginGlueLogin(const std::string& account,
                                              const std::string& password) {
+    // A fresh attempt: whatever the last one left on the screen is not about
+    // this one.
+    glueStatusFollow_ = false;
+    glueFailureReason_.clear();
+
     if (account.empty() || password.empty()) {
         LOG_WARNING("Glue login: account or password was empty");
+        showGlueStatus("OKAY", account.empty() ? kGlueEnterName : kGlueEnterPassword);
         return false;
     }
 
@@ -279,6 +313,7 @@ bool UIScreenCallbackHandler::beginGlueLogin(const std::string& account,
         // actually used, and on a fresh install there is none.
         LOG_WARNING("Glue login: no server in login.cfg - use this client's own "
                     "login screen once so it has one to reuse");
+        showGlueStatus("OKAY", kGlueNoServer);
         return false;
     }
 
@@ -305,18 +340,60 @@ bool UIScreenCallbackHandler::beginGlueLogin(const std::string& account,
         }
     }
 
+    // Take the failure reason for the duration of this login. AuthHandler
+    // holds one of these and this client's own login screen installs its own
+    // at the start of every attempt it makes, so the two never overlap - and
+    // without this the reason a glue login was refused exists nowhere the
+    // dialog could read it.
+    authHandler_.setOnFailure([this](const std::string& reason) {
+        glueFailureReason_ = reason;
+    });
+
     if (!authHandler_.connect(host, port)) {
         LOG_ERROR("Glue login: could not reach ", host, ":", port);
+        showGlueStatus("OKAY", std::string(kGlueUnreachable) + " " + host + ":" +
+                                   std::to_string(port));
         return false;
     }
     glueLoginActive_ = true;
+    glueStatusFollow_ = true;
     authHandler_.authenticate(account, password);
     LOG_INFO("Glue login: authenticating ", account, " against ", host, ":", port);
+    // Said now rather than waiting for the next frame's poll: this call comes
+    // from the login button, and a button that takes a frame to acknowledge
+    // being pressed is the thing this whole path exists to stop.
+    showGlueStatus("CANCEL", kGlueConnecting);
     return true;
 }
 
 void UIScreenCallbackHandler::updateGlueScreens() {
     if (!glueEvent_) return;
+
+    // What the login is doing, first: it closes its dialog when the realm list
+    // arrives, and the realm list opens over that same spot on the next lines.
+    // The other order leaves a dialog closing on top of the list it made way
+    // for.
+    updateGlueStatusDialog();
+
+    // The world dropped. The client's own way of saying so is the notice
+    // across the top of its login screen, and it is set from one place on the
+    // way back there; the original screens have a dialog for it and hear about
+    // it as DISCONNECTED_FROM_SERVER, whose argument distinguishes the one
+    // case that is not a disconnect at all - 4, a parental-control block, is a
+    // dialog of its own. Nothing here produces that case, so it is always 0.
+    const uint64_t disconnectSerial =
+        uiManager_.getAuthScreen().prominentStatusSerial();
+    if (disconnectSerial != announcedDisconnectSerial_) {
+        announcedDisconnectSerial_ = disconnectSerial;
+        if (disconnectSerial != 0) {
+            // GlueParent's handler goes back to the login screen itself, so
+            // nothing said here about the screen would be news to it.
+            closeGlueStatus();
+            LOG_INFO("Glue: announcing DISCONNECTED_FROM_SERVER - ",
+                     uiManager_.getAuthScreen().prominentStatusMessage());
+            glueEvent_("DISCONNECTED_FROM_SERVER", {"0"});
+        }
+    }
 
     // The realm list, once per arrival. RealmList.lua shows its own frame on
     // this event and refreshes it when the frame is already up, and that is
@@ -359,6 +436,89 @@ void UIScreenCallbackHandler::updateGlueScreens() {
     }
 }
 
+void UIScreenCallbackHandler::showGlueStatus(const char* dialogType,
+                                             const std::string& text) {
+    if (!glueEvent_ || !dialogType) return;
+    if (announcedStatusDialog_ == dialogType && announcedStatusText_ == text) return;
+
+    if (announcedStatusDialog_ == dialogType) {
+        // Same dialog, next line. UPDATE_STATUS_DIALOG re-texts the one that
+        // is up and re-sizes it, which is how "Connecting" becomes
+        // "Authenticating" in the original without the dialog blinking.
+        announcedStatusText_ = text;
+        glueEvent_("UPDATE_STATUS_DIALOG", {text});
+        return;
+    }
+
+    announcedStatusDialog_ = dialogType;
+    announcedStatusText_ = text;
+    glueEvent_("OPEN_STATUS_DIALOG", {dialogType, text});
+}
+
+void UIScreenCallbackHandler::closeGlueStatus() {
+    if (!glueEvent_ || announcedStatusDialog_.empty()) return;
+    announcedStatusDialog_.clear();
+    announcedStatusText_.clear();
+    glueEvent_("CLOSE_STATUS_DIALOG", {});
+}
+
+void UIScreenCallbackHandler::updateGlueStatusDialog() {
+    if (!glueStatusFollow_) return;
+
+    // "CANCEL" while the login can still be abandoned - its one button is
+    // CANCEL and calls StatusDialogClick, which is bound to abandoning it -
+    // and "OKAY" once it cannot, whose button is OKAY and calls the same thing
+    // to dismiss what is left. Both are GlueDialog's own types, out of
+    // GlueDialogTypes in GlueDialog.lua.
+    switch (authHandler_.getState()) {
+        case auth::AuthState::CONNECTED:
+        case auth::AuthState::CHALLENGE_SENT:
+            showGlueStatus("CANCEL", kGlueConnecting);
+            break;
+
+        case auth::AuthState::CHALLENGE_RECEIVED:
+        case auth::AuthState::PROOF_SENT:
+            showGlueStatus("CANCEL", kGlueAuthenticating);
+            break;
+
+        case auth::AuthState::PIN_REQUIRED:
+        case auth::AuthState::AUTHENTICATOR_REQUIRED:
+            showGlueStatus("OKAY", kGlueSecurityCode);
+            glueStatusFollow_ = false;
+            break;
+
+        case auth::AuthState::AUTHENTICATED:
+        case auth::AuthState::REALM_LIST_REQUESTED:
+            showGlueStatus("CANCEL", kGlueRealmList);
+            break;
+
+        case auth::AuthState::REALM_LIST_RECEIVED:
+            // The realm list is the next thing the player looks at, and it is
+            // a dialog in the same place. Nothing left to say.
+            closeGlueStatus();
+            glueStatusFollow_ = false;
+            break;
+
+        case auth::AuthState::FAILED:
+            // Whatever AuthHandler decided, in its own words: a wrong
+            // password, a banned or suspended account, a build the server
+            // refuses, a server that answered something unparseable. This is
+            // the case the login screen had no way of showing at all.
+            showGlueStatus("OKAY", glueFailureReason_.empty() ? kGlueFailed
+                                                              : glueFailureReason_);
+            glueStatusFollow_ = false;
+            break;
+
+        case auth::AuthState::DISCONNECTED:
+            // Cancelled, or dropped before it got anywhere. cancelGlueLogin
+            // has already taken the dialog down in the first case; this is the
+            // second.
+            closeGlueStatus();
+            glueStatusFollow_ = false;
+            break;
+    }
+}
+
 void UIScreenCallbackHandler::noteClientScreen(const std::string& glueScreenName) {
     if (!glueEvent_ || glueScreenName.empty()) return;
     if (glueScreenName == announcedGlueScreen_) return;
@@ -368,6 +528,12 @@ void UIScreenCallbackHandler::noteClientScreen(const std::string& glueScreenName
 
 void UIScreenCallbackHandler::cancelGlueLogin() {
     glueLoginActive_ = false;
+    glueStatusFollow_ = false;
+    // GlueDialog_OnClick hides the dialog before it calls this, so for the
+    // button this is a formality - but CancelLogin is also the cancel button
+    // beside the login button and the token dialog's escape, and neither of
+    // those hides anything.
+    closeGlueStatus();
     authHandler_.disconnect();
     uiManager_.getRealmScreen().reset();
     setState_(AppState::AUTHENTICATION);

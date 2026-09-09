@@ -268,8 +268,13 @@ int main(int argc, char** argv) {
         mgr.loadGlueXml(mgr.getGlueXmlDir());
         std::printf("== glue load: %zu error(s)\n", errors.size());
         for (const std::string& e : errors) std::printf("   %s\n", e.c_str());
-        return static_cast<int>(errors.size() > 100 ? 100 : errors.size());
-    }
+        // And on to the expression loop rather than returning here. The glue
+        // screens are event-driven - a dialog appears because the client fired
+        // something, not because a file loaded - so a mode that could only load
+        // them could not answer the one question worth asking of them.
+    } else {
+        // Everything from here to the end of the login events is FrameXML's,
+        // and the glue screens are loaded instead of it, never beside it.
 
     mgr.setFrameXmlDir(assetPath + "/interface/FrameXML");
     std::vector<std::string> installAddonRoots;
@@ -349,6 +354,7 @@ int main(int argc, char** argv) {
     for (size_t k = beforeEvents; k < errors.size(); ++k) {
         std::printf("   %s\n", errors[k].c_str());
     }
+    }  // if (glueOnly) ... else - the FrameXML half
 
     // Resolve the anchors, so a question about where something ended up has an
     // answer. Nothing drives a render loop here, and without this every frame
