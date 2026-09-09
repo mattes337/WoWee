@@ -4,6 +4,7 @@
 #include "addons/toc_parser.hpp"
 #include <memory>
 #include <string_view>
+#include <utility>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -46,6 +47,21 @@ public:
     bool loadFrameXml(const std::string& frameXmlDir);
     /// Where FrameXML lives, remembered at scan time so the loader can find it.
     void setFrameXmlDir(const std::string& dir) { frameXmlDir_ = dir; }
+
+    /// Load the original login and character screens from GlueXML's own
+    /// manifest, the way loadFrameXml loads the world interface.
+    ///
+    /// A separate manifest and a separate lifetime: the real client runs glue
+    /// and the world interface in different Lua states, and so does this - the
+    /// glue screens are torn down before the world's are built, because both
+    /// define GameFontNormal, the options templates and a good deal else, and
+    /// a state holding two copies is a state where which one answers is an
+    /// accident of load order.
+    bool loadGlueXml(const std::string& glueXmlDir);
+    void setGlueXmlDir(const std::string& dir) { glueXmlDir_ = dir; }
+    [[nodiscard]] const std::string& getGlueXmlDir() const { return glueXmlDir_; }
+    /// Whether the glue screens are the ones currently built.
+    [[nodiscard]] bool glueLoaded() const { return glueLoaded_; }
     bool runScript(const std::string& code);
     /// Run one line of interface Lua, for a keybinding whose window FrameXML
     /// now owns. Errors are logged rather than thrown: a bad line here should
@@ -117,6 +133,24 @@ private:
     /// is a floor for an install with no addons extracted.
     [[nodiscard]] std::vector<std::string> deferredAddonGlobals() const;
 
+    /// An interface directory: on disk when it is there, in the archives
+    /// otherwise. @p defaultVirtualDir is where the archives keep it.
+    [[nodiscard]] std::string resolveInterfaceDir(
+        const std::string& hint, const std::string& defaultVirtualDir) const;
+
+    /// What one walk of a manifest did.
+    struct ManifestRun {
+        int lua = 0;
+        int xml = 0;
+        int failed = 0;
+        long long milliseconds = 0;
+        std::vector<std::pair<std::string, std::string>> failures;
+    };
+    /// Walk a manifest's files in the order it lists them, loading each by
+    /// what it is. @p label names the manifest in the log.
+    ManifestRun runManifestFiles(const std::string& dir, const TocFile& toc,
+                                 const char* label);
+
     bool loadAddon(const TocFile& addon);
 
     /// The enabled addons in the order they may be loaded, dependencies first.
@@ -154,6 +188,8 @@ private:
     // addonName -> enabled. Absent means enabled (default on).
     std::unordered_map<std::string, bool> addonEnabled_;
     std::string frameXmlDir_;
+    std::string glueXmlDir_;
+    bool glueLoaded_ = false;
     /// The same directory as it is actually spelled on disk.
     ///
     /// The caller says ".../interface/FrameXML" and this install has

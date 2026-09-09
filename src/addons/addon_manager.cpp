@@ -827,6 +827,162 @@ void AddonManager::giveCoinAmountsClearance() {
     }
 }
 
+/// Walk a manifest's files in the order it lists them, loading each by what it
+/// is. Shared by the world interface and the glue screens, which differ in
+/// everything around this and in nothing about it.
+AddonManager::ManifestRun AddonManager::runManifestFiles(const std::string& dir,
+                                                        const TocFile& toc,
+                                                        const char* label) {
+    int lua = 0, xml = 0, failed = 0;
+    // Kept and printed together at the end. Spread through the log these are
+    // unreadable: the reasons land among thousands of other lines, and one
+    // broken script takes down every file that references it, so what matters
+    // is seeing them side by side and spotting the cause they share.
+    std::vector<std::pair<std::string, std::string>> failures;
+    // Timed per file. This load runs on the main thread during world entry, so
+    // whatever it costs the client is frozen for - long enough and the server
+    // drops the connection for want of a heartbeat. Knowing it is slow is not
+    // useful; knowing which file is.
+    const auto loadStart = std::chrono::steady_clock::now();
+    // Generous: all 139 files together used to run in 216ms, so a single one
+    // reaching this has stopped making progress. Aborting it costs that file
+    // and keeps the client answering, which beats freezing until it is killed.
+    luaEngine_.setChunkTimeoutMs(5000);
+    struct BudgetReset {
+        LuaEngine& e;
+        ~BudgetReset() { e.setChunkTimeoutMs(0); }
+    } budgetReset{luaEngine_};
+    auto sinceMs = [](std::chrono::steady_clock::time_point from) {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::steady_clock::now() - from).count();
+    };
+    for (const auto& filename : toc.files) {
+        const auto fileStart = std::chrono::steady_clock::now();
+        // Named before it is loaded, not after. Timing it afterwards says
+        // nothing about the one case that matters - a file that never returns
+        // prints nothing at all, and the load simply stops with the last
+        // successful file as the only clue.
+        // At warning level because release builds drop INFO, and this is the
+        // one line that identifies a file which never returns. Noisy for 139
+        // files, and worth it only while this path is still experimental.
+        LOG_WARNING(label, ": loading ", filename);
+        std::string lower = filename;
+        for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        const std::string resolved = resolveUiPath(dir, filename);
+        if (resolved.empty()) {
+            LOG_WARNING(label, ": ", filename, " is listed but not in this install");
+            ++failed;
+            failures.emplace_back(filename, "listed in the manifest but not in this install");
+            continue;
+        }
+        const std::string& full = resolved;
+
+        // The manifest's order is the load order and matters: GlobalStrings and
+        // Constants before anything reads them, Fonts before the frames that
+        // inherit from them. Following it is most of what makes this possible
+        // at all.
+        if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, ".lua") == 0) {
+            if (runUiLuaFile(full)) {
+                ++lua;
+            } else {
+                ++failed;
+                failures.emplace_back(filename, luaEngine_.lastError());
+            }
+        } else if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, ".xml") == 0) {
+            lastXmlError_.clear();
+            if (loadXmlFile(full, 0)) {
+                ++xml;
+            } else {
+                ++failed;
+                failures.emplace_back(filename, lastXmlError_.empty()
+                                                    ? "(no reason recorded)"
+                                                    : lastXmlError_);
+            }
+        }
+        // Reported as it happens rather than only in the summary, because a
+        // load that never reaches the summary is exactly the case worth
+        // diagnosing.
+        if (const auto ms = sinceMs(fileStart); ms >= 250) {
+            LOG_WARNING(label, ": ", filename, " took ", ms, "ms");
+        }
+    }
+
+    ManifestRun run;
+    run.lua = lua;
+    run.xml = xml;
+    run.failed = failed;
+    run.milliseconds = sinceMs(loadStart);
+    run.failures = std::move(failures);
+    return run;
+}
+
+/// Resolve an interface directory: on disk if it is there, in the archives
+/// otherwise. @p defaultVirtualDir is where the archives keep it.
+std::string AddonManager::resolveInterfaceDir(const std::string& hint,
+                                              const std::string& defaultVirtualDir) const {
+    std::error_code ec;
+    if (!hint.empty()) {
+        std::filesystem::path onDisk(hint);
+        if (!std::filesystem::is_directory(onDisk, ec)) {
+            // The directory itself may be spelled differently on disk.
+            onDisk = resolvePath(std::filesystem::path(hint).parent_path(),
+                                 std::filesystem::path(hint).filename().string());
+        }
+        if (!onDisk.empty() && std::filesystem::is_directory(onDisk, ec)) {
+            return onDisk.string();
+        }
+    }
+    return defaultVirtualDir;
+}
+
+bool AddonManager::loadGlueXml(const std::string& glueXmlDir) {
+    const std::string dir = resolveInterfaceDir(glueXmlDir, "interface\\gluexml");
+
+    std::string tocPath = resolveUiPath(dir, "GlueXML.toc");
+    std::string tocText;
+    auto toc = tocPath.empty() || !readUiFile(tocPath, tocText)
+                   ? std::nullopt
+                   : parseTocText(tocPath, tocText);
+    if (!toc) {
+        LOG_WARNING("GlueXML: no manifest in ", dir);
+        return false;
+    }
+
+    // The same decision loadFrameXml makes, for the same reason and before the
+    // first handler runs. GlueXML.toc states no interface version of its own in
+    // any build here, so this is nearly always the older convention - which is
+    // right for it: the glue screens were not rewritten for 3.0's handler
+    // arguments the way FrameXML was.
+    int interfaceVersion = 0;
+    if (const auto it = toc->directives.find("Interface");
+        it != toc->directives.end()) {
+        interfaceVersion = std::atoi(it->second.c_str());
+    }
+    const bool legacyHandlers = interfaceVersion == 0 || interfaceVersion < 30000;
+    setLegacyHandlerGlobals(legacyHandlers);
+    luaEngine_.executeString("__WoweeInterfaceVersion = " +
+                             std::to_string(interfaceVersion));
+
+    // Includes that name a shared template by bare name are resolved against
+    // this, the way FrameXML's are against its own directory: the glue screens
+    // have their own templates and never reach into FrameXML.
+    frameXmlResolvedDir_ = dir;
+
+    LOG_WARNING("GlueXML: attempting to load the original glue screens - ",
+                toc->files.size(), " files from ", dir);
+
+    const ManifestRun run = runManifestFiles(dir, *toc, "GlueXML");
+    LOG_WARNING("GlueXML: ", run.lua, " Lua files and ", run.xml,
+                " XML files loaded, ", run.failed, " failed in ",
+                run.milliseconds, "ms");
+    for (const auto& [file, why] : run.failures) {
+        LOG_WARNING("GlueXML:   ", file, " - ", why);
+    }
+
+    glueLoaded_ = run.failed == 0 || run.lua + run.xml > 0;
+    return run.failed == 0;
+}
+
 bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     std::error_code ec;
     // On disk first, so an extracted tree and a working copy still shadow the
@@ -924,79 +1080,12 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         }
     }
 
-    int lua = 0, xml = 0, failed = 0;
-    // Kept and printed together at the end. Spread through the log these are
-    // unreadable: the reasons land among thousands of other lines, and one
-    // broken script takes down every file that references it, so what matters
-    // is seeing them side by side and spotting the cause they share.
-    std::vector<std::pair<std::string, std::string>> failures;
-    // Timed per file. This load runs on the main thread during world entry, so
-    // whatever it costs the client is frozen for - long enough and the server
-    // drops the connection for want of a heartbeat. Knowing it is slow is not
-    // useful; knowing which file is.
-    const auto loadStart = std::chrono::steady_clock::now();
-    // Generous: all 139 files together used to run in 216ms, so a single one
-    // reaching this has stopped making progress. Aborting it costs that file
-    // and keeps the client answering, which beats freezing until it is killed.
-    luaEngine_.setChunkTimeoutMs(5000);
-    struct BudgetReset {
-        LuaEngine& e;
-        ~BudgetReset() { e.setChunkTimeoutMs(0); }
-    } budgetReset{luaEngine_};
-    auto sinceMs = [](std::chrono::steady_clock::time_point from) {
-        return std::chrono::duration_cast<std::chrono::milliseconds>(
-                   std::chrono::steady_clock::now() - from).count();
-    };
-    for (const auto& filename : toc->files) {
-        const auto fileStart = std::chrono::steady_clock::now();
-        // Named before it is loaded, not after. Timing it afterwards says
-        // nothing about the one case that matters - a file that never returns
-        // prints nothing at all, and the load simply stops with the last
-        // successful file as the only clue.
-        // At warning level because release builds drop INFO, and this is the
-        // one line that identifies a file which never returns. Noisy for 139
-        // files, and worth it only while this path is still experimental.
-        LOG_WARNING("FrameXML: loading ", filename);
-        std::string lower = filename;
-        for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        const std::string resolved = resolveUiPath(dir, filename);
-        if (resolved.empty()) {
-            LOG_WARNING("FrameXML: ", filename, " is listed but not in this install");
-            ++failed;
-            failures.emplace_back(filename, "listed in the manifest but not in this install");
-            continue;
-        }
-        const std::string& full = resolved;
-
-        // The manifest's order is the load order and matters: GlobalStrings and
-        // Constants before anything reads them, Fonts before the frames that
-        // inherit from them. Following it is most of what makes this possible
-        // at all.
-        if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, ".lua") == 0) {
-            if (runUiLuaFile(full)) {
-                ++lua;
-            } else {
-                ++failed;
-                failures.emplace_back(filename, luaEngine_.lastError());
-            }
-        } else if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, ".xml") == 0) {
-            lastXmlError_.clear();
-            if (loadXmlFile(full, 0)) {
-                ++xml;
-            } else {
-                ++failed;
-                failures.emplace_back(filename, lastXmlError_.empty()
-                                                    ? "(no reason recorded)"
-                                                    : lastXmlError_);
-            }
-        }
-        // Reported as it happens rather than only in the summary, because a
-        // load that never reaches the summary is exactly the case worth
-        // diagnosing.
-        if (const auto ms = sinceMs(fileStart); ms >= 250) {
-            LOG_WARNING("FrameXML: ", filename, " took ", ms, "ms");
-        }
-    }
+    // The manifest's files, in the order it lists them.
+    const ManifestRun run = runManifestFiles(dir, *toc, "FrameXML");
+    const int lua = run.lua;
+    const int xml = run.xml;
+    const int failed = run.failed;
+    const auto& failures = run.failures;
     // Screen insets the panel manager reads straight off UIParent. The real
     // client supplies these; FrameXML only ever reads them, and
     // UIParentManageFramePositions adds them to a coordinate on the next line,
@@ -1578,7 +1667,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "end\n");
 
     LOG_WARNING("FrameXML: ", lua, " Lua files and ", xml, " XML files loaded, ",
-                failed, " failed in ", sinceMs(loadStart), "ms");
+                failed, " failed in ", run.milliseconds, "ms");
     for (const auto& [file, why] : failures) {
         LOG_WARNING("FrameXML:   ", file, " - ", why);
     }

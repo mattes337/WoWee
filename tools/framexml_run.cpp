@@ -254,6 +254,23 @@ int main(int argc, char** argv) {
         engine->widgets().noteScreenSize(1920.0f, 1080.0f);
     }
 
+    // --glue runs the login and character screens instead of the world
+    // interface. They are separate manifests with separate lifetimes - the
+    // real client never has both built at once - so this is a mode rather than
+    // an extra pass, and the two are reported on their own terms.
+    bool glueOnly = false;
+    for (int i = 2; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--glue") == 0) glueOnly = true;
+    }
+
+    if (glueOnly) {
+        mgr.setGlueXmlDir(assetPath + "/interface/GlueXML");
+        mgr.loadGlueXml(mgr.getGlueXmlDir());
+        std::printf("== glue load: %zu error(s)\n", errors.size());
+        for (const std::string& e : errors) std::printf("   %s\n", e.c_str());
+        return static_cast<int>(errors.size() > 100 ? 100 : errors.size());
+    }
+
     mgr.setFrameXmlDir(assetPath + "/interface/FrameXML");
     std::vector<std::string> installAddonRoots;
     if (install.isValid()) {
