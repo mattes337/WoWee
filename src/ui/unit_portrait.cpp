@@ -311,7 +311,7 @@ struct GlueBackdrop::View {
 
     bool build(int w, int h, rendering::Renderer* renderer);
     void destroy();
-    bool loadScene(const std::string& m2Path);
+    bool loadScene(const std::string& rawPath);
     void composite();
 };
 
@@ -546,8 +546,24 @@ void GlueBackdrop::View::destroy() {
     ctx = nullptr;
 }
 
-bool GlueBackdrop::View::loadScene(const std::string& m2Path) {
+bool GlueBackdrop::View::loadScene(const std::string& rawPath) {
     if (!models || !assets || !camera) return false;
+
+    // .mdx means .m2, the same way .tga means .blp elsewhere in this
+    // interface. Blizzard's markup still names models by the extension the
+    // format carried before 3.x and no .mdx has shipped in the archives since;
+    // the original client takes the name and loads the .m2 beside it.
+    //
+    // AccountLogin_OnLoad is the one that matters:
+    // SetModel("...UI_MainMenu_Northrend.mdx") is the only statement of what
+    // the login screen looks like, and taking that extension at its word left
+    // the whole screen black with one line in the log to say why.
+    std::string m2Path = rawPath;
+    if (m2Path.size() > 4) {
+        std::string tail = m2Path.substr(m2Path.size() - 4);
+        for (char& c : tail) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        if (tail == ".mdx") m2Path.replace(m2Path.size() - 4, 4, ".m2");
+    }
 
     if (instanceId != 0) {
         models->removeInstance(instanceId);

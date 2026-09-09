@@ -1099,6 +1099,27 @@ void registerGlueLuaAPI(lua_State* L) {
         {"EULAAccepted",            lua_NothingPending},
         {"TOSAccepted",             lua_NothingPending},
         {"IsScanDLLFinished",       lua_NothingPending},
+        // The rest of the agreements AccountLogin_ShowUserAgreements walks,
+        // answered the way the two above are: already agreed to, so the
+        // dialog is not raised. Missing, each one read as nil - "not accepted"
+        // - and the login screen queued a notice the player cannot dismiss
+        // because nothing here records the dismissal.
+        {"TerminationWithoutNoticeAccepted", lua_NothingPending},
+        {"ScanningAccepted",        lua_NothingPending},
+        {"ContestAccepted",         lua_NothingPending},
+        // Whether to raise the "these settings changed" notice. Nothing here
+        // changes a setting behind the player's back, so there is nothing to
+        // warn about, and ChangedOptionsDialog_OnShow hides itself on false.
+        {"ShowChangedOptionWarnings", lua_False},
+        // Whether this machine meets the client's requirements.
+        //
+        // AccountLogin.xml raises "This system will not be supported in future
+        // versions of World of Warcraft" when this is false, and missing it
+        // read as false - so the login screen opened behind that notice on
+        // every machine. It became visible the moment GetBoundsRect was
+        // implemented, because GlueDialog_Show had been raising on that call
+        // and abandoning the dialog before it could be shown.
+        {"IsSystemSupported",       lua_NothingPending},
         {"DefaultServerLogin",      lua_DefaultServerLogin},
         {"CancelLogin",             lua_CancelLogin},
         {"StatusDialogClick",       lua_StatusDialogClick},
