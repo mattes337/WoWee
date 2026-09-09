@@ -1,12 +1,20 @@
 # Original game UI and drop-in client plan
 
-Status: stage 1 largely done and evidenced against two real installations
-(WotLK 3.3.5a and Turtle 1.18); stage 2's first bullet - the original
-interface read out of those archives rather than off disk - implemented, with
-parts of stages 5 and 6 landed alongside it. Every box below is ticked only
-where there is evidence under it, and the unticked ones say what is missing.
-Vanilla and TBC installations were not available here, so their rows rest on
-directory fixtures rather than on a real client.
+Status, 2026-09-09. What an untouched installation now gets: wowee finds it
+beside its own executable, reads its archives directly, and loads the
+installation's own FrameXML, its Blizzard addons and its GlueXML out of them,
+with no extracted tree, no manifest and no environment variable. Stage 1 and
+stage 2's first bullet are done and evidenced; stage 3's first bullet is done
+and the bindings behind those screens' buttons are not; parts of stages 5 and 6
+landed alongside. Stage 4 is untouched.
+
+Every box below is ticked only where there is evidence under it, and the
+unticked ones say what is missing rather than being left blank.
+
+Two installations were available here - WotLK 3.3.5a and Turtle 1.18 - and
+every claim of a real load comes from one of them. Vanilla and TBC rest on
+directory fixtures rather than on a client, and the plan's four-profile
+acceptance is open until they do not.
 
 Branch: `codex/native-game-ui`, created directly from `master` at
 `3f92198677e4d7c0e59560f36fcfc72da1d0fa4b`.
@@ -324,3 +332,23 @@ restart, and save their state without modifying the original client's files.
 
 Implementation began with stage 1. Everything the acceptance sections ask for
 remains open until it is run against real installations and recorded here.
+
+What is left, in the order it unblocks the rest:
+
+1. The glue vocabulary (stage 3). `DefaultServerLogin`, `CancelLogin`, the
+   realm list, the character list, Enter World, creation and customization.
+   Until these exist `WOWEE_LOAD_GLUEXML` is a screen you cannot log in from.
+2. The glue and world lifecycle (stage 2). World entry has to tear glue down
+   and logout has to build it again, and the native screens have to stop
+   drawing underneath.
+3. Settings (stage 4). The plan asks for the original video, sound, interface
+   and key-binding panels to work; today seventeen of those pages are retired
+   in favour of this client's own, and the first thing needed is an explicit
+   "unavailable in wowee" state so restoring a page cannot silently report a
+   setting as applied.
+4. Packaging (stage 6). Nothing is embedded: 81 shaders, the four expansion
+   profiles and the interface art are all opened relative to the working
+   directory, so `wowee.exe` alone beside `Wow.exe` still cannot start. There
+   is no startup message box either - every failure is a log line, and the
+   Windows binary is a console subsystem one.
+5. The acceptance runs themselves, on all four profiles, on a clean machine.
