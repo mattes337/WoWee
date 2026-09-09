@@ -1,4 +1,5 @@
 #include "core/application.hpp"
+#include "core/config_paths.hpp"
 #include "core/env_flag.hpp"
 #include "game/embedded_expansions.hpp"  // generated; see cmake/EmbedResources.cmake
 #include "pipeline/virtual_path.hpp"
@@ -291,14 +292,20 @@ bool Application::initialize() {
 
     window = std::make_unique<Window>(windowConfig);
     if (!window->initialize()) {
-        LOG_FATAL("Failed to initialize window");
+        // Window::initialize and VkContext have already raised the box for the
+        // stage that actually failed; showStartupError shows only the first of
+        // a run, so this is the catch-all for one that did not.
+        showStartupError("Wowee cannot start",
+                         "The game window could not be created.");
         return false;
     }
 
     // Create renderer
     renderer = std::make_unique<rendering::Renderer>();
     if (!renderer->initialize(window.get())) {
-        LOG_FATAL("Failed to initialize renderer");
+        showStartupError("Wowee cannot start",
+                         "The renderer could not be initialised on this "
+                         "machine's graphics device.");
         return false;
     }
 
@@ -311,7 +318,8 @@ bool Application::initialize() {
     // Create UI manager
     uiManager = std::make_unique<ui::UIManager>();
     if (!uiManager->initialize(window.get())) {
-        LOG_FATAL("Failed to initialize UI manager");
+        showStartupError("Wowee cannot start",
+                         "The interface could not be initialised.");
         return false;
     }
 
@@ -353,9 +361,29 @@ bool Application::initialize() {
     // Create game handler with explicit service dependencies
     gameHandler = std::make_unique<game::GameHandler>(gameServices_);
 
-    // Try to get WoW data path from environment variable
+    // Try to get WoW data path from environment variable.
+    //
+    // Anchored, because ./Data means "the working directory's Data" and
+    // nothing chdirs on Windows: a wowee.exe double-clicked in the game folder,
+    // or started from a shortcut with any "start in" set, looked for Data
+    // wherever the shell happened to be. The working directory still wins when
+    // it has one - see core::resolveResourcePath - so a checkout is unaffected.
+    // The environment value goes through the same rule, so a relative
+    // WOW_DATA_PATH is anchored too and an absolute one is returned untouched.
     const char* dataPathEnv = std::getenv("WOW_DATA_PATH");
-    std::string dataPath = dataPathEnv ? dataPathEnv : "./Data";
+    std::string dataPath =
+        core::resolveResourcePath(dataPathEnv ? dataPathEnv : "./Data");
+    std::error_code cwdEc;
+    const std::string workingDir = std::filesystem::current_path(cwdEc).string();
+    // Said out loud once, and at warning level, because which of the two roots
+    // this landed on decides what the whole run reads and is invisible
+    // otherwise - which is exactly what a drop-in copy gets wrong.
+    LOG_WARNING("Data root: ", dataPath, "  (working directory: ",
+                cwdEc ? std::string("unknown") : workingDir,
+                ", executable directory: ",
+                core::getExecutableDir().empty() ? std::string("unknown")
+                                                 : core::getExecutableDir(),
+                ")");
 
     // Scan for available expansion profiles, and fall back to the ones built
     // into this binary when there is no Data/expansions/ to scan.
@@ -378,14 +406,43 @@ bool Application::initialize() {
         // The installation is what says which game is being run: the registry's
         // own default prefers WotLK, which is the wrong protocol and the wrong
         // UI files for a Vanilla or TBC folder wowee was placed in.
-        if (expansionRegistry_->getProfile(install.expansion) &&
-            expansionRegistry_->getActiveId() != install.expansion) {
+        if (!expansionRegistry_->getProfile(install.expansion)) {
+            // Detection recognised the build and this binary carries no
+            // profile for it, so there is no opcode table and no protocol:
+            // the client would come up and be unable to talk to any server.
+            LOG_ERROR("No expansion profile for the detected build '",
+                      install.expansion, "'");
+            showStartupError(
+                "Wowee does not know this game build",
+                "The installation at\n" + install.root +
+                    "\n\nis '" + install.expansion +
+                    "', and this copy of Wowee carries no protocol profile for "
+                    "it. Without one it cannot talk to a server.");
+        } else if (expansionRegistry_->getActiveId() != install.expansion) {
             expansionRegistry_->setActive(install.expansion);
             LOG_INFO("Selected expansion '", install.expansion,
                      "' from the installation being read");
         }
     } else if (installPathEnv && *installPathEnv) {
         LOG_WARNING("WOW_INSTALL_PATH names no readable installation: ", installPathEnv);
+        showStartupError(
+            "Wowee found no game to read",
+            std::string("WOW_INSTALL_PATH is set to\n") + installPathEnv +
+                "\n\nand there is no Vanilla, Burning Crusade, Wrath of the Lich "
+                "King or Turtle installation there. Unset it to let Wowee look "
+                "beside itself instead.");
+    } else {
+        // Auto-detection failing used to say nothing at all - not a warning,
+        // not a line - and the client came up with an empty world.
+        //
+        // A warning and not a box, because this is also every run against an
+        // extracted asset tree: those have no archives, so no installation is
+        // found and nothing is wrong. The box waits until the asset manager
+        // has also failed, which is the point at which there is genuinely
+        // nothing to read - see below.
+        LOG_WARNING("No supported game installation beside ",
+                    core::getExecutableDir().empty() ? std::string("this executable")
+                                                     : core::getExecutableDir());
     }
 
     // Load the tables this expansion's protocol is described by.
@@ -909,6 +966,15 @@ bool Application::initialize() {
             if (install.isValid()) {
                 installAddonRoots.push_back(install.root + "/Interface/AddOns");
             }
+            // And the addons that ship beside this executable. scanAddons has
+            // its own "addons", "../addons", "../../addons" walk, but every one
+            // of those is relative to the working directory: a copy launched
+            // from anywhere else found none of the bundled addons. The walk is
+            // left alone - it is what a developer running out of a checkout
+            // relies on - and the executable's own directory is added to it.
+            if (const std::string exeDir = core::getExecutableDir(); !exeDir.empty()) {
+                installAddonRoots.push_back((std::filesystem::path(exeDir) / "addons").string());
+            }
             addonManager_->scanAddons(addonsDir, installAddonRoots);
             // The login and character screens, when asked for.
             //
@@ -1342,6 +1408,50 @@ bool Application::initialize() {
     } else {
         LOG_WARNING("Failed to initialize asset manager - asset loading will be unavailable");
         LOG_WARNING("Set WOW_DATA_PATH environment variable to your WoW Data directory");
+        // Not fatal - the client still comes up - but it comes up with an
+        // empty world, which is indistinguishable from a broken client unless
+        // someone says so.
+        //
+        // This is also where a failed installation detection finally speaks.
+        // Detection alone is not enough to raise a box: a run against an
+        // extracted asset tree has no archives and finds no installation, and
+        // that run is fine. The two failing together is the one that is not:
+        // there is nothing on this machine for the client to read.
+        if (install.isValid()) {
+            showStartupError(
+                "Wowee cannot read the game files",
+                "The " + std::to_string(install.archives.size()) +
+                    " archive(s) in\n" + install.dataDir +
+                    "\n\nwere found but could not be opened. They may be "
+                    "incomplete, still downloading, or unreadable by this "
+                    "user.\n\nWowee will start, but the world will be empty.");
+        } else {
+            // The two roots, and the data path they produced. Named because
+            // "there is no game here" is unanswerable without knowing where
+            // "here" was - and de-duplicated, because on the platforms that
+            // chdir to the executable's directory at startup they are the
+            // same one and a list repeating itself reads as a bug.
+            std::vector<std::string> roots;
+            auto mention = [&roots](const std::string& where) {
+                if (where.empty()) return;
+                if (std::find(roots.begin(), roots.end(), where) != roots.end()) return;
+                roots.push_back(where);
+            };
+            mention(core::getExecutableDir());
+            if (!cwdEc) mention(workingDir);
+            mention(dataPath);
+            std::string looked;
+            for (const auto& root : roots) looked += "\n  " + root;
+            showStartupError(
+                "Wowee found no game to read",
+                "Wowee reads the original game's files where they lie, and "
+                "there are none here.\n\nPut wowee in the folder holding the "
+                "original game executable - the one with a Data folder full of "
+                ".MPQ archives - or set WOW_INSTALL_PATH to that "
+                "folder.\n\nLooked in:" +
+                    (looked.empty() ? std::string("\n  (nowhere it could name)")
+                                    : looked));
+        }
     }
 
     // If the archives never opened, the fonts were not tried at all. Loose
@@ -2281,7 +2391,11 @@ void Application::reloadExpansionData() {
     // Update expansion data path for CSV DBC lookups and clear DBC cache
     if (assetManager && !profile->dataPath.empty()) {
         const char* dataPathEnv = std::getenv("WOW_DATA_PATH");
-        const std::string baseDataPath = dataPathEnv ? dataPathEnv : "./Data";
+        // The same anchoring initialize() applied, so a reload does not swing
+        // the asset root back to a working-directory-relative Data that is not
+        // the one the client has been reading.
+        const std::string baseDataPath =
+            core::resolveResourcePath(dataPathEnv ? dataPathEnv : "./Data");
         const game::ExpansionProfile* assetProfile = profile;
         if (!assetExpansionOverrideId_.empty() &&
             assetExpansionOverrideId_ != "legacy") {

@@ -7,6 +7,7 @@
 #include <vk_mem_alloc.h>
 #include <VkBootstrap.h>
 #include <SDL2/SDL.h>
+#include <string>
 #include <vector>
 #include <functional>
 #include <cstdint>
@@ -293,7 +294,13 @@ private:
     bool createInstance(SDL_Window* window);
     bool createSurface(SDL_Window* window);
     bool selectPhysicalDevice();
-    void reportUnsuitableDevices() const;
+    /// Logs every device the loader offers and what each one lacks, and leaves
+    /// a one-line summary of the same in deviceFailureSummary_ for the box
+    /// initialize() raises. Not const for that reason.
+    void reportUnsuitableDevices();
+    /// Why device selection failed, in one sentence a player can act on.
+    /// Empty until reportUnsuitableDevices has run.
+    std::string deviceFailureSummary_;
     bool createLogicalDevice();
     bool createAllocator();
     bool createSwapchain(int width, int height);

@@ -10,6 +10,29 @@ namespace rendering { class VkContext; }
 
 namespace core {
 
+/// Put a startup failure in front of the person who hit it, and log it.
+///
+/// Every failure that stops this client from starting used to be a line in a
+/// file nobody opens - and on Windows, where a double-click gives no terminal
+/// to read either, that is a client that vanishes without saying anything at
+/// all. This raises SDL's own message box, which works with no window and, on
+/// every platform this ships to, brings up SDL_INIT_VIDEO itself if nothing
+/// else has yet.
+///
+/// Only the first call of a run shows a box. Failures nest - the swapchain
+/// fails, so the Vulkan context fails, so the window fails, so the application
+/// fails - and the innermost one is both the first to fire and the only one
+/// that says anything useful. The rest are still logged.
+///
+/// @p detail is what the user is told; keep it to a line or two and leave the
+/// per-device, per-extension detail in the log. The path of the log file is
+/// appended automatically, because it is the one thing they need next.
+///
+/// Declared here rather than in config_paths.hpp because it needs SDL, and
+/// config_paths.cpp is compiled into asset_extract and into the tests, neither
+/// of which links SDL.
+void showStartupError(const std::string& title, const std::string& detail);
+
 struct WindowConfig {
     std::string title = "Wowee Native";
     int width = 1920;

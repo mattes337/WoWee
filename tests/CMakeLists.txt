@@ -781,6 +781,14 @@ wowee_add_test(test_game_install
             ${CMAKE_SOURCE_DIR}/src/core/config_paths.cpp
             ${TEST_COMMON_SOURCES})
 
+# ── test_resource_paths ────────────────────────────────────────────────
+# Where a working-directory-relative resource path is actually looked for -
+# the whole of the drop-in contract for assets/, Data/ and addons/.
+wowee_add_test(test_resource_paths
+    SOURCES test_resource_paths.cpp
+            ${CMAKE_SOURCE_DIR}/src/core/config_paths.cpp
+            ${TEST_COMMON_SOURCES})
+
 # ── test_base_fallback ─────────────────────────────────────────────────
 # Whether one client's asset tree may answer for another's missing files.
 add_executable(test_base_fallback

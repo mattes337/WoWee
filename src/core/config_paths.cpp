@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <system_error>
+#include <vector>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -78,6 +79,87 @@ std::string getExecutableDir() {
     if (len <= 0) return {};
     return fs::path(std::string(buf, static_cast<size_t>(len))).parent_path().string();
 #endif
+}
+
+std::string resolveResourcePathIn(const std::string& relative,
+                                  const std::string& workingDir,
+                                  const std::string& executableDir) {
+    if (relative.empty()) return relative;
+
+    const fs::path rel(relative);
+    // An absolute path is already an answer; anchoring it would be a lie.
+    if (rel.is_absolute()) return relative;
+
+    std::error_code ec;
+    // The working directory first. Spelled exactly as the caller asked, so a
+    // log line and an error message read the way they always have.
+    if (!workingDir.empty()) {
+        if (fs::exists(fs::path(workingDir) / rel, ec)) return relative;
+    } else if (fs::exists(rel, ec)) {
+        return relative;
+    }
+
+    // Then beside the executable. lexically_normal because the callers spell
+    // some of these with a leading "./" and "<exe>/./Data" in a log line is
+    // just noise.
+    if (!executableDir.empty()) {
+        const fs::path anchored = (fs::path(executableDir) / rel).lexically_normal();
+        if (fs::exists(anchored, ec)) return anchored.string();
+    }
+
+    return relative;
+}
+
+std::string resolveResourcePath(const std::string& relative) {
+    return resolveResourcePathIn(relative, {}, getExecutableDir());
+}
+
+std::string currentLogFilePath() {
+    // Logger::ensureFile picks between "logs/<name>" beside the working
+    // directory and a per-user directory, and keeps neither where anything
+    // else can read it. Rather than duplicate that decision - which would rot
+    // the moment the logger's changes - both candidates are probed and the one
+    // that exists is named. When both do, the newer one is this run's.
+    const char* named = std::getenv("WOWEE_LOG_FILE");
+    const std::string logFile = (named && *named) ? named : "wowee.log";
+
+    std::vector<fs::path> candidates;
+    candidates.emplace_back(fs::path("logs") / logFile);
+    if (const char* root = std::getenv("WOWEE_CONFIG_ROOT"); root && *root) {
+        candidates.emplace_back(fs::path(root) / "logs" / logFile);
+    }
+#if defined(_WIN32)
+    if (const char* local = std::getenv("LOCALAPPDATA"); local && *local) {
+        candidates.emplace_back(fs::path(local) / "Wowee" / "logs" / logFile);
+    }
+#elif defined(__APPLE__)
+    if (const char* home = std::getenv("HOME"); home && *home) {
+        candidates.emplace_back(fs::path(home) / "Library" / "Logs" / "Wowee" / logFile);
+    }
+#else
+    if (const char* state = std::getenv("XDG_STATE_HOME"); state && *state) {
+        candidates.emplace_back(fs::path(state) / "wowee" / "logs" / logFile);
+    } else if (const char* home = std::getenv("HOME"); home && *home) {
+        candidates.emplace_back(fs::path(home) / ".local" / "state" / "wowee" / "logs" / logFile);
+    }
+#endif
+    std::error_code ec;
+    candidates.push_back(fs::temp_directory_path(ec) / "wowee-logs" / logFile);
+
+    fs::path best;
+    fs::file_time_type bestTime{};
+    for (const auto& candidate : candidates) {
+        if (!fs::is_regular_file(candidate, ec)) continue;
+        const auto when = fs::last_write_time(candidate, ec);
+        if (ec) { ec.clear(); continue; }
+        if (best.empty() || when > bestTime) {
+            best = candidate;
+            bestTime = when;
+        }
+    }
+    if (best.empty()) return {};
+    const fs::path absolute = fs::absolute(best, ec);
+    return ec ? best.string() : absolute.string();
 }
 
 std::string getConfigRoot() {

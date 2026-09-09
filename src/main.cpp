@@ -1,6 +1,7 @@
 #include "core/application.hpp"
 #include "core/config_paths.hpp"
 #include "core/logger.hpp"
+#include "core/window.hpp"  // core::showStartupError
 #include "core/version.hpp"
 #include <exception>
 #include <csignal>
@@ -12,6 +13,13 @@
 #include <SDL2/SDL.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
+#endif
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <cstdio>  // freopen_s, and FILE, which nothing else pulls in on Windows
 #endif
 
 // backtrace(3) and friends live in libSystem on macOS and in glibc on Linux, so
@@ -130,7 +138,33 @@ static void selectMacUserDataPath() {
 }
 #endif
 
+#ifdef _WIN32
+/// Print to the terminal that started us, when there is one.
+///
+/// The Windows binary is now a GUI-subsystem one, so a double-click in the
+/// game folder no longer flashes a console and closes - which is the whole
+/// point of the drop-in. The cost of that subsystem is that a run from cmd or
+/// PowerShell gets no console at all and the logger's stdout echo goes
+/// nowhere, which is a real loss for anyone developing on Windows. Attaching
+/// to the parent's console gives both: silence for the double-click, output
+/// for the terminal.
+///
+/// A GUI process attached this way does not own the console, so the shell
+/// returns its prompt immediately and the output interleaves with it. That is
+/// how every GUI-subsystem tool that does this behaves, and it beats no output.
+static void attachParentConsole() {
+    if (!AttachConsole(ATTACH_PARENT_PROCESS)) return;  // Launched from Explorer.
+    FILE* unused = nullptr;
+    freopen_s(&unused, "CONOUT$", "w", stdout);
+    freopen_s(&unused, "CONOUT$", "w", stderr);
+    freopen_s(&unused, "CONIN$", "r", stdin);
+}
+#endif
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
+#ifdef _WIN32
+    attachParentConsole();
+#endif
 #ifdef __ANDROID__
     // Everything after this opens its files relative to the working directory,
     // which on Android is not a directory that holds any of them.
@@ -243,7 +277,12 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
         wowee::core::Application app;
 
         if (!app.initialize()) {
-            LOG_FATAL("Failed to initialize application");
+            // The failure that stopped it has already raised its own box, and
+            // only the first of a run shows one. This is the backstop for a
+            // path that has none, so that no startup failure is silent.
+            wowee::core::showStartupError(
+                "Wowee cannot start",
+                "The client could not finish starting up.");
             return 1;
         }
 
@@ -258,12 +297,14 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
     }
     catch (const std::exception& e) {
         releaseMouseGrab();
-        LOG_FATAL("Unhandled exception: ", e.what());
+        wowee::core::showStartupError("Wowee stopped unexpectedly",
+                                      std::string("Unhandled exception: ") + e.what());
         return 1;
     }
     catch (...) {
         releaseMouseGrab();
-        LOG_FATAL("Unknown exception occurred");
+        wowee::core::showStartupError("Wowee stopped unexpectedly",
+                                      "An unknown exception was thrown.");
         return 1;
     }
 }

@@ -7,6 +7,10 @@
 #include <fstream>
 #include "rendering/vk_utils.hpp"
 #include "core/logger.hpp"
+// For core::showStartupError. The good diagnostics below - the loader that
+// offers no device, the device list with what each one lacks - all went to a
+// log nobody opens; the one-line summary of each goes in front of the user.
+#include "core/window.hpp"
 #include "pipeline/blp_loader.hpp"
 #include <VkBootstrap.h>
 #include <SDL2/SDL_vulkan.h>
@@ -82,11 +86,39 @@ VkContext::~VkContext() {
 bool VkContext::initialize(SDL_Window* window) {
     LOG_INFO("Initializing Vulkan context");
 
-    if (!createInstance(window)) return false;
-    if (!createSurface(window)) return false;
-    if (!selectPhysicalDevice()) return false;
-    if (!createLogicalDevice()) return false;
-    if (!createAllocator()) return false;
+    // Each of these already logs why in as much detail as it has. What the
+    // person in front of the machine gets is one line naming the stage, and
+    // the path of the log holding the rest.
+    static constexpr const char* kTitle = "Wowee cannot start Vulkan";
+    if (!createInstance(window)) {
+        core::showStartupError(kTitle,
+            "No Vulkan instance could be created. The Vulkan runtime is "
+            "present but refused to start - usually an out-of-date or "
+            "half-installed graphics driver.");
+        return false;
+    }
+    if (!createSurface(window)) {
+        core::showStartupError(kTitle,
+            "Vulkan cannot draw to a window on this machine. The driver "
+            "offers no window surface for this display.");
+        return false;
+    }
+    if (!selectPhysicalDevice()) {
+        core::showStartupError(kTitle, deviceFailureSummary_.empty()
+            ? std::string("No usable graphics device was found.")
+            : deviceFailureSummary_);
+        return false;
+    }
+    if (!createLogicalDevice()) {
+        core::showStartupError(kTitle,
+            "The graphics device was found but could not be opened.");
+        return false;
+    }
+    if (!createAllocator()) {
+        core::showStartupError(kTitle,
+            "Graphics memory could not be set up on this device.");
+        return false;
+    }
 
     // Pipeline cache: try to load from disk, fall back to empty cache.
     // Not fatal - if it fails we just skip caching.
@@ -94,12 +126,27 @@ bool VkContext::initialize(SDL_Window* window) {
 
     int w, h;
     SDL_Vulkan_GetDrawableSize(window, &w, &h);
-    if (!createSwapchain(w, h)) return false;
+    // createSwapchain runs again on every resize, so the box is raised here at
+    // the one call that is a failure to start rather than inside it.
+    if (!createSwapchain(w, h)) {
+        core::showStartupError(kTitle,
+            "The Vulkan swapchain could not be created for this window.");
+        return false;
+    }
 
-    if (!createCommandPools()) return false;
-    if (!createSyncObjects()) return false;
+    if (!createCommandPools()) {
+        core::showStartupError(kTitle, "Vulkan command pools could not be created.");
+        return false;
+    }
+    if (!createSyncObjects()) {
+        core::showStartupError(kTitle, "Vulkan synchronisation objects could not be created.");
+        return false;
+    }
     createGpuQueryPools();
-    if (!createImGuiResources()) return false;
+    if (!createImGuiResources()) {
+        core::showStartupError(kTitle, "The interface renderer could not be created.");
+        return false;
+    }
 
     sInstance_ = this;
 
@@ -457,10 +504,14 @@ bool VkContext::createSurface(SDL_Window* window) {
 /// which says neither which devices were considered nor what was wanted of
 /// them. On a phone, where the answer cannot be read off a desktop driver, that
 /// is the whole diagnosis.
-void VkContext::reportUnsuitableDevices() const {
+void VkContext::reportUnsuitableDevices() {
     uint32_t count = 0;
     if (vkEnumeratePhysicalDevices(instance, &count, nullptr) != VK_SUCCESS || count == 0) {
         LOG_ERROR("  the loader offers no Vulkan device at all.");
+        deviceFailureSummary_ =
+            "The Vulkan runtime is installed but offers no graphics device at "
+            "all. Install your GPU vendor's own drivers - the ones Windows "
+            "installs by itself often carry no Vulkan driver.";
         return;
     }
     std::vector<VkPhysicalDevice> devices(count);
@@ -491,6 +542,16 @@ void VkContext::reportUnsuitableDevices() const {
                   ", graphics queue: ", graphics ? "yes" : "NO",
                   ", can present to this surface: ", present ? "yes" : "NO");
     }
+
+    // One line for the box. The per-device detail above stays in the log,
+    // which the box names: a list of four adapters and their queue families is
+    // not something to put in front of someone whose game did not start.
+    deviceFailureSummary_ =
+        "None of the " + std::to_string(count) +
+        " graphics device(s) on this machine can run Wowee - each is either "
+        "below Vulkan 1.1 or cannot draw to a window. Updating the graphics "
+        "driver is the usual fix; the log names each device and what it "
+        "lacks.";
 }
 
 bool VkContext::selectPhysicalDevice() {

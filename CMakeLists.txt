@@ -1506,6 +1506,21 @@ if(WIN32)
     if(TARGET SDL2::SDL2main)
         target_link_libraries(wowee PRIVATE SDL2::SDL2main)
     endif()
+    # A GUI-subsystem binary, not a console one.
+    #
+    # This is a game that gets double-clicked in the folder it was dropped into.
+    # As a console binary that opens a console window behind it for the whole
+    # session, and a failed launch flashes one and closes with nothing said -
+    # which is exactly the failure mode stage 6 exists to remove.
+    #
+    # Only now that the failures raise SDL_ShowSimpleMessageBox: flipping the
+    # subsystem first would have turned every startup failure from a message
+    # nobody reads into no message at all. And main() reattaches to the parent
+    # console when it was started from one (see attachParentConsole in
+    # src/main.cpp), so a developer running it from a terminal still gets the
+    # log echo. SDL2main defines both main and WinMain, so the entry point
+    # resolves either way.
+    set_target_properties(wowee PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
 # Link ImGui if available

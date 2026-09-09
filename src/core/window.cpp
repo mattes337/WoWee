@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include "core/env.hpp"
+#include "core/env_flag.hpp"
 #include "core/logger.hpp"
 #include "core/config_paths.hpp"
 #include "stb_image.h"
@@ -42,6 +43,36 @@ std::string bundledMoltenVkManifest() {
 
 } // namespace
 #endif
+
+void showStartupError(const std::string& title, const std::string& detail) {
+    // Once per run. See the header: the innermost failure is the first to fire
+    // and the only one worth reading.
+    static bool shown = false;
+
+    // Error and not fatal: most of these do stop the client, but the one that
+    // does not - archives that would not open - still deserves the box, and a
+    // log that calls a survivable start fatal is a log that lies.
+    LOG_ERROR(title, ": ", detail);
+    if (shown) return;
+    shown = true;
+
+    // Not in a headless harness, and not in CI. Both run this binary knowing
+    // it may fail, neither has anyone to click the box, and a modal dialog
+    // with no one in front of it is a hang rather than a message.
+    if (envFlagEnabled("WOWEE_NO_ERROR_DIALOG", false)) return;
+
+    std::string body = detail;
+    const std::string logPath = wowee::core::currentLogFilePath();
+    if (!logPath.empty()) {
+        body += "\n\nThe log with the full detail is at:\n" + logPath;
+    }
+    if (SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title.c_str(), body.c_str(),
+                                 nullptr) != 0) {
+        // A machine with no display at all, which is a headless run: the log
+        // is the whole answer there and it already has the line.
+        LOG_ERROR("Could not show the startup error box: ", SDL_GetError());
+    }
+}
 
 Window::Window(const WindowConfig& config)
     : config(config)
@@ -86,7 +117,12 @@ bool Window::initialize() {
 
     // Initialize SDL
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
-        LOG_ERROR("Failed to initialize SDL: ", SDL_GetError());
+        // The one failure the box may not survive: SDL_ShowSimpleMessageBox
+        // brings the video subsystem up itself if it can, and here it could
+        // not. Tried anyway - it costs nothing and on Windows it works even
+        // when the video driver did not - and the log line stands either way.
+        showStartupError("Wowee cannot start",
+                         std::string("SDL could not open a display: ") + SDL_GetError());
         return false;
     }
 
@@ -154,6 +190,20 @@ bool Window::initialize() {
         LOG_ERROR("Ensure the Vulkan runtime (vulkan-1.dll) is installed. "
                   "Install the latest GPU drivers or the Vulkan Runtime from https://vulkan.lunarg.com/");
 #endif
+        // The hint the log already carries, said where it will be read. This
+        // is the single commonest reason this client will not start on a
+        // machine that has never run anything but the original game.
+#ifdef __APPLE__
+        const char* kHint =
+            "Install a Vulkan runtime:  brew install vulkan-loader molten-vk";
+#else
+        const char* kHint =
+            "Install your GPU vendor's latest drivers, or the Vulkan Runtime "
+            "from https://vulkan.lunarg.com/";
+#endif
+        showStartupError("Wowee needs Vulkan",
+                         std::string("The Vulkan runtime could not be loaded.\n") +
+                             SDL_GetError() + "\n\n" + kHint);
         SDL_Quit();
         return false;
     }
@@ -198,7 +248,8 @@ bool Window::initialize() {
     );
 
     if (!window) {
-        LOG_ERROR("Failed to create window: ", SDL_GetError());
+        showStartupError("Wowee cannot open a window",
+                         std::string("SDL_CreateWindow failed: ") + SDL_GetError());
         return false;
     }
 
@@ -217,7 +268,11 @@ bool Window::initialize() {
     vkContext = std::make_unique<rendering::VkContext>();
     vkContext->setVsync(vsync);
     if (!vkContext->initialize(window)) {
-        LOG_ERROR("Failed to initialize Vulkan context");
+        // VkContext has already raised the box for whichever stage failed, and
+        // it knows which one; this is the catch-all for a stage that has none.
+        showStartupError("Wowee cannot start Vulkan",
+                         "The Vulkan renderer could not be brought up on this "
+                         "machine.");
         return false;
     }
 
@@ -245,11 +300,14 @@ bool Window::initialize() {
 /// Not fatal, and quiet about it: a missing or unreadable icon costs the window
 /// nothing but the icon.
 void Window::setWindowIcon() {
-    static constexpr const char* kIconPath = "assets/Wowee.png";
+    // Working directory first, then beside the executable - so a copy launched
+    // from an unrelated working directory still has its icon. See
+    // core::resolveResourcePath for why that order and not the other one.
+    const std::string iconPath = resolveResourcePath("assets/Wowee.png");
     int w = 0, h = 0, channels = 0;
-    unsigned char* pixels = stbi_load(kIconPath, &w, &h, &channels, 4);
+    unsigned char* pixels = stbi_load(iconPath.c_str(), &w, &h, &channels, 4);
     if (!pixels) {
-        LOG_DEBUG("Window icon not loaded from ", kIconPath, ": ", stbi_failure_reason());
+        LOG_DEBUG("Window icon not loaded from ", iconPath, ": ", stbi_failure_reason());
         return;
     }
 
