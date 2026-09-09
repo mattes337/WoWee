@@ -10,6 +10,7 @@
 namespace wowee::core  { class Window; }
 namespace wowee::audio { class AudioCoordinator; }
 namespace wowee::game  { class ExpansionRegistry; }
+namespace wowee::auth  { class AuthHandler; }
 
 namespace wowee::addons {
 
@@ -318,6 +319,62 @@ struct LuaServices {
     /// Routed through the same call rather than reimplemented, so both put the
     /// file in the same place under the same name.
     std::function<void()> takeScreenshot;
+
+    // ---- The original login and character screens ----------------------
+    //
+    // GlueXML asks these only while the glue screens are the ones built. Every
+    // one of them is unset in a build with no client behind it - the headless
+    // interface runner is exactly that - so each caller checks first.
+
+    /// Authentication, for the original login and realm-list screens.
+    ///
+    /// A pointer rather than a wall of callbacks: RealmList.lua reads about a
+    /// dozen things off one realm list, and a pointer answers all of them
+    /// where a dozen std::functions would be a dozen places to keep in step.
+    /// Everything read through it is const.
+    auth::AuthHandler* authHandler = nullptr;
+
+    /// Which screen the client is on, for GlueXML's SetCurrentScreen.
+    ///
+    /// GlueParent's SetGlueScreen shows one frame and hides the rest, and then
+    /// says which it settled on. Without this the glue screens change and the
+    /// client does not: the state decides which handler is updated each frame
+    /// and which of this client's own screens is drawn, so a glue login that
+    /// never moves the state leaves the realm list unasked for.
+    ///
+    /// Takes GlueParent's own screen name - "login", "charselect",
+    /// "charcreate", "realmwizard" - rather than the client's state enum, so
+    /// this header stays off application.hpp and the one place that knows both
+    /// vocabularies is the boundary where the client is assembled. False for a
+    /// screen the client has no state for: the credits, the intro movies, and
+    /// the two screens for a retail patcher and a trial account.
+    std::function<bool(const std::string& glueScreenName)> setCurrentScreen;
+
+    /// The login button, and the cancel beside it.
+    ///
+    /// DefaultServerLogin names no server - the original client takes that
+    /// from its own realmlist file, and this client takes it from the server
+    /// its native login screen last used. False when there is none to take,
+    /// which is a fresh install that has never logged in.
+    std::function<bool(const std::string& account, const std::string& password)> glueLogin;
+    std::function<void()> glueCancelLogin;
+
+    /// RealmList's OK button: connect to the realm at this one-based row.
+    ///
+    /// False when the row names no realm. The realm-to-world path is one
+    /// method on the client's own screen callbacks rather than a copy of it -
+    /// it carries a session-key fallback that a copy would quietly drop.
+    std::function<bool(int realmIndex)> glueChangeRealm;
+
+    /// The realm the player is on, for GetServerName. `name` is empty before
+    /// one has been chosen, which is the state the login screen reads.
+    struct GlueRealm {
+        std::string name;
+        bool pvp  = false;
+        bool rp   = false;
+        bool down = false;
+    };
+    std::function<GlueRealm()> getCurrentRealm;
 };
 
 } // namespace wowee::addons

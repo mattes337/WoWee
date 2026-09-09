@@ -760,6 +760,55 @@ bool Application::initialize() {
             return am ? am->listFiles(prefix) : std::vector<std::string>{};
         };
 
+        // ── The original login and character screens ──────────────────────
+        //
+        // Everything below is read or driven through uiScreenCallbacks_, which
+        // is built later in initialize(): the lambdas capture `this` and reach
+        // the member when they are called, which is never before the interface
+        // exists. The auth handler is handed over as a pointer because the
+        // realm list is a dozen plain reads off one object.
+        luaSvc.authHandler = authHandler.get();
+        luaSvc.setCurrentScreen = [this](const std::string& name) {
+            // GlueParent's screen names, mapped to this client's states - the
+            // four it has a state for and no more. "credits", "movie",
+            // "options", "patchdownload" and "trialconvert" are screens this
+            // client does not have, and answering false says so rather than
+            // parking the client on an unrelated one.
+            //
+            // Safe to run from inside a glue script: the only arm of setState
+            // that takes the interface down is CHARACTER_SELECTION's
+            // unloadInterface, and that does nothing unless the *world*
+            // interface is loaded - which it never is while a glue screen is
+            // the one on screen.
+            if (name == "login")            { setState(AppState::AUTHENTICATION); return true; }
+            if (name == "charselect")       { setState(AppState::CHARACTER_SELECTION); return true; }
+            if (name == "charcreate")       { setState(AppState::CHARACTER_CREATION); return true; }
+            if (name == "realmwizard")      { setState(AppState::REALM_SELECTION); return true; }
+            return false;
+        };
+        luaSvc.glueLogin = [this](const std::string& account,
+                                  const std::string& password) {
+            return uiScreenCallbacks_ && uiScreenCallbacks_->beginGlueLogin(account, password);
+        };
+        luaSvc.glueCancelLogin = [this]() {
+            if (uiScreenCallbacks_) uiScreenCallbacks_->cancelGlueLogin();
+        };
+        luaSvc.glueChangeRealm = [this](int realmIndex) {
+            if (!authHandler || !uiScreenCallbacks_) return false;
+            const auto& realms = authHandler->getRealms();
+            if (realmIndex < 1 || realmIndex > static_cast<int>(realms.size())) return false;
+            const auto& realm = realms[static_cast<size_t>(realmIndex - 1)];
+            uiScreenCallbacks_->selectRealm(realm.name, realm.address);
+            return true;
+        };
+        luaSvc.getCurrentRealm = [this]() {
+            addons::LuaServices::GlueRealm out;
+            if (uiScreenCallbacks_) {
+                (void)uiScreenCallbacks_->selectedRealmInfo(out.name, out.pvp, out.rp, out.down);
+            }
+            return out;
+        };
+
         // The widget renderer needs the asset manager for Interface\ art and the
         // device to upload it; both exist by now.
         widgetRenderer_.initialize(assetManager.get(),
@@ -3702,6 +3751,31 @@ void Application::update(float deltaTime) {
     // and whose dialogs never appear. In the world this runs inside
     // updateInGame; here it runs beside it, for the states that are not it.
     if (addonManager_ && addonManager_->glueLoaded() && state != AppState::IN_GAME) {
+        // Before the update, so a realm list or a character list that arrived
+        // since the last frame is on the screen the OnUpdate handlers then
+        // read rather than a frame behind it.
+        if (uiScreenCallbacks_) {
+            // Which screen the client is on, in GlueParent's vocabulary. A
+            // realm connecting moves this without the interface asking, and
+            // SET_GLUE_SCREEN is how GlueParent is told. Deduplicated on the
+            // far side, so a screen the interface moved to itself does not
+            // come straight back at it.
+            //
+            // Realm selection is deliberately absent: the original interface
+            // has no screen for it. Its realm list is a dialog that opens over
+            // whichever screen is showing - the login screen after a login,
+            // character select after Change Realm - which is exactly what
+            // announcing nothing here leaves it doing.
+            const char* glueScreen = nullptr;
+            switch (state) {
+                case AppState::AUTHENTICATION:      glueScreen = "login";      break;
+                case AppState::CHARACTER_SELECTION: glueScreen = "charselect"; break;
+                case AppState::CHARACTER_CREATION:  glueScreen = "charcreate"; break;
+                default: break;
+            }
+            if (glueScreen) uiScreenCallbacks_->noteClientScreen(glueScreen);
+            uiScreenCallbacks_->updateGlueScreens();
+        }
         addonManager_->update(deltaTime);
     }
 
@@ -4800,6 +4874,18 @@ void Application::setupUICallbacks() {
         assetManager.get(),
         [this](AppState s) { setState(s); });
     uiScreenCallbacks_->setupCallbacks();
+    // How the original login and character screens hear about the client.
+    //
+    // Not the addon event route beside it: that one is gated on the *world*
+    // interface being loaded, which is exactly what the glue screens are not.
+    if (addonManager_) {
+        uiScreenCallbacks_->setGlueEventSink(
+            [this](const std::string& event, const std::vector<std::string>& args) {
+                if (addonManager_ && addonManager_->glueLoaded()) {
+                    addonManager_->fireEvent(event, args);
+                }
+            });
+    }
 
     // ── World entry, unstuck, hearthstone, bind point ──
     worldEntryCallbacks_ = std::make_unique<WorldEntryCallbackHandler>(
