@@ -2703,7 +2703,8 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         }
 
         // --- Execute all secondary buffers in correct draw order ---
-        VkCommandBuffer validCmds[6];
+        // Allow one command buffer per secondary pass, including selection.
+        VkCommandBuffer validCmds[NUM_SECONDARIES];
         uint32_t numCmds = 0;
         // Terrain first, then the sky. Every sky layer sits on the far plane
         // and depth-tests against what is already there, so drawing it after
