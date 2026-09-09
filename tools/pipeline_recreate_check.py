@@ -42,8 +42,16 @@ def first_chain(src: str):
     if not m:
         return None
     body = re.sub(r"//[^\n]*", "", m.group(1))
-    return [f"{k}({re.sub(r'\s+', ' ', v).strip()})"
-            for k, v in re.findall(r"\.(set\w+)\(([^;]*?)\)\s*\n", body)]
+    # The substitution is done before the f-string rather than inside it: an
+    # f-string expression could not contain a backslash until Python 3.12, so
+    # the inline form was a SyntaxError on every older interpreter - which
+    # meant this guard did not run at all there, and sweep_guard reported it as
+    # a matcher gone blind rather than as a clean tree.
+    calls = []
+    for k, v in re.findall(r"\.(set\w+)\(([^;]*?)\)\s*\n", body):
+        collapsed = re.sub(r"\s+", " ", v).strip()
+        calls.append(f"{k}({collapsed})")
+    return calls
 
 
 def main() -> int:

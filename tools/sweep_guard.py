@@ -1193,6 +1193,15 @@ _SERVER_SRC = os.environ.get("WOWEE_SERVER_SRC", "").strip()
 
 DATA_INPUTS = {
     "Data/interface": ROOT / "Data/interface",
+    # The interface's art, which is a separate thing from the interface. An
+    # extraction that took its Lua and XML and none of its textures leaves
+    # Data/interface there and full of source, so a sweep that needs art ran,
+    # resolved none of its 704 references, and reported the whole interface
+    # missing - a guard checking nothing while reading as a wall of faults.
+    # Buttons is as core as interface art gets: no extraction holding any art
+    # lacks it. Listed after Data/interface, which is a prefix of it and would
+    # otherwise answer first.
+    "Data/interface/buttons": ROOT / "Data/interface/buttons",
     "Data/db": ROOT / "Data/db",
     # The server source these compare against is a separate local clone, so it
     # is absent everywhere except a machine that has one. WOWEE_SERVER_SRC says

@@ -61,7 +61,13 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # to that check, and the sweep then runs on CI, finds nothing, and is
 # failed for reporting nothing.
 DATA = ROOT / "Data"
-_NEEDS = ROOT / "Data/interface"   # what this sweep cannot run without
+# Interface *art*, not the interface directory. "Data/interface" is present in
+# a tree that extracted the interface's Lua and XML and none of its textures,
+# and this sweep then resolved not one of its 704 references and reported all
+# 704 as missing - a guard that checked nothing, reporting the whole interface
+# broken. Buttons is as core as interface art gets: no extraction that has any
+# art lacks it.
+_NEEDS = ROOT / "Data/interface/buttons"   # what this sweep cannot run without
 INTERFACE = DATA / "interface"
 RENDERER = ROOT / "src/ui/widget_renderer.cpp"
 

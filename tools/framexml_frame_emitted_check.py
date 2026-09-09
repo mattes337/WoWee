@@ -47,13 +47,41 @@ WHAT IT CANNOT SEE
 Whether a frame that *was* created is configured correctly - the wrong size,
 a dropped attribute, a script that did not attach. It answers existence only.
 """
+import os
 import pathlib
 import re
 import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-EMIT = ROOT / "build/bin/framexml_emit"
+
+
+def _find_emit() -> pathlib.Path:
+    """Where framexml_emit was built.
+
+    "build/bin" was the only place looked at, and a tree built anywhere else -
+    a container mounting the source read-only and building beside it, which is
+    how this is built here - left the guard reporting that it could not read
+    its own count. A sweep that cannot run reads exactly like a clean tree,
+    which is the one failure mode sweep_guard exists to catch, so it is worth
+    looking in more than one place.
+    """
+    if env := os.environ.get("WOWEE_BUILD_DIR"):
+        candidate = pathlib.Path(env) / "bin/framexml_emit"
+        if candidate.exists():
+            return candidate
+    for rel in ("build/bin", ".build-docker/bin", "build-docker/bin"):
+        candidate = ROOT / rel / "framexml_emit"
+        if candidate.exists():
+            return candidate
+    for absolute in ("/build/bin/framexml_emit",):
+        candidate = pathlib.Path(absolute)
+        if candidate.exists():
+            return candidate
+    return ROOT / "build/bin/framexml_emit"
+
+
+EMIT = _find_emit()
 
 FRAME_EL = (r"(?:Frame|Button|CheckButton|StatusBar|Slider|EditBox|ScrollFrame"
             r"|ScrollingMessageFrame|MessageFrame|SimpleHTML|ColorSelect|Model"
