@@ -250,6 +250,14 @@ struct Widget {
     float texCoordQuad[8] = {0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f};
     float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     bool solidColor = false;    ///< SetTexture(r,g,b[,a]) rather than a file.
+    /// A colour ramp across the region instead of one colour, from
+    /// SetGradient/SetGradientAlpha or a <Gradient> in markup. Alpha is part
+    /// of it: the two in this interface are the credits scroll's fade masks,
+    /// which are a ramp from opaque to transparent and nothing else.
+    bool gradient = false;
+    bool gradientVertical = false;   ///< VERTICAL ramps bottom to top.
+    float gradientMin[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float gradientMax[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     /// A unit's face, claimed by SetPortraitTexture.
     ///
     /// The interface's own portraits are circular images with transparent

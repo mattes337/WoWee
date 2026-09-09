@@ -29,6 +29,14 @@ bool isFrameElement(const std::string& n) {
         "ScrollFrame", "ScrollingMessageFrame", "MessageFrame", "SimpleHTML",
         "ColorSelect", "Model", "PlayerModel", "DressUpModel", "TabardModel",
         "Cooldown", "GameTooltip", "MovieFrame", "ArchaeologyDigSiteFrame",
+        // A Model with the fixed-function effects the glue screens use, and
+        // the declared type of five of them: AccountLogin, CharacterSelect,
+        // CharacterCreate, PatchDownload and RealmWizard are all ModelFFX at
+        // the root. Left out, every one of those was built from no type and no
+        // template - "is not a frame type", said once per file - so the screen
+        // that holds the whole login was a bare Frame that happened to work
+        // because Lua set its model by hand.
+        "ModelFFX",
         // Both are ordinary frames as far as this goes - the client draws what
         // is inside them. Leaving Minimap out skipped the whole minimap
         // subtree, which is why every MinimapNorthTag and MiniMapLFGFrame in
@@ -331,6 +339,38 @@ struct Emitter {
         }
         if (const std::string* mode = node.attr("alphaMode")) {
             if (isTexture) line(var + ":SetBlendMode(" + quote(*mode) + ")");
+        }
+        // <Gradient orientation=".."><MinColor .../><MaxColor .../></Gradient>
+        //
+        // A colour ramp across the texture instead of a single tint. The two in
+        // this interface are the credits scroll's fade masks - green going to
+        // transparent at the top of the list and back at the bottom - and with
+        // the element unread both drew as flat opaque green slabs over the
+        // names they are meant to fade.
+        //
+        // SetGradientAlpha where an alpha is given, which is what makes a mask
+        // a mask; SetGradient is the same call without it.
+        if (isTexture) {
+            for (const XmlNode& g : node.children) {
+                if (g.name != "Gradient") continue;
+                const XmlNode* lo = g.child("MinColor");
+                const XmlNode* hi = g.child("MaxColor");
+                if (!lo || !hi) break;
+                const std::string orient = quote(g.attrOr("orientation", "HORIZONTAL"));
+                auto rgb = [](const XmlNode* c) {
+                    return c->attrOr("r", "0") + ", " + c->attrOr("g", "0") + ", " +
+                           c->attrOr("b", "0");
+                };
+                if (lo->attr("a") || hi->attr("a")) {
+                    line(var + ":SetGradientAlpha(" + orient + ", " + rgb(lo) + ", " +
+                         lo->attrOr("a", "1") + ", " + rgb(hi) + ", " +
+                         hi->attrOr("a", "1") + ")");
+                } else {
+                    line(var + ":SetGradient(" + orient + ", " + rgb(lo) + ", " +
+                         rgb(hi) + ")");
+                }
+                break;
+            }
         }
         emitTextAttr(node, var);
         if (const std::string* jv = node.attr("justifyV")) {
@@ -778,6 +818,10 @@ struct Emitter {
     /// Resolved at runtime, and through the whole chain, because a template may
     /// be declared in another file and this emitter sees one file at a time.
     std::string frameTypeArg(const XmlNode& node) const {
+        // The effects are attributes, not a different widget. Everything that
+        // makes a ModelFFX a ModelFFX - fog, glow - is emitted below as a call
+        // on the frame, so the type it is built as is Model.
+        if (node.name == "ModelFFX") return quote("Model");
         if (isFrameElement(node.name)) return quote(node.name);
         return "__WoweeFrameType(" + quote(node.name) + ", " +
                quote(node.attrOr("inherits", "")) + ")";
@@ -1352,6 +1396,35 @@ struct Emitter {
         if (node.attr("numeric")) {
             line(var + ":SetNumeric(" + (node.attrBool("numeric") ? "true" : "false") + ")");
         }
+        // A model frame's own markup: the file it shows and the fixed-function
+        // effects around it.
+        //
+        // PatchDownload is the one that needs `file`: it names
+        // UI_NightElf.mdx on the frame and never mentions it again, so with
+        // this unread that screen had no model at all. AccountLogin says it
+        // from Lua instead, which is why the login screen was the half of this
+        // that appeared to work.
+        if (const std::string* file = node.attr("file");
+            file && !file->empty() &&
+            (node.name == "ModelFFX" || node.name == "Model" ||
+             node.name == "PlayerModel" || node.name == "DressUpModel" ||
+             node.name == "TabardModel")) {
+            line(var + ":SetModel(" + quote(*file) + ")");
+        }
+        if (const std::string* n = node.attr("fogNear"); n && !n->empty())
+            line(var + ":SetFogNear(" + *n + ")");
+        if (const std::string* f = node.attr("fogFar"); f && !f->empty())
+            line(var + ":SetFogFar(" + *f + ")");
+        if (const std::string* g = node.attr("glow"); g && !g->empty())
+            line(var + ":SetGlow(" + *g + ")");
+        // <FogColor r=".." g=".." b=".."/>, which the schema puts on the frame
+        // rather than in a Layer.
+        for (const XmlNode& child : node.children) {
+            if (child.name != "FogColor") continue;
+            line(var + ":SetFogColor(" + child.attrOr("r", "0") + ", " +
+                 child.attrOr("g", "0") + ", " + child.attrOr("b", "0") + ")");
+            break;
+        }
         // <TextInsets><AbsInset left="12" right="5" bottom="5"/></TextInsets>
         //
         // Where the text and the caret sit inside the box, which is not the
@@ -1496,6 +1569,24 @@ struct Emitter {
         for (const XmlNode& child : node.children) {
             if (child.name == "FontString") emitFontInstance(child, var);
         }
+        // A SimpleHTML's heading fonts. <FontString> above is its body; h1, h2
+        // and h3 are declared as their own elements beside it and were read by
+        // nothing, so every heading in an HTML block drew in the body font at
+        // the body size. The terms of use, the end user agreement and the
+        // connection help are all one HTML block with headings in them.
+        for (const XmlNode& child : node.children) {
+            const std::string& n = child.name;
+            if (n.size() != 17 || n.compare(0, 16, "FontStringHeader") != 0) continue;
+            const char digit = n[16];
+            if (digit < '1' || digit > '3') continue;
+            const std::string element = quote(std::string("h") + digit);
+            if (const std::string* inh = child.attr("inherits"); inh && !inh->empty()) {
+                line(var + ":SetFontObject(" + element + ", " + quote(*inh) + ")");
+            }
+            if (const std::string* sp = child.attr("spacing"); sp && !sp->empty()) {
+                line(var + ":SetSpacing(" + element + ", " + *sp + ")");
+            }
+        }
         // Before Frames and Scripts, so a child anchoring to $parentNormalTexture
         // and an OnLoad reading its own label both find something there.
         emitButtonRegions(node, var, name);
@@ -1592,6 +1683,10 @@ const char* const kElementNames[] = {
     "ScrollingMessageFrame", "Shadow", "SimpleHTML", "Size", "Slider",
     "StatusBar", "TabardModel", "TexCoords", "TextInsets", "Texture",
     "ThumbTexture",
+    // Read now rather than merely tolerated: model effects, texture ramps and
+    // a SimpleHTML's heading fonts.
+    "FogColor", "FontStringHeader1", "FontStringHeader2", "FontStringHeader3",
+    "Gradient", "MaxColor", "MinColor", "ModelFFX", "MovieFrame",
     "TileSize", "TitleRegion", "Translation", "Ui", "WorldFrame",
     "maxResize", "minResize",
 };

@@ -2307,6 +2307,27 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             // file at all draws nothing. Treating the second as the first
             // painted every undecided region in the default white, which for a
             // full-width backdrop is a white slab across the screen.
+            // A colour ramp across the region rather than one colour, and it
+            // replaces the flat colour rather than tinting it - which is what
+            // makes the credits scroll's masks fade the list out at the top
+            // and bottom instead of covering it with two solid slabs.
+            //
+            // AddRectFilledMultiColor takes its corners clockwise from the top
+            // left. WoW's VERTICAL runs the ramp bottom to top, in its own
+            // coordinates, so min belongs at y1 - the bottom edge here, since
+            // this renderer's y grows downward. HORIZONTAL runs left to right,
+            // which needs no such translation.
+            if (w->gradient) {
+                const uint32_t lo = packColor(w->gradientMin, w->alpha);
+                const uint32_t hi = packColor(w->gradientMax, w->alpha);
+                const uint32_t ul = w->gradientVertical ? hi : lo;
+                const uint32_t ur = w->gradientVertical ? hi : hi;
+                const uint32_t br = w->gradientVertical ? lo : hi;
+                const uint32_t bl = w->gradientVertical ? lo : lo;
+                dl->AddRectFilledMultiColor(ImVec2(x0, y0), ImVec2(x1, y1),
+                                            ul, ur, br, bl);
+                continue;
+            }
             if (w->solidColor) {
                 dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1),
                                   packColor(w->color, w->alpha));
