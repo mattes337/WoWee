@@ -822,11 +822,44 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
     // Inherited from the parent's chain rather than its `visible`, or a child
     // of an unanchored driver frame would stop running too.
     w->visibleChain = w->shown && (!parent || parent->visibleChain);
-    // Drawing inherits from the parent's *drawing*, not from the chain: an
-    // anchored child of an unanchored frame has nowhere to be either, because
-    // the thing it is anchored to has no position. Deriving this from the
-    // chain instead put those children back on screen.
-    w->visible = w->shown && (!parent || parent->visible) && !unanchoredFrame;
+    // Drawing inherits from the parent's *drawing*, not from the chain: a
+    // child of an unanchored frame that takes its position from that frame has
+    // nowhere to be either. Deriving this from the chain instead put those
+    // children back on screen.
+    //
+    // But only that child. A region inside an unanchored frame can be anchored
+    // somewhere else entirely, and then it has a position of its own and the
+    // frame it happens to be declared in never enters into it. Blizzard's own
+    // markup does exactly this: AccountLogin.xml wraps "Remember Account Name"
+    // in an anonymous Frame with no anchors and no size, purely to have a
+    // layer to put the font string in, and anchors the font string to
+    // AccountLoginLoginButton. Hiding everything under an unanchored frame
+    // took that label off the login screen - the checkbox beside it drew,
+    // because it is a child of the panel rather than of the wrapper.
+    //
+    // A parent that is shown the whole way up and still not drawn is the
+    // unanchored case and nothing else, which is what makes this testable
+    // without a second flag.
+    const bool parentHasNowhereToBe = parent && parent->visibleChain && !parent->visible;
+    bool takesPositionFromNowhere = parentHasNowhereToBe;
+    if (parentHasNowhereToBe && !w->anchors.empty()) {
+        // A region with no anchors fills its parent, so it is only positioned
+        // if the parent is - which is the case just above. With anchors, it is
+        // positioned unless one of them names something that is not positioned
+        // either. relativeTo 0 means the parent.
+        takesPositionFromNowhere = std::any_of(
+            w->anchors.begin(), w->anchors.end(), [&](const Anchor& a) {
+                if (a.relativeTo == 0 || a.relativeTo == w->parent) return true;
+                const Widget* to = get(a.relativeTo);
+                return to && to->visibleChain && !to->visible;
+            });
+    }
+    // Shown, with somewhere to be, under a parent that is shown the whole way
+    // up. The parent's own *drawing* only bars this one when this one takes
+    // its position from it - which is the whole of the exception above.
+    w->visible = w->shown && !unanchoredFrame &&
+                 (!parent || (parent->visibleChain &&
+                              (parent->visible || !takesPositionFromNowhere)));
     // Clipping is inherited: anything under a scroll frame is bounded by it,
     // however deep, because a scroll child holds frames of its own.
     //
