@@ -707,13 +707,16 @@ void GlueBackdrop::View::applyScene(const GlueSceneState& scene) {
         // SetSequence names - that is a position in the model's sequence list,
         // and this renderer looks the number up as M2Sequence::id. The two
         // agree at zero, and zero is the only value any glue screen asks for.
+        //
+        // Handed over whatever the model carries rather than checked first:
+        // playAnimation falls back to the model's first sequence for a number
+        // it cannot find, and says so once. Refusing to call it for a model
+        // that numbers its one sequence something other than zero would leave
+        // an authored scene standing perfectly still - which is the thing this
+        // has to be careful not to do, because a glue backdrop's animation is
+        // its snow and its light shafts and nothing announces their absence.
         const uint32_t want = scene.sequence < 0 ? 0u : static_cast<uint32_t>(scene.sequence);
-        if (models->hasAnimation(instanceId, want)) {
-            models->playAnimation(instanceId, want, true);
-        } else if (want != 0) {
-            LOG_WARNING("GlueBackdrop: ", loadedPath, " has no sequence ", want,
-                        "; staying on the one it is playing");
-        }
+        models->playAnimation(instanceId, want, true);
         appliedSequence = scene.sequence;
     }
 }
