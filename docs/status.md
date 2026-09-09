@@ -1,6 +1,6 @@
 # Project Status
 
-**Last source review**: 2026-09-08, through fork revision `cd4d477a7`.
+**Last source review**: 2026-09-09; see the [completion evidence](evidence/orchestration-completion-20260909.md) for the validated build boundary.
 
 This page is a source/historical inventory, not a release certification.
 The fork's initial target is WotLK 3.3.5a/build 12340; live gameplay, stock
@@ -93,10 +93,11 @@ In progress / known gaps:
   requiring no Vulkan SDK, SDL, game assets or server. Full-client and GPU
   results remain separate; count and execute tests in the selected build.
 
-- The normal character preview still has an unresolved Vulkan device-loss
-  defect. Diagnostic shader/draw experiments are not rendering certification;
-  see [DEF-004 and preserved results](vulkan-validation-defects.md). Successful
-  authentication and offline tests do not close this gameplay blocker.
+- Character preview sampling now defaults to 1x after a matching 4x run lost
+  the device and the real character/production shaders passed at 1x. This is
+  a local stability mitigation; the underlying MSAA defect and world gameplay
+  remain unverified. [Paired results](evidence/preview-single-sample-20260909.md)
+  preserve the diagnostic limits; [completion evidence](evidence/orchestration-completion-20260909.md) records final default-mode acceptance.
 
 - World map: zone hover detection has edge cases with some zone boundaries; cosmic highlight sizing is approximate
 - Transports: M2 transports (trams) working with position-delta riding; WMO transports (ships, zeppelins) working with path following; some edge cases remain

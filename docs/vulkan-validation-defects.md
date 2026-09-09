@@ -195,6 +195,8 @@ scheduling, one-shot behavior, skipped iterations and invalid/unreachable bounds
 
 ## DEF-004 - P0 - Device loss when opening the character-creation preview
 
+**2026-09-09 update:** the same-binary 1x/4x comparison isolates a working single-sample preview path. Production now defaults to 1x; real character geometry and production shaders passed 1,800 updates, capture and normal shutdown. The underlying 4x fault remains open. [Paired evidence](evidence/preview-single-sample-20260909.md); final default-mode acceptance is recorded in [completion evidence](evidence/orchestration-completion-20260909.md).
+
 Status: observed, unresolved; no source cause or fix verified. Parent: EVAL-01;
 related tasks: QUALITY-04, TEST-04, EVAL character creation/world entry.
 

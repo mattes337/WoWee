@@ -5,7 +5,7 @@
 Live-login run 24 used client SHA-256
 `e8aa2c809339e406d8401b23457ba9936d592e4a03e9f0e782057561404073dd`.
 The default single-sample production character preview rendered and its capture
-succeeded. On quit, after SDL shutdown had begun, the process exited with
+succeeded. After SDL_QUIT was dispatched, the process exited with
 `3221226356` (`0xC0000374`, heap corruption); shutdown and trace completion were
 not recorded. Its artifacts are under
 `D:/wowee-private-live-login/live-login-24`.

@@ -1,0 +1,63 @@
+{
+  "result": "fail",
+  "exit_code": 3221226356,
+  "quit_dispatched": true,
+  "shutdown_completed": false,
+  "errors": [],
+  "intended_auth_endpoint": true,
+  "intended_account": true,
+  "auth_success": true,
+  "realm_list": true,
+  "world_auth_success": true,
+  "character_list_received": true,
+  "character_list": true,
+  "trace_completed": false,
+  "asset_manager_initialized": true,
+  "vulkan_validation_enabled": true,
+  "world_entry_started": false,
+  "protocol_order_verified": true,
+  "lifecycle_order_verified": false,
+  "failure_reasons": [
+    "missing_trace_completed",
+    "missing_shutdown_completed",
+    "shutdown_events_out_of_order",
+    "process_or_validation_failure"
+  ],
+  "screenshot": {
+    "completion_logged": true,
+    "schedule_verified": true,
+    "sha256": "ced6d8775a42b9644a8c29d28a5324ae711c39abb3ccf0a9d594c5e313652a30",
+    "pixels_decoded": false,
+    "after_updates": 600,
+    "timing": "completed-update count; not a server-state condition"
+  },
+  "binary_sha256": "e8aa2c809339e406d8401b23457ba9936d592e4a03e9f0e782057561404073dd",
+  "expected_binary_sha256": "e8aa2c809339e406d8401b23457ba9936d592e4a03e9f0e782057561404073dd",
+  "input": {
+    "asset_root": "D:\\wowee-private-live-login\\live-login-24\\runtime\\Data",
+    "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
+    "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 1800,
+  "timeout_seconds": 120.0,
+  "account": "WOWEE_EVAL_A",
+  "auth_endpoint": "127.0.0.1:3724",
+  "input_geometry": {
+    "account_x": 640,
+    "account_y": 306,
+    "basis": "observed-capture"
+  },
+  "requested_character": null,
+  "preview_retry": null,
+  "diagnostic_mode": "normal validation",
+  "preview_isolation": null,
+  "preview_rasterizer_discard": false,
+  "preview_single_sample": false,
+  "sync_validation_requested": false,
+  "character_fragment_override": null,
+  "missing_character_fragment": null,
+  "character_vertex_override": null,
+  "default_preview_certified": null,
+  "scope": "real SDL input, authentication, realm and character list; optional real character creation; no world entry or gameplay certification"
+}

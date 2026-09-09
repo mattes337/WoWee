@@ -1,4 +1,6 @@
-# Orchestration recovery checkpoint
+# Historical orchestration recovery checkpoint — 2026-09-08
+
+Superseded by the September 9 recovery and completion work. Commits through `496d69bb1` were pushed to `origin/master` before pending work resumed. [Preview recovery](preview-single-sample-20260909.md) records restored capacity and the successful real character preview. The instructions below preserve the earlier checkpoint, not current blockers.
 
 The root orchestrator is Astra; the three worker roles use GPT-5.6 Sol. Continue the existing roadmap task after host recovery. No changes have been pushed.
 

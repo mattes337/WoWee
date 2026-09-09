@@ -1,0 +1,49 @@
+{
+  "result": "pass",
+  "binary_sha256": "21c527edaa1a9509475525a29022c4a6d47f2a7fd8948137d0e0dae1ee84ddf2",
+  "input": {
+    "asset_root": "D:\\wowee-runner-input-animation-calendar-20260909\\assets",
+    "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
+    "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "cases": [
+    {
+      "name": "stock_and_valid",
+      "result": "pass",
+      "exit_code": 0,
+      "stdout_sha256": "48fd417a5a1aafa691de92db297870fb128dc527965156f8179637ad617de218",
+      "source": "== source: 415a9daa9ea8831224017f4c02f0fd65501730d1; built 2026-09-09"
+    },
+    {
+      "name": "hit_trailing",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "8e0ef56d3b3c59fc8cd83c6362001c6b1d95f5aeadb4512a47a3d65d403c2218",
+      "source": null
+    },
+    {
+      "name": "hit_nan",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "8e0ef56d3b3c59fc8cd83c6362001c6b1d95f5aeadb4512a47a3d65d403c2218",
+      "source": null
+    },
+    {
+      "name": "mouse_unknown",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "d292620f954b9dabdd246c8730de0f9c052f770e1c68c64164c9b9bd4d2ac6fa",
+      "source": null
+    },
+    {
+      "name": "mouse_infinite",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "d292620f954b9dabdd246c8730de0f9c052f770e1c68c64164c9b9bd4d2ac6fa",
+      "source": null
+    }
+  ],
+  "scope": "Fresh offline stock Animation OnLoad/generic/smoothing; Calendar API registrations, no-open permission/selection and natural Calendar show/hide; malformed CLI rejection. No populated-event, GPU or gameplay certification.",
+  "harness_sha256": "bef064e9fab96c2788ef1601d6623a6901cc80d7c619e79ec99a0dccab8b1502"
+}
