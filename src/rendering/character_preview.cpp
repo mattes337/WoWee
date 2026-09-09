@@ -257,11 +257,12 @@ bool CharacterPreview::createFBO() {
     VkDevice device = vkCtx_->getDevice();
     VmaAllocator allocator = vkCtx_->getAllocator();
 
-    // 1. Create off-screen render target with depth
+    // The 4x preview resolve path loses the device on the validated Windows GPU.
+    // Keep production previews single-sampled until that path is repaired.
+    // See docs/evidence/preview-single-sample-20260909.md.
     const bool previewSingleSample =
         core::envFlagEnabled("WOWEE_TEST_PREVIEW_SINGLE_SAMPLE");
-    const VkSampleCountFlagBits previewSamples = previewSingleSample
-        ? VK_SAMPLE_COUNT_1_BIT : VK_SAMPLE_COUNT_4_BIT;
+    const VkSampleCountFlagBits previewSamples = VK_SAMPLE_COUNT_1_BIT;
     renderTarget_ = std::make_unique<VkRenderTarget>();
     if (!renderTarget_->create(*vkCtx_, fboWidth_, fboHeight_, VK_FORMAT_R8G8B8A8_UNORM, true,
                                previewSamples)) {

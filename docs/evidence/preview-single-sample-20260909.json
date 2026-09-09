@@ -1,0 +1,106 @@
+[
+  {
+    "result": "pass",
+    "exit_code": 0,
+    "binary_sha256": "11c57ac6a829970fdcab3bc949b554e9ed74f4d0347788ffa6e57a5d1e5da616",
+    "updates": 1800,
+    "errors": [],
+    "failure_reasons": [],
+    "diagnostic_mode": "preview isolation: non-indexed-draw; preview single-sample target; shader override; not normal-mode certification",
+    "preview_single_sample": true,
+    "preview_isolation": "non-indexed-draw",
+    "character_fragment_override": {
+      "original_sha256": "4744080e51d0067e5efb1ae746d33681b3b9342cf3d0379f59b6f304992cf0d3",
+      "override_sha256": "2698110bcbab8004a4038b55c5df87ddfde98b7a7655a612759d6fce9b805c84",
+      "scope": "fresh runtime/assets/shaders/character.frag.spv only"
+    },
+    "character_vertex_override": {
+      "original_sha256": "00496682d270a9bcc07925d37b764dc2935769ccdf91eb6b8a2c6d42c4e61e45",
+      "override_sha256": "5c7c0578893be500c1e10e1fd839e03108225a4155ef1e6b4d69c0f37f4a4d7c",
+      "scope": "fresh runtime/assets/shaders/character.vert.spv only"
+    },
+    "world_entry_started": false,
+    "shutdown_completed": true,
+    "screenshot": {
+      "completion_logged": true,
+      "schedule_verified": true,
+      "sha256": "7cb4a71e4dc838382031bf51eec1a26195ceec0b59087ba36dabee5905c9c905",
+      "pixels_decoded": false,
+      "after_updates": 600,
+      "timing": "completed-update count; not a server-state condition"
+    },
+    "run": 21
+  },
+  {
+    "result": "fail",
+    "exit_code": 1,
+    "binary_sha256": "11c57ac6a829970fdcab3bc949b554e9ed74f4d0347788ffa6e57a5d1e5da616",
+    "updates": 1800,
+    "errors": [
+      "[2026-09-09 08:59:33.750] [ERROR] endFrame[54] vkQueueSubmit FAILED: -4",
+      "[2026-09-09 08:59:33.750] [ERROR] Device lost - first seen by endFrame vkQueueSubmit",
+      "[2026-09-09 08:59:33.751] [ERROR]   graphics queue last reached 'post-process' at stage 0x1",
+      "[2026-09-09 08:59:33.751] [ERROR]   graphics queue last reached 'frame start' at stage 0x2000",
+      "[2026-09-09 08:59:33.751] [ERROR]   upload queue: no checkpoint reached",
+      "[2026-09-09 08:59:33.752] [ERROR]   driver says: ''",
+      "[2026-09-09 08:59:33.752] [ERROR]   fault 0: invalid write at 0x0 (within 0x1000)",
+      "[2026-09-09 08:59:33.752] [ERROR] GPU device lost - exiting application",
+      "[2026-09-09 08:59:34.346] [FATAL] Unhandled exception: WOWEE_TEST_MAX_UPDATES: GPU device lost during smoke run"
+    ],
+    "failure_reasons": [
+      "missing_quit_dispatched",
+      "missing_trace_completed",
+      "missing_shutdown_completed",
+      "shutdown_events_out_of_order",
+      "process_or_validation_failure"
+    ],
+    "diagnostic_mode": "preview isolation: non-indexed-draw; shader override; not normal-mode certification",
+    "preview_single_sample": false,
+    "preview_isolation": "non-indexed-draw",
+    "character_fragment_override": {
+      "original_sha256": "4744080e51d0067e5efb1ae746d33681b3b9342cf3d0379f59b6f304992cf0d3",
+      "override_sha256": "2698110bcbab8004a4038b55c5df87ddfde98b7a7655a612759d6fce9b805c84",
+      "scope": "fresh runtime/assets/shaders/character.frag.spv only"
+    },
+    "character_vertex_override": {
+      "original_sha256": "00496682d270a9bcc07925d37b764dc2935769ccdf91eb6b8a2c6d42c4e61e45",
+      "override_sha256": "5c7c0578893be500c1e10e1fd839e03108225a4155ef1e6b4d69c0f37f4a4d7c",
+      "scope": "fresh runtime/assets/shaders/character.vert.spv only"
+    },
+    "world_entry_started": false,
+    "shutdown_completed": false,
+    "screenshot": {
+      "completion_logged": false,
+      "schedule_verified": false,
+      "sha256": null,
+      "pixels_decoded": false,
+      "after_updates": 600,
+      "timing": "completed-update count; not a server-state condition"
+    },
+    "run": 22
+  },
+  {
+    "result": "pass",
+    "exit_code": 0,
+    "binary_sha256": "11c57ac6a829970fdcab3bc949b554e9ed74f4d0347788ffa6e57a5d1e5da616",
+    "updates": 1800,
+    "errors": [],
+    "failure_reasons": [],
+    "diagnostic_mode": "preview single-sample target; not normal-mode certification",
+    "preview_single_sample": true,
+    "preview_isolation": null,
+    "character_fragment_override": null,
+    "character_vertex_override": null,
+    "world_entry_started": false,
+    "shutdown_completed": true,
+    "screenshot": {
+      "completion_logged": true,
+      "schedule_verified": true,
+      "sha256": "d5229bb5d52161e6609e403b06b12929f8b8aeadcca572556e8997747f810ce1",
+      "pixels_decoded": false,
+      "after_updates": 600,
+      "timing": "completed-update count; not a server-state condition"
+    },
+    "run": 23
+  }
+]
