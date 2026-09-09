@@ -555,23 +555,22 @@ function(wowee_link_stormlib target)
     if(NOT (STORMLIB_LIBRARY AND STORMLIB_INCLUDE_DIR))
         return()
     endif()
+    # A StormLib built with its bundled libraries carries LibTomCrypt,
+    # LibTomMath and bzip2 inside it and needs none of these; one built against
+    # the system's does. They are linked when present and their absence is not
+    # a refusal, because refusing would disable archive reads for the ordinary
+    # bundled build that does not need them.
     if(WIN32)
-        # Static StormLib exposes its LibTomCrypt/LibTomMath dependencies.
         find_library(TOMCRYPT_LIB NAMES tomcrypt libtomcrypt)
         find_library(TOMMATH_LIB NAMES tommath libtommath)
-        if(NOT (TOMCRYPT_LIB AND TOMMATH_LIB))
-            message(STATUS "  ${target} direct MPQ reads: DISABLED "
-                           "(StormLib needs LibTomCrypt and LibTomMath)")
-            return()
+        if(TOMCRYPT_LIB AND TOMMATH_LIB)
+            target_link_libraries(${target} PRIVATE ${TOMCRYPT_LIB} ${TOMMATH_LIB})
         endif()
-        target_link_libraries(${target} PRIVATE ${TOMCRYPT_LIB} ${TOMMATH_LIB})
         find_library(WININET_LIB wininet)
         if(WININET_LIB)
             target_link_libraries(${target} PRIVATE ${WININET_LIB})
         endif()
     endif()
-    # StormLib compresses with bzip2 as well as zlib and leaves both to
-    # whoever links it.
     find_library(BZ2_LIB NAMES bz2 bzip2)
     if(BZ2_LIB)
         target_link_libraries(${target} PRIVATE ${BZ2_LIB})

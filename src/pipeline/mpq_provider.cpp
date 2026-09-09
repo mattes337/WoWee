@@ -3,7 +3,19 @@
 #include "core/logger.hpp"
 
 #ifdef WOWEE_HAVE_STORMLIB
+// The library is named on the link line by CMake. Left to itself StormLib.h
+// asks MSVC to link one of eight names built from the CRT and character-set
+// flags - StormLibRAS.lib and friends - and a StormLib that is not spelled
+// that way fails to link for a reason that names a file nobody has.
+#define STORMLIB_NO_AUTO_LINK
 #include <StormLib.h>
+
+// Paths are passed as bytes. StormLib takes TCHAR, which is char here and
+// wchar_t in a UNICODE build; every archive path would then be read as
+// garbage. Failing at compile time beats an archive that will not open.
+static_assert(sizeof(TCHAR) == sizeof(char),
+              "wowee passes archive paths to StormLib as narrow strings; "
+              "this build makes TCHAR wide");
 #endif
 
 namespace wowee {
