@@ -96,11 +96,6 @@ bool MpqProvider::exists(const std::string& path) const {
     return findArchive(path) >= 0;
 }
 
-std::string MpqProvider::sourceOf(const std::string& path) const {
-    const int index = findArchive(path);
-    return index >= 0 ? archives_[static_cast<size_t>(index)]->path : std::string{};
-}
-
 std::vector<std::string> MpqProvider::list(const std::string& prefix) const {
     // Candidates first, from every archive's name table, then one priority
     // lookup each: an archive can name a file a higher one deletes, and the
@@ -189,8 +184,6 @@ void MpqProvider::close() { archives_.clear(); }
 int MpqProvider::findArchive(const std::string&) const { return -1; }
 
 bool MpqProvider::exists(const std::string&) const { return false; }
-
-std::string MpqProvider::sourceOf(const std::string&) const { return {}; }
 
 std::vector<std::string> MpqProvider::list(const std::string&) const { return {}; }
 

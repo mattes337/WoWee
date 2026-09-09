@@ -18,6 +18,7 @@
 #include "core/logger.hpp"
 #include "core/app_clock.hpp"
 #include "ui/widget_tree.hpp"
+#include "game/expansion_profile.hpp"
 
 namespace wowee::addons {
 
@@ -293,6 +294,26 @@ inline LuaServices* getLuaServices(lua_State* L) {
     auto* svc = static_cast<LuaServices*>(lua_touserdata(L, -1));
     lua_pop(L, 1);
     return svc;
+}
+
+/// The expansion, counted from zero: 0 vanilla, 1 TBC, 2 Wrath.
+///
+/// The numbering LFGDungeons.dbc's expansion column uses and the one
+/// MAX_PLAYER_LEVEL_TABLE is keyed by - [0]=60, [1]=70, [2]=80 - and what the
+/// glue screens read to decide which races character creation offers. Both the
+/// world's GetAccountExpansionLevel and the glue screens' own
+/// GetClientExpansionLevel are this number, so it is written once.
+///
+/// Wrath when nothing says otherwise, which is the profile the client defaults
+/// to.
+[[nodiscard]] inline int expansionLevelZeroBased(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    auto* reg = svc ? svc->expansionRegistry : nullptr;
+    auto* prof = reg ? reg->getActive() : nullptr;
+    if (!prof) return 2;
+    if (prof->id == "wotlk") return 2;
+    if (prof->id == "tbc") return 1;
+    return 0;   // classic and turtle
 }
 
 // ---- Unit resolution helpers ----

@@ -68,7 +68,7 @@ bool AssetManager::initialize(const std::string& dataPath_) {
     // A manifest is how an extracted tree is indexed, not how assets are
     // found. An installation read through its own archives has neither a
     // manifest nor an extracted tree, and needs neither.
-    const bool haveArchives = archives_ && archives_->isOpen();
+    const bool haveArchives = hasGameArchives();
     std::string manifestPath = dataPath + "/manifest.json";
     if (!std::filesystem::exists(manifestPath)) {
         if (!haveArchives) {

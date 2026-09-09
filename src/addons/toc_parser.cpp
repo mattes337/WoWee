@@ -1,6 +1,5 @@
 #include "addons/toc_parser.hpp"
 #include <cstdlib>
-#include <fstream>
 #include <sstream>
 #include <algorithm>
 
@@ -118,14 +117,6 @@ int TocFile::getInterfaceVersion() const {
     auto it = directives.find("Interface");
     if (it == directives.end()) return 0;
     return std::atoi(it->second.c_str());
-}
-
-std::optional<TocFile> parseTocFile(const std::string& tocPath) {
-    std::ifstream f(tocPath, std::ios::binary);
-    if (!f.is_open()) return std::nullopt;
-    std::stringstream ss;
-    ss << f.rdbuf();
-    return parseTocText(tocPath, ss.str());
 }
 
 std::optional<TocFile> parseTocText(const std::string& tocPath,

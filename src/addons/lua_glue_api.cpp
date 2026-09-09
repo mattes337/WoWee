@@ -59,23 +59,11 @@ std::string readSavedAccount() {
     return name;
 }
 
-/// The expansion, counted from zero: 0 vanilla, 1 TBC, 2 Wrath.
-///
-/// The same numbering the world interface's GetAccountExpansionLevel uses, and
-/// what CharacterCreate reads to decide whether the death knight and the two
-/// TBC races are offered.
-int expansionLevel(lua_State* L) {
-    auto* svc = getLuaServices(L);
-    auto* reg = svc ? svc->expansionRegistry : nullptr;
-    auto* prof = reg ? reg->getActive() : nullptr;
-    if (!prof) return 2;
-    if (prof->id == "wotlk") return 2;
-    if (prof->id == "tbc") return 1;
-    return 0;  // classic and turtle
-}
-
+/// The same number the world interface's GetAccountExpansionLevel answers, and
+/// for the same reason: CharacterCreate reads it to decide whether the death
+/// knight and the two TBC races are offered.
 int lua_GetClientExpansionLevel(lua_State* L) {
-    lua_pushnumber(L, expansionLevel(L));
+    lua_pushnumber(L, expansionLevelZeroBased(L));
     return 1;
 }
 

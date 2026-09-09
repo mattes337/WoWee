@@ -3446,19 +3446,6 @@ static int lua_GetMapInfo(lua_State* L) {
 
 /// The expansion this client speaks. Two is Wrath, which is what the wire
 /// format and the DBC layouts here assume.
-/// The expansion, counted from zero: 0 vanilla, 1 TBC, 2 Wrath. That is the
-/// numbering LFGDungeons.dbc's expansion column uses and the one
-/// MAX_PLAYER_LEVEL_TABLE is keyed by - [0]=60, [1]=70, [2]=80.
-static int expansionLevelZeroBased(lua_State* L) {
-    auto* svc = getLuaServices(L);
-    auto* reg = svc ? svc->expansionRegistry : nullptr;
-    auto* prof = reg ? reg->getActive() : nullptr;
-    if (!prof) return 2;
-    if (prof->id == "wotlk") return 2;
-    if (prof->id == "tbc") return 1;
-    return 0;   // classic and turtle
-}
-
 static int lua_GetExpansionLevel(lua_State* L) {
     lua_pushnumber(L, expansionLevelZeroBased(L));
     return 1;

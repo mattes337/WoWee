@@ -52,10 +52,6 @@ public:
     /// unreadable.
     [[nodiscard]] std::vector<uint8_t> read(const std::string& path) const;
 
-    /// The archive a lookup is answered from, for diagnostics. Empty when the
-    /// file is not there.
-    [[nodiscard]] std::string sourceOf(const std::string& path) const;
-
     /// Every normalized path under @p prefix, across all open archives, with
     /// duplicates and patch-deleted files removed.
     ///
