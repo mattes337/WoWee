@@ -1968,29 +1968,64 @@ static int lua_GetLocale(lua_State* L) {
 /// exactly why the count being wrong was visible on screen rather than in a
 /// log.
 ///
-/// The three that are knowable are answered from what this client knows: the
-/// game version and build from the active profile, and the date from this
-/// client's own build, which is the more useful of the two dates a player
-/// could be shown. The release channel and build type are Blizzard's and mean
-/// nothing here, so they are constants and say so.
+/// The first two are labels, not facts, and the original client resolves them
+/// out of its own string table before handing them over: 3.3.5a's WoW.exe
+/// carries "VERSION" and "RELEASE_BUILD" beside "3.3.5" and "12340" in one
+/// literal pool, and GlueStrings.lua defines VERSION = "Version" and
+/// RELEASE_BUILD = "Release". So the login screen reads
+///
+///     Version 3.3.5 (12340) (Release)
+///     Jun 24 2010
+///
+/// This answered "Release" and "0" in those two slots - the channel name in
+/// the label's place and a placeholder in the channel's - and drew
+/// "Release 3.3.5a (12340) (0)". Both are looked up the way the original looks
+/// them up, through the globals the interface defines, so a localised client
+/// gets its own words rather than these English ones.
+///
+/// The version is the numeric triple with no hotfix letter. versionString()
+/// appends the "a" that names the build to a player, and it belongs
+/// everywhere it is used for that - but the original answers "3.3.5" here and
+/// the screen shows what it answers.
+///
+/// The rest are answered from what this client knows: the build number and
+/// interface number from the active profile, and the date from this client's
+/// own build, which is the more useful of the two dates a player could be
+/// shown and the one difference from the original left standing on purpose.
 static int lua_GetBuildInfo(lua_State* L) {
     auto* svc = getLuaServices(L);
     auto* profile = svc && svc->expansionRegistry
         ? svc->expansionRegistry->getActive() : nullptr;
 
-    std::string version = "3.3.5a";
+    std::string version = "3.3.5";
     uint32_t build = 12340;
     uint32_t tocVersion = 30300;
     if (profile) {
-        version = profile->versionString();
+        version = std::to_string(static_cast<int>(profile->majorVersion)) + "."
+                + std::to_string(static_cast<int>(profile->minorVersion)) + "."
+                + std::to_string(static_cast<int>(profile->patchVersion));
         build = profile->build;
         tocVersion = profile->majorVersion >= 3   ? 30300
                    : profile->majorVersion == 2   ? 20400
                                                   : 11200;
     }
 
-    lua_pushstring(L, "Release");                       // versionType
-    lua_pushstring(L, "0");                             // buildType
+    // The interface's own word for it where the interface has one. Read from
+    // the globals rather than the C++ side because that is the only place the
+    // translation lives: GlueStrings.lua is what makes RELEASE_BUILD "Release"
+    // in English and "Verkaufsversion" in German.
+    auto globalString = [L](const char* name, const char* fallback) {
+        lua_getglobal(L, name);
+        const char* value = lua_isstring(L, -1) ? lua_tostring(L, -1) : nullptr;
+        std::string out = value ? value : fallback;
+        lua_pop(L, 1);
+        return out;
+    };
+    const std::string versionType = globalString("VERSION", "Version");
+    const std::string buildType = globalString("RELEASE_BUILD", "Release");
+
+    lua_pushstring(L, versionType.c_str());             // versionType
+    lua_pushstring(L, buildType.c_str());               // buildType
     lua_pushstring(L, version.c_str());                 // version
     lua_pushstring(L, std::to_string(build).c_str());   // internalVersion
     lua_pushstring(L, core::kBuildDate);                // date
