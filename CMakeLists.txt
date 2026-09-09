@@ -540,7 +540,34 @@ function(compile_shaders TARGET_NAME)
 
     add_custom_target(${TARGET_NAME}_shaders ALL DEPENDS ${SPV_OUTPUTS})
     add_dependencies(${TARGET_NAME} ${TARGET_NAME}_shaders)
+    # Handed back so the embedding step below can depend on them: editing a
+    # .glsl recompiles the .spv, which then has to regenerate the table.
+    set(WOWEE_SPV_OUTPUTS ${SPV_OUTPUTS} PARENT_SCOPE)
 endfunction()
+
+# ---- Embedded shaders ----
+#
+# The .spv files compiled above are also baked into the executable, so a
+# wowee.exe dropped beside the original game executable runs with nothing else
+# copied next to it. assets/shaders/ on disk still wins when it is there - see
+# VkShaderModule::loadFromFile for why that order and not the other one.
+#
+# Generated once here so the sources exist before any target lists them, and
+# again from a build-time custom command further down, so a recompiled shader
+# regenerates the table. Both write through copy_if_different: a run that
+# changes nothing does not rebuild the translation unit.
+set(WOWEE_EMBEDDED_SHADERS_CPP ${CMAKE_BINARY_DIR}/generated/rendering/embedded_shaders.cpp)
+set(WOWEE_EMBEDDED_SHADERS_HPP ${CMAKE_BINARY_DIR}/generated/rendering/embedded_shaders.hpp)
+set(WOWEE_EMBED_SHADERS_ARGS
+    -DSRC_DIR=${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders
+    -DPATTERN=*.spv
+    # The key the 137 call sites already spell, so none of them change.
+    -DPREFIX=assets/shaders/
+    -DOUT_CPP=${WOWEE_EMBEDDED_SHADERS_CPP}
+    -DOUT_HPP=${WOWEE_EMBEDDED_SHADERS_HPP}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedResources.cmake
+)
+execute_process(COMMAND ${CMAKE_COMMAND} ${WOWEE_EMBED_SHADERS_ARGS})
 
 # StormLib: the extraction tool needs it, and so does reading an untouched
 # installation's archives at runtime. Without it wowee still runs against an
@@ -899,6 +926,9 @@ set(WOWEE_SOURCES
     src/rendering/vk_utils.cpp
     src/rendering/polygon_triangulate.cpp
     src/rendering/vk_shader.cpp
+    # The SPIR-V byte arrays vk_shader.cpp falls back to. Generated - see the
+    # embedded shaders block next to compile_shaders() above.
+    ${WOWEE_EMBEDDED_SHADERS_CPP}
     src/rendering/vk_texture.cpp
     src/rendering/vk_buffer.cpp
     src/rendering/vk_pipeline.cpp
@@ -1286,6 +1316,19 @@ endif()
 if(GLSLC)
     compile_shaders(wowee)
 endif()
+
+# Regenerate the embedded shader table whenever a .spv changes. WOWEE_SPV_OUTPUTS
+# is empty without glslc, which is the shipped case and the CI-image case: the
+# .spv files are tracked, the configure-time run above already read them, and
+# this rule then has nothing to react to and never fires. The custom command may
+# follow the target that lists its output, as long as both are in this directory.
+add_custom_command(
+    OUTPUT ${WOWEE_EMBEDDED_SHADERS_CPP} ${WOWEE_EMBEDDED_SHADERS_HPP}
+    COMMAND ${CMAKE_COMMAND} ${WOWEE_EMBED_SHADERS_ARGS}
+    DEPENDS ${WOWEE_SPV_OUTPUTS} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedResources.cmake
+    COMMENT "Embedding SPIR-V shaders into the executable"
+    VERBATIM
+)
 
 # Version header generated from `git describe`. Regenerated on every build (the
 # script rewrites the header only when the version changed), so tagging a release
@@ -2277,6 +2320,8 @@ add_executable(wowee_editor
     src/rendering/vk_utils.cpp
     src/rendering/polygon_triangulate.cpp
     src/rendering/vk_shader.cpp
+    # vk_shader.cpp calls into the generated table, so this target needs it too.
+    ${WOWEE_EMBEDDED_SHADERS_CPP}
     src/rendering/vk_texture.cpp
     src/rendering/vk_buffer.cpp
     src/rendering/vk_pipeline.cpp
@@ -2308,6 +2353,9 @@ target_include_directories(wowee_editor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/editor
+    # rendering/embedded_shaders.hpp, generated. wowee and framexml_run already
+    # have this on their include path; this target listed its own.
+    ${CMAKE_BINARY_DIR}/generated
 )
 target_include_directories(wowee_editor SYSTEM PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/extern
