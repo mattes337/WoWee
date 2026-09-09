@@ -15,6 +15,22 @@ that declares it:
 
 Names are matched case-insensitively, because the client lowercases them.
 
+One kind of mention is not a reader. A row in settings_schema.cpp carrying an
+`unavailable` reason names, in its store, the CVar the original client's
+control wrote - and the whole point of that row is that nothing here reads it.
+Counting the row as a reader would silence the sweep for exactly the settings
+it should keep watching, so those names are looked for everywhere except that
+file, and land in the handled bucket rather than the read one.
+
+There are two ways a dead setting can be handled and they are counted apart,
+because they say different things to a player. Hidden - the frame is in
+kRemovedControlsLua - takes the control off the panel and leaves a hole.
+Shown with a reason - a schema row with `unavailable` - draws it greyed and
+says why. Both are honest; only the second answers the player who went
+looking. Keeping them separate means moving a setting from one to the other is
+visible here, and means taking a control back out of kRemoved cannot quietly
+turn a hidden dead setting into a live one nothing reads.
+
 A control built in Lua rather than XML has no name this can resolve, so
 greying it does not take it off the list. That under-credits by two today (the
 two voice device dropdowns) and errs towards reporting a setting as dead, which
@@ -40,6 +56,10 @@ ROOT = Path(__file__).resolve().parent.parent
 PANELS = ROOT / "Data/interface/framexml"
 LUA_ROOTS = [ROOT / "Data/interface"]
 CPP_ROOTS = [ROOT / "src", ROOT / "include"]
+#: The rows the panels are built from. Read twice: as part of the C++ corpus
+#: for every other name, and parsed below for the rows that declare a setting
+#: this client cannot honour.
+SCHEMA_CPP = ROOT / "src/ui/settings_schema.cpp"
 
 # The files that declare controls. A mention inside one of these does not make
 # a setting live, and both ways of being clever about that were tried:
@@ -191,6 +211,139 @@ def uvar_map():
     return {c.lower(): u for u, c in UVAR_ENTRY.findall(text)}
 
 
+#: One C++ string literal, with its body captured. Escapes are consumed whole
+#: so a backslash-quote inside a tooltip does not end it early.
+STRING_LIT = re.compile(r'"((?:[^"\\]|\\.)*)"')
+CHAR_LIT = re.compile(r"'(?:[^'\\]|\\.)*'")
+#: SettingDesc field positions, in declaration order - see the struct in
+#: include/ui/settings_schema.hpp. Only these two are wanted: the store names
+#: the CVar, and a non-empty unavailable says the client cannot honour it.
+STORE_FIELD = 12
+UNAVAILABLE_FIELD = 15
+
+
+def _strip_comments(text):
+    """C++ source with comments removed, string and char literals untouched."""
+    out, i, n = [], 0, len(text)
+    while i < n:
+        if text[i] == '"':
+            m = STRING_LIT.match(text, i)
+            if m:
+                out.append(m.group(0))
+                i = m.end()
+                continue
+        elif text[i] == "'":
+            m = CHAR_LIT.match(text, i)
+            if m:
+                out.append(m.group(0))
+                i = m.end()
+                continue
+        elif text.startswith("//", i):
+            j = text.find('\n', i)
+            i = n if j == -1 else j
+            continue
+        elif text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            i = n if j == -1 else j + 2
+            out.append(" ")
+            continue
+        out.append(text[i])
+        i += 1
+    return "".join(out)
+
+
+def _schema_rows(text):
+    """The body of every brace group one level inside the kSchema table."""
+    start = text.find("kSchema[]")
+    if start == -1:
+        return []
+    i = text.find("{", start)
+    if i == -1:
+        return []
+    rows, depth, row_start = [], 0, None
+    while i < len(text):
+        c = text[i]
+        if c == '"':
+            m = STRING_LIT.match(text, i)
+            if m:
+                i = m.end()
+                continue
+        if c == "{":
+            depth += 1
+            if depth == 2:
+                row_start = i + 1
+        elif c == "}":
+            depth -= 1
+            if depth == 1 and row_start is not None:
+                rows.append(text[row_start:i])
+                row_start = None
+            elif depth == 0:
+                break
+        i += 1
+    return rows
+
+
+def _fields(row):
+    """One row split at its top-level commas."""
+    out, buf, depth, i = [], "", 0, 0
+    while i < len(row):
+        c = row[i]
+        if c == '"':
+            m = STRING_LIT.match(row, i)
+            if m:
+                buf += m.group(0)
+                i = m.end()
+                continue
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth -= 1
+        elif c == "," and depth == 0:
+            out.append(buf)
+            buf = ""
+            i += 1
+            continue
+        buf += c
+        i += 1
+    out.append(buf)
+    return out
+
+
+def _string_value(field):
+    """A field's string value - adjacent literals joined, "" if it is not one."""
+    return "".join(STRING_LIT.findall(field))
+
+
+def unavailable_cvars():
+    """CVar (lower) -> setting key, for rows that declare a reason they cannot work.
+
+    These name a CVar in their store because that is still where a macro
+    writing the setting would put the value, and the row exists to say nothing
+    here reads it. The name being in this file is therefore the opposite of a
+    reader, and readers() is told to skip the file for it.
+    """
+    text = _strip_comments(read(SCHEMA_CPP))
+    rows = _schema_rows(text)
+    if SCHEMA_CPP.exists() and not rows:
+        # Parsing nothing looks exactly like there being nothing to find, and
+        # would quietly hand every one of these names back to the corpus as a
+        # reader. The table is never empty, so say so instead.
+        raise SystemExit(f"{SCHEMA_CPP.name}: no schema rows parsed - "
+                         "the kSchema table moved or was renamed")
+    out = {}
+    for row in rows:
+        fields = _fields(row)
+        if len(fields) <= UNAVAILABLE_FIELD:
+            continue
+        if not _string_value(fields[UNAVAILABLE_FIELD]):
+            continue
+        store = _string_value(fields[STORE_FIELD])
+        if not store.startswith("cvar:"):
+            continue
+        out[store[len("cvar:"):].lower()] = _string_value(fields[0])
+    return out
+
+
 def gather(roots, suffixes):
     for root in roots:
         if not root.exists():
@@ -226,6 +379,7 @@ def main():
     controls = declared_controls()
     uvars = uvar_map()
     removed, removedPages = removed_controls()
+    unavailable = unavailable_cvars()
 
     extra = []
     if args.canary:
@@ -234,29 +388,45 @@ def main():
     corpus = readers(extra)
 
     dead = []
-    handled = []
+    hidden = []
+    reasoned = []
     for cvar, (where, ctrl) in sorted(controls.items()):
-        needle = cvar
-        found = False
-        for _, text in corpus:
-            if needle in text:
-                found = True
-                break
+        # For a name a schema row declares unavailable, that row is not a
+        # reader - it is the record of there being none - so the file it is in
+        # is left out of the corpus for this name only. Every other name is
+        # still looked for in it, because that is where the rows this client
+        # does honour say what they write.
+        skip = SCHEMA_CPP if cvar in unavailable else None
+        found = any(cvar in text for src, text in corpus if src != skip)
         if not found and cvar in uvars:
             g = uvars[cvar].lower()
-            for _, text in corpus:
-                if g in text:
-                    found = True
-                    break
+            found = any(g in text for src, text in corpus if src != skip)
         if not found:
-            if ctrl and (ctrl in removed or any(ctrl.startswith(p) for p in removedPages)):
-                handled.append((cvar, where))
-            else:
+            # Whether the game's own control is still reachable decides this
+            # first, and a schema row does not excuse one that is. The greyed
+            # row and the original control are two controls for one setting,
+            # and the reason the original stays hidden is that the live one
+            # would be the one that lies: it takes the click, writes the CVar,
+            # and reports the setting as applied. So take a name back out of
+            # kRemoved and it is a finding again, reason row or not.
+            offPanel = ctrl and (ctrl in removed
+                                 or any(ctrl.startswith(p) for p in removedPages))
+            if not offPanel:
                 dead.append((cvar, where))
+            elif cvar in unavailable:
+                reasoned.append((cvar, where))
+            else:
+                hidden.append((cvar, where))
 
     total = len(controls)
     print(f"settings with no reader and still on a panel: {len(dead)} of {total} declared "
-          f"({len(handled)} more are dead and taken off the panels)")
+          f"({len(hidden) + len(reasoned)} more are dead and handled: {len(hidden)} hidden "
+          f"from the panels, {len(reasoned)} shown greyed with a reason)")
+    if args.verbose:
+        for cvar, where in reasoned:
+            print(f"  greyed  {cvar:36s} {where}  -> {unavailable[cvar]}")
+        for cvar, where in hidden:
+            print(f"  hidden  {cvar:36s} {where}")
     for cvar, where in dead:
         print(f"  {cvar:38s} {where}")
 

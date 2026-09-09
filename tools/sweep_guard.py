@@ -149,10 +149,14 @@ CHECKS = [
      "sound samples read from disk that nothing plays"),
     # A checkbox that saves its CVar, reads it back, and changes nothing looks
     # exactly like one that works - it remembers what you chose. 69 of the 198
-    # controls in the option panels had no reader at all; 14 of those are
-    # honestly greyed with a reason, and this counts the rest. The ceiling
-    # comes down as they are implemented or greyed, and must never go up: a new
-    # control wired to nothing is the thing being watched for.
+    # controls in the option panels had no reader at all; 37 still have none,
+    # and every one of those is handled - 32 taken off the panels, 5 drawn
+    # greyed with the reason this client cannot honour them - so this counts
+    # zero. The ceiling comes down as they are implemented or handled, and must
+    # never go up: a new control wired to nothing is the thing being watched
+    # for. The sweep counts the greyed rows as handled rather than as read,
+    # because the schema row naming their CVar is the record that nothing reads
+    # it; take one back out of kRemoved and it lands here again.
     ("dead_setting_check.py",
      r"^settings with no reader and still on a panel: (\d+) of", 1,
      "option panel controls whose CVar nothing reads"),
