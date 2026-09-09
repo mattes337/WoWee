@@ -83,6 +83,10 @@
 #include "pipeline/dbc_layout.hpp"
 #include "pipeline/spell_icon_paths.hpp"
 
+// The glue screens record which model frame holds which scene in the Lua
+// registry - see lua_glue_api.cpp - and this is the half that reads it back.
+#include <lua.h>
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 #include <cstdlib>
@@ -114,6 +118,72 @@ namespace wowee {
 namespace core {
 
 namespace {
+
+/// The scene behind whichever glue screen is up.
+///
+/// A function-local rather than a member because it is live only while the
+/// login and character screens are, which is a few seconds of a session, and
+/// because it holds a render target sized to the window - something worth
+/// giving back the moment the world starts. Application::shutdown releases it
+/// while the device is still alive; the destructor at exit then finds nothing
+/// to do.
+ui::GlueBackdrop& glueBackdrop() {
+    static ui::GlueBackdrop backdrop;
+    return backdrop;
+}
+
+/// Put the scene the glue screens asked for behind the one that is showing.
+///
+/// GlueXML says which frame holds a scene and which scene it holds - the login
+/// screen by setting a model on itself, the character screens through
+/// SetBackgroundModel - and lua_glue_api.cpp records both. Which of those
+/// frames is on screen is a question only the widget tree can answer, so it is
+/// asked here rather than guessed from the client's own state: one glue screen
+/// is up at a time and it is the one whose frame is visible.
+void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* assets,
+                        rendering::Renderer* renderer, float deltaTime) {
+    lua_State* L = engine.getState();
+    if (L == nullptr || assets == nullptr || renderer == nullptr) return;
+
+    // Read the whole table out first. Searching the widget tree with the
+    // table still on the stack would leave the iteration half-done on the
+    // frame that finds a match.
+    std::vector<std::pair<std::string, std::string>> declared;
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_glue_model_paths");
+    if (lua_istable(L, -1)) {
+        lua_pushnil(L);
+        while (lua_next(L, -2) != 0) {
+            if (lua_type(L, -2) == LUA_TSTRING && lua_type(L, -1) == LUA_TSTRING) {
+                declared.emplace_back(lua_tostring(L, -2), lua_tostring(L, -1));
+            }
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+    if (declared.empty()) return;
+
+    auto& widgets = engine.widgets();
+    ui::Widget* frame = nullptr;
+    const std::string* scene = nullptr;
+    for (const auto& [frameName, modelPath] : declared) {
+        ui::Widget* w = widgets.findByName(frameName);
+        if (w == nullptr || !w->visible || w->rectW <= 0.0f || w->rectH <= 0.0f) continue;
+        frame = w;
+        scene = &modelPath;
+        break;
+    }
+    if (frame == nullptr) return;
+
+    // In pixels, so a larger interface scale gets a larger image rather than a
+    // blurrier one - the same reason the portrait views are sized this way.
+    const float scale = widgets.uiScale();
+    const int w = static_cast<int>(frame->rectW * scale);
+    const int h = static_cast<int>(frame->rectH * scale);
+    frame->externalTexture =
+        glueBackdrop().update(*scene, w, h, assets, renderer, deltaTime)
+            ? glueBackdrop().textureId()
+            : 0;
+}
 
 /// The expansion profile files built into the executable, keyed by their path
 /// under the data root - "expansions/turtle/opcodes.json". Generated from
@@ -989,6 +1059,31 @@ bool Application::initialize() {
             addonManager_->setGlueXmlDir(interfaceRoot + "/interface/GlueXML");
             if (const char* wantGlue = std::getenv("WOWEE_LOAD_GLUEXML");
                 wantGlue && std::string(wantGlue) != "0") {
+                // Model:SetModel(path) answers with a no-op for every widget in
+                // the world's interface, and the login screen's backdrop is the
+                // one thing said only through it - AccountLogin_OnLoad names
+                // UI_MainMenu_Northrend on itself and nothing else ever repeats
+                // it. Point the method at the recorder in the glue API before
+                // that OnLoad runs.
+                //
+                // Here rather than in the glue API's own registration because
+                // the frame metatable does not exist yet at that point, and
+                // only for a run that is loading GlueXML - with the flag unset
+                // the method stays exactly the no-op it was.
+                if (auto* engine = addonManager_->getLuaEngine();
+                    engine != nullptr && engine->getState() != nullptr) {
+                    lua_State* L = engine->getState();
+                    lua_getglobal(L, "__WoweeFrameMT");
+                    if (lua_istable(L, -1)) {
+                        lua_getglobal(L, "__WoweeSetModelPath");
+                        if (lua_isfunction(L, -1)) {
+                            lua_setfield(L, -2, "SetModel");
+                        } else {
+                            lua_pop(L, 1);
+                        }
+                    }
+                    lua_pop(L, 1);
+                }
                 addonManager_->loadGlueXml(addonManager_->getGlueXmlDir());
             }
             // Wire Lua errors to UI error display
@@ -2053,6 +2148,9 @@ void Application::shutdown() {
     companionModel_.shutdown(renderer.get());
     for (auto& p : partyPortraits_) p.shutdown(renderer.get());
     paperdollModel_.shutdown(renderer.get());
+    // Here, while the device is still alive: the backdrop is a static, so its
+    // own destructor runs long after Vulkan has gone.
+    glueBackdrop().shutdown();
 
     // For the same reason, and it was never being done: ImGui's Vulkan backend
     // holds a pipeline, its layout and descriptor set layout, two shader
@@ -4172,6 +4270,26 @@ void Application::render() {
         runRenderStage("addonWidgets", [&] {
             const ImGuiIO& io = ImGui::GetIO();
             auto* engine = addonManager_->getLuaEngine();
+
+            // The glue screens' backdrop. Not a picture on disk: each of these
+            // screens is an authored M2 scene drawn behind the interface, and
+            // the model frame it lives in is handed the rendered image the
+            // same way a portrait frame is.
+            //
+            // WOWEE_NO_GLUE_BACKDROP=1 leaves it black. Worth a switch because
+            // the glue screens have faults of their own that also show as
+            // "the screen looks wrong" - a dialog that raises mid-show leaves
+            // every glue frame on screen at once - and turning the backdrop off
+            // for one run is what tells the two apart.
+            if (glueOnScreen && !core::envFlagEnabled("WOWEE_NO_GLUE_BACKDROP")) {
+                updateGlueBackdrop(*engine, assetManager.get(), renderer.get(),
+                                   io.DeltaTime);
+            } else if (state == AppState::IN_GAME) {
+                // A render target the size of the window and a model renderer
+                // to fill it, held for a screen that is behind us. Cheap after
+                // the first call, which is why it can sit in the frame loop.
+                glueBackdrop().shutdown();
+            }
 
             // The portrait is the character itself rendered small, so it is
             // produced here rather than read from a file, and handed to the

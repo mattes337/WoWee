@@ -3,8 +3,25 @@
 
 #include "core/logger.hpp"
 #include "game/game_handler.hpp"
+#include "pipeline/asset_manager.hpp"
+#include "pipeline/m2_asset_loader.hpp"
+#include "pipeline/m2_loader.hpp"
+#include "rendering/camera.hpp"
 #include "rendering/character_preview.hpp"
+#include "rendering/character_renderer.hpp"
+#include "rendering/imgui_texture.hpp"
 #include "rendering/renderer.hpp"
+#include "rendering/vk_context.hpp"
+#include "rendering/vk_frame_data.hpp"
+#include "rendering/vk_render_target.hpp"
+#include "rendering/vk_utils.hpp"
+
+#include <imgui.h>
+#include <backends/imgui_impl_vulkan.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
 
 namespace wowee::ui {
 
@@ -243,6 +260,458 @@ void UnitPortrait::shutdown(rendering::Renderer* renderer) {
     registered_ = false;
     preview_.reset();
     initialized_ = false;
+}
+
+// ---------------------------------------------------------------------------
+// GlueBackdrop
+// ---------------------------------------------------------------------------
+
+namespace {
+
+/// One model at a time, so the id is a constant rather than a counter: a glue
+/// screen shows one scene and swapping screens replaces it.
+constexpr uint32_t kBackdropModelId = 9995;
+
+} // namespace
+
+/// Everything the backdrop needs a Vulkan device for, kept out of the header
+/// for the reason UnitPortrait keeps its texture handle as an integer: the
+/// widget tree includes this and must not include Vulkan.
+struct GlueBackdrop::View {
+    pipeline::AssetManager* assets = nullptr;
+    rendering::VkContext* ctx = nullptr;
+
+    std::unique_ptr<rendering::CharacterRenderer> models;
+    std::unique_ptr<rendering::Camera> camera;
+    std::unique_ptr<rendering::VkRenderTarget> target;
+
+    VkDescriptorPool descPool = VK_NULL_HANDLE;
+    VkBuffer ubo = VK_NULL_HANDLE;
+    VmaAllocation uboAlloc = VK_NULL_HANDLE;
+    void* uboMapped = nullptr;
+    VkDescriptorSet perFrameSet = VK_NULL_HANDLE;
+
+    // The renderer's per-frame set declares a shadow map at binding 1. There
+    // is no shadow pass here, so it is a 1x1 depth image cleared to "nothing
+    // in the way" - the same stand-in CharacterPreview uses.
+    VkImage shadowImage = VK_NULL_HANDLE;
+    VkImageView shadowView = VK_NULL_HANDLE;
+    VmaAllocation shadowAlloc = VK_NULL_HANDLE;
+
+    VkDescriptorSet imguiTexture = VK_NULL_HANDLE;
+
+    int width = 0;
+    int height = 0;
+    std::string loadedPath;
+    /// Set when the loaded model was placed by its own camera. A scene that
+    /// carries none is left undrawn rather than framed by a guess.
+    bool placed = false;
+    bool everComposited = false;
+    uint32_t instanceId = 0;
+
+    bool build(int w, int h, rendering::Renderer* renderer);
+    void destroy();
+    bool loadScene(const std::string& m2Path);
+    void composite();
+};
+
+bool GlueBackdrop::View::build(int w, int h, rendering::Renderer* renderer) {
+    ctx = renderer->getVkContext();
+    const VkDescriptorSetLayout perFrameLayout = renderer->getPerFrameSetLayout();
+    if (!ctx || perFrameLayout == VK_NULL_HANDLE) return false;
+
+    width = w;
+    height = h;
+
+    VkDevice device = ctx->getDevice();
+    VmaAllocator allocator = ctx->getAllocator();
+
+    target = std::make_unique<rendering::VkRenderTarget>();
+    if (!target->create(*ctx, static_cast<uint32_t>(width), static_cast<uint32_t>(height),
+                        VK_FORMAT_R8G8B8A8_UNORM, true, VK_SAMPLE_COUNT_4_BIT)) {
+        LOG_WARNING("GlueBackdrop: could not create the ", width, "x", height, " view");
+        target.reset();
+        return false;
+    }
+
+    // The widget is handed this image on the first frame the model loads, which
+    // is the frame before the first pass has run. Put it in the layout ImGui
+    // samples from now, so that frame reads a black image rather than one in
+    // UNDEFINED layout.
+    ctx->immediateSubmit([&](VkCommandBuffer cmd) {
+        VkImageMemoryBarrier2 toRead{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+        toRead.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        toRead.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        toRead.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        toRead.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        toRead.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        toRead.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        toRead.image = target->getColorImage();
+        toRead.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                   .baseMipLevel = 0, .levelCount = 1,
+                                   .baseArrayLayer = 0, .layerCount = 1};
+        toRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        VkDependencyInfo dep{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+        dep.imageMemoryBarrierCount = 1;
+        dep.pImageMemoryBarriers = &toRead;
+        rendering::cmdPipelineBarrier2(cmd, dep);
+    });
+
+    models = std::make_unique<rendering::CharacterRenderer>();
+    if (!models->initialize(ctx, perFrameLayout, assets, target->getRenderPass(),
+                            target->getSampleCount())) {
+        LOG_WARNING("GlueBackdrop: could not build the model renderer");
+        return false;
+    }
+
+    // --- the shadow-map stand-in ---
+    {
+        VkImageCreateInfo imgCI{.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+        imgCI.imageType = VK_IMAGE_TYPE_2D;
+        imgCI.format = VK_FORMAT_D16_UNORM;
+        imgCI.extent = {.width = 1, .height = 1, .depth = 1};
+        imgCI.mipLevels = 1;
+        imgCI.arrayLayers = 1;
+        imgCI.samples = VK_SAMPLE_COUNT_1_BIT;
+        imgCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+        imgCI.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                      VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        VmaAllocationCreateInfo allocCI{};
+        allocCI.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        if (vmaCreateImage(allocator, &imgCI, &allocCI, &shadowImage, &shadowAlloc,
+                           nullptr) != VK_SUCCESS) {
+            LOG_WARNING("GlueBackdrop: could not create the shadow stand-in");
+            return false;
+        }
+        VkImageViewCreateInfo viewCI{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        viewCI.image = shadowImage;
+        viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewCI.format = VK_FORMAT_D16_UNORM;
+        viewCI.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                                   .baseMipLevel = 0, .levelCount = 1,
+                                   .baseArrayLayer = 0, .layerCount = 1};
+        if (vkCreateImageView(device, &viewCI, nullptr, &shadowView) != VK_SUCCESS) {
+            LOG_WARNING("GlueBackdrop: could not create the shadow stand-in view");
+            return false;
+        }
+        ctx->immediateSubmit([&](VkCommandBuffer cmd) {
+            const VkImageSubresourceRange range{.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                                                .baseMipLevel = 0, .levelCount = 1,
+                                                .baseArrayLayer = 0, .layerCount = 1};
+            VkImageMemoryBarrier2 toTransfer{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+            toTransfer.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            toTransfer.dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            toTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            toTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            toTransfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            toTransfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            toTransfer.image = shadowImage;
+            toTransfer.subresourceRange = range;
+            toTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            VkDependencyInfo depA{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+            depA.imageMemoryBarrierCount = 1;
+            depA.pImageMemoryBarriers = &toTransfer;
+            rendering::cmdPipelineBarrier2(cmd, depA);
+
+            const VkClearDepthStencilValue clearVal{.depth = 1.0f, .stencil = 0};
+            vkCmdClearDepthStencilImage(cmd, shadowImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                        &clearVal, 1, &range);
+
+            VkImageMemoryBarrier2 toRead{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+            toRead.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            toRead.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            toRead.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            toRead.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            toRead.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            toRead.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            toRead.image = shadowImage;
+            toRead.subresourceRange = range;
+            toRead.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            toRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            VkDependencyInfo depB{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+            depB.imageMemoryBarrierCount = 1;
+            depB.pImageMemoryBarriers = &toRead;
+            rendering::cmdPipelineBarrier2(cmd, depB);
+        });
+    }
+
+    // --- the per-frame set the model pipelines read their matrices from ---
+    {
+        VkDescriptorPoolSize sizes[2]{};
+        sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        sizes[0].descriptorCount = 1;
+        sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        sizes[1].descriptorCount = 1;
+        VkDescriptorPoolCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        ci.maxSets = 1;
+        ci.poolSizeCount = 2;
+        ci.pPoolSizes = sizes;
+        if (vkCreateDescriptorPool(device, &ci, nullptr, &descPool) != VK_SUCCESS) {
+            LOG_WARNING("GlueBackdrop: could not create the descriptor pool");
+            return false;
+        }
+
+        VkBufferCreateInfo bufInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+        bufInfo.size = sizeof(rendering::GPUPerFrameData);
+        bufInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        VmaAllocationCreateInfo allocInfo{};
+        allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        VmaAllocationInfo mapInfo{};
+        if (vmaCreateBuffer(allocator, &bufInfo, &allocInfo, &ubo, &uboAlloc, &mapInfo)
+                != VK_SUCCESS) {
+            LOG_WARNING("GlueBackdrop: could not create the per-frame buffer");
+            return false;
+        }
+        uboMapped = mapInfo.pMappedData;
+
+        VkDescriptorSetAllocateInfo setAlloc{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+        setAlloc.descriptorPool = descPool;
+        setAlloc.descriptorSetCount = 1;
+        setAlloc.pSetLayouts = &perFrameLayout;
+        if (vkAllocateDescriptorSets(device, &setAlloc, &perFrameSet) != VK_SUCCESS) {
+            LOG_WARNING("GlueBackdrop: could not allocate the per-frame set");
+            return false;
+        }
+
+        VkDescriptorBufferInfo descBuf{};
+        descBuf.buffer = ubo;
+        descBuf.offset = 0;
+        descBuf.range = sizeof(rendering::GPUPerFrameData);
+        VkDescriptorImageInfo shadowImg{};
+        // The sampler is ignored: binding 1 of the renderer's layout declares
+        // an immutable comparison sampler of its own.
+        shadowImg.imageView = shadowView;
+        shadowImg.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        VkWriteDescriptorSet writes[2]{};
+        writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[0].dstSet = perFrameSet;
+        writes[0].dstBinding = 0;
+        writes[0].descriptorCount = 1;
+        writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        writes[0].pBufferInfo = &descBuf;
+        writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[1].dstSet = perFrameSet;
+        writes[1].dstBinding = 1;
+        writes[1].descriptorCount = 1;
+        writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writes[1].pImageInfo = &shadowImg;
+        vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
+    }
+
+    camera = std::make_unique<rendering::Camera>();
+    camera->setAspectRatio(static_cast<float>(width) / static_cast<float>(height));
+
+    imguiTexture = ImGui_ImplVulkan_AddTexture(target->getSampler(),
+                                               target->getColorImageView(),
+                                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    LOG_INFO("GlueBackdrop: view built (", width, "x", height, ")");
+    return true;
+}
+
+void GlueBackdrop::View::destroy() {
+    if (!ctx) return;
+    VkDevice device = ctx->getDevice();
+    VmaAllocator allocator = ctx->getAllocator();
+
+    // The image is sampled by whatever frames are still in flight.
+    vkDeviceWaitIdle(device);
+
+    if (imguiTexture != VK_NULL_HANDLE) rendering::removeImGuiTexture(imguiTexture);
+    if (models) { models->shutdown(); models.reset(); }
+    camera.reset();
+    if (ubo != VK_NULL_HANDLE) rendering::destroy(allocator, ubo, uboAlloc);
+    uboMapped = nullptr;
+    perFrameSet = VK_NULL_HANDLE;
+    if (descPool != VK_NULL_HANDLE) rendering::destroy(device, descPool);
+    if (shadowView != VK_NULL_HANDLE) {
+        vkDestroyImageView(device, shadowView, nullptr);
+        shadowView = VK_NULL_HANDLE;
+    }
+    if (shadowImage != VK_NULL_HANDLE) {
+        vmaDestroyImage(allocator, shadowImage, shadowAlloc);
+        shadowImage = VK_NULL_HANDLE;
+        shadowAlloc = VK_NULL_HANDLE;
+    }
+    if (target) { target->destroy(device, allocator); target.reset(); }
+
+    loadedPath.clear();
+    instanceId = 0;
+    placed = false;
+    everComposited = false;
+    width = 0;
+    height = 0;
+    ctx = nullptr;
+}
+
+bool GlueBackdrop::View::loadScene(const std::string& m2Path) {
+    if (!models || !assets || !camera) return false;
+
+    if (instanceId != 0) {
+        models->removeInstance(instanceId);
+        instanceId = 0;
+    }
+    models->clear();
+    placed = false;
+
+    pipeline::M2Model model;
+    if (!pipeline::loadM2WithSkin(*assets, m2Path, model)) {
+        LOG_WARNING("GlueBackdrop: no model at ", m2Path);
+        return false;
+    }
+
+    // The camera is the placement. These scenes are authored where the artist
+    // put them - the Northrend login dome sits a couple of hundred units from
+    // its own origin - and nothing in the interface says where to stand: the
+    // glue screens only ever call SetCamera(0). A scene with no camera cannot
+    // be placed at all, and is left out rather than framed by a guess.
+    if (model.cameras.empty()) {
+        LOG_WARNING("GlueBackdrop: ", m2Path, " carries no camera; not drawn");
+        return false;
+    }
+    const pipeline::M2Camera& cam = model.cameras[0];
+    const float aspect = static_cast<float>(width) / static_cast<float>(height);
+    const float eye[3] = {cam.positionBase.x, cam.positionBase.y, cam.positionBase.z};
+    const float at[3] = {cam.targetBase.x, cam.targetBase.y, cam.targetBase.z};
+    const GlueBackdropFraming framing = glueBackdropFraming(eye, at, cam.fov, aspect);
+    if (!framing.usable) {
+        LOG_WARNING("GlueBackdrop: ", m2Path, " has a camera that cannot frame anything"
+                    " (fov ", cam.fov, " rad); not drawn");
+        return false;
+    }
+
+    if (!models->loadModel(model, kBackdropModelId)) {
+        LOG_WARNING("GlueBackdrop: could not upload ", m2Path);
+        return false;
+    }
+    // Identity: no facing, no scale, no position. See the camera note above.
+    instanceId = models->createInstance(kBackdropModelId, glm::vec3(0.0f));
+    if (instanceId == 0) {
+        LOG_WARNING("GlueBackdrop: could not place ", m2Path);
+        return false;
+    }
+    // A whole scene rather than a figure: no distance culling, no stand mark.
+    models->setInstanceSceneModel(instanceId, true);
+    // GlueParent.lua's SetLighting opens every one of these on sequence 0.
+    models->playAnimation(instanceId, 0, true);
+
+    camera->setPosition(cam.positionBase);
+    camera->setRotation(framing.yawDegrees, framing.pitchDegrees);
+    camera->setFov(framing.fovYDegrees);
+    camera->setAspectRatio(aspect);
+
+    placed = true;
+    LOG_INFO("GlueBackdrop: ", m2Path, " through camera 0 at (",
+             cam.positionBase.x, ",", cam.positionBase.y, ",", cam.positionBase.z,
+             ") looking at (", cam.targetBase.x, ",", cam.targetBase.y, ",",
+             cam.targetBase.z, "), ", camera->getFovDegrees(), " deg vertical");
+    return true;
+}
+
+void GlueBackdrop::View::composite() {
+    if (!ctx || !models || !camera || !target || !target->isValid() || !uboMapped) return;
+    if (!placed || instanceId == 0) return;
+
+    // Bone buffers and descriptors, allocated before anything is recorded.
+    //
+    // For the context's own frame slot, not a fixed one: CharacterRenderer's
+    // draw loop reads the slot back out of the context rather than taking the
+    // one it was prepared for, so preparing slot 0 every time leaves every
+    // frame that lands on slot 1 with no bone descriptor and nothing drawn.
+    // Half the frames rendered the scene and half rendered the clear colour,
+    // which on a screenshot reads as "the backdrop does not work" about as
+    // often as it reads as "it does".
+    models->prepareRender(ctx->getCurrentFrame());
+
+    rendering::GPUPerFrameData ubo{};
+    ubo.view = camera->getViewMatrix();
+    ubo.projection = camera->getProjectionMatrix();
+    ubo.lightSpaceMatrix = glm::mat4(1.0f);
+    // The interface's own lighting for these scenes - GlueParent.lua's
+    // SetLighting, with a fog colour and up to four directional lights per
+    // race - reaches this client as no-ops, so none of it is applied here.
+    // What is applied is the studio rig the racial backdrops already use in
+    // the character preview, which is the client's existing answer for a glue
+    // scene rather than a second one invented for this.
+    ubo.lightDir = glm::vec4(glm::normalize(glm::vec3(0.5f, -0.7f, 0.5f)), 0.0f);
+    ubo.lightColor = glm::vec4(1.0f, 0.95f, 0.9f, 0.0f);
+    ubo.ambientColor = glm::vec4(0.45f, 0.45f, 0.5f, 0.0f);
+    ubo.viewPos = glm::vec4(camera->getPosition(), 0.0f);
+    ubo.fogColor = glm::vec4(0.05f, 0.05f, 0.1f, 0.0f);
+    ubo.fogParams = glm::vec4(9999.0f, 10000.0f, 0.0f, 0.0f);
+    ubo.shadowParams = glm::vec4(0.0f);
+    std::memcpy(uboMapped, &ubo, sizeof(rendering::GPUPerFrameData));
+
+    // Its own submit rather than a pass inside the frame. The frame's
+    // off-screen pre-passes are the renderer's list and it holds character
+    // previews; this is not one, and the alternative - a second command buffer
+    // executed inside the open scene pass - depends on whether that pass was
+    // begun for secondaries, which nothing here can ask. A glue screen draws
+    // nothing else in three dimensions, so the wait costs a screen that has
+    // frames to spare.
+    ctx->immediateSubmit([&](VkCommandBuffer cmd) {
+        target->beginPass(cmd, VkClearColorValue{{0.0f, 0.0f, 0.0f, 1.0f}});
+        models->render(cmd, perFrameSet, *camera);
+        target->endPass(cmd);
+    });
+    everComposited = true;
+}
+
+GlueBackdrop::GlueBackdrop() = default;
+
+GlueBackdrop::~GlueBackdrop() {
+    // Only if the owner never said so. The device has to still be alive, which
+    // is why shutdown() exists at all; reaching here with a live view means a
+    // shutdown was missed, and freeing late is better than leaking.
+    shutdown();
+}
+
+bool GlueBackdrop::update(const std::string& m2Path, int width, int height,
+                          pipeline::AssetManager* assets,
+                          rendering::Renderer* renderer, float deltaTime) {
+    if (m2Path.empty() || !assets || !renderer) return false;
+    if (width <= 0 || height <= 0) return false;
+
+    // In pixels, and bounded: the login scene fills the window, and a window
+    // dragged larger by a few pixels must not rebuild the whole view.
+    const int w = std::clamp((width + 31) / 32 * 32, 128, 2048);
+    const int h = std::clamp((height + 31) / 32 * 32, 128, 2048);
+
+    if (view_ && (view_->width != w || view_->height != h)) {
+        view_->destroy();
+        view_.reset();
+    }
+    if (!view_) {
+        view_ = std::make_unique<View>();
+        view_->assets = assets;
+        if (!view_->build(w, h, renderer)) {
+            view_->destroy();
+            view_.reset();
+            return false;
+        }
+    }
+
+    if (view_->loadedPath != m2Path) {
+        view_->loadedPath = m2Path;
+        view_->loadScene(m2Path);
+    }
+    if (!view_->placed) return false;
+
+    view_->models->update(deltaTime, view_->camera->getPosition());
+    view_->composite();
+    return view_->everComposited;
+}
+
+uint64_t GlueBackdrop::textureId() const {
+    if (!view_ || !view_->everComposited) return 0;
+    return reinterpret_cast<uint64_t>(view_->imguiTexture);
+}
+
+void GlueBackdrop::shutdown() {
+    if (view_) view_->destroy();
+    view_.reset();
 }
 
 } // namespace wowee::ui

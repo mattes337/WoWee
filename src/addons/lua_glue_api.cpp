@@ -34,11 +34,14 @@
 //     real, kept with wowee's own configuration rather than in the original
 //     client's WTF, so launching either client does not overwrite what the
 //     other saved.
-//   * The model frames and the character-select camera angle are recorded and
-//     nothing more. The glue screens hand the client a frame to draw a
-//     character into and an angle to draw it at; drawing is the renderer's
-//     half and is not here, so both are remembered and can be asked for rather
-//     than being dropped on the floor.
+//   * The background scenes are real: which frame holds one and which model it
+//     holds are recorded here, and the client draws the model through the
+//     camera the artist baked into it - see ui::GlueBackdrop. The lighting
+//     GlueParent's SetLighting asks for around it is not applied.
+//   * The character-select camera angle is recorded and nothing more. The glue
+//     screens hand the client a frame to draw a character into and an angle to
+//     draw it at; that half is not here, so it is remembered and can be asked
+//     for rather than being dropped on the floor.
 //
 // Anything a glue screen calls that is not here answers through the
 // missing-API fallback, which records the name - so the gap stays visible.
@@ -962,13 +965,45 @@ int lua_CreateCharacter(lua_State* L) {
 /// The frame the glue screens want a character drawn into, and the background
 /// they want behind it.
 ///
-/// Recorded under a name the client can read back, and nothing more: the
-/// drawing is the renderer's half. A no-op would lose which frame was asked
-/// for, and the glue screens set it once and never ask again.
+/// Recorded under a name the client can read back: the glue screens set both
+/// once and never ask again, so a no-op would lose which frame was asked for.
 int rememberString(lua_State* L, const char* key) {
     lua_pushvalue(L, 1);
     lua_setfield(L, LUA_REGISTRYINDEX, key);
     return 0;
+}
+
+std::string rememberedString(lua_State* L, const char* key) {
+    lua_getfield(L, LUA_REGISTRYINDEX, key);
+    const char* s = lua_tostring(L, -1);
+    std::string out = s ? s : "";
+    lua_pop(L, 1);
+    return out;
+}
+
+/// Which scene each glue model frame was told to show, by the frame's own name.
+///
+/// One table rather than a field per screen, because the screens do not agree
+/// on how they say it: CharacterSelect.lua and CharacterCreate.lua name their
+/// frame first (SetCharSelectModelFrame, SetCharCustomizeFrame) and then hand
+/// over a path through SetBackgroundModel, while AccountLogin.lua sets its own
+/// model on itself. What the client needs out of all three is the same pair -
+/// this frame, that model - so that is what is kept, and the drawing half can
+/// ask about whichever frame is on screen without knowing which route said so.
+constexpr const char* kGlueModelPaths = "wowee_glue_model_paths";
+
+void recordModelPath(lua_State* L, const std::string& frameName, const char* path) {
+    if (frameName.empty() || !path || !*path) return;
+    lua_getfield(L, LUA_REGISTRYINDEX, kGlueModelPaths);
+    if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        lua_newtable(L);
+        lua_pushvalue(L, -1);
+        lua_setfield(L, LUA_REGISTRYINDEX, kGlueModelPaths);
+    }
+    lua_pushstring(L, path);
+    lua_setfield(L, -2, frameName.c_str());
+    lua_pop(L, 1);
 }
 
 int lua_SetCharSelectModelFrame(lua_State* L) {
@@ -980,11 +1015,42 @@ int lua_SetCharCustomizeFrame(lua_State* L) {
 }
 
 int lua_SetCharSelectBackground(lua_State* L) {
-    return rememberString(L, "wowee_charselect_background");
+    rememberString(L, "wowee_charselect_background");
+    recordModelPath(L, rememberedString(L, "wowee_charselect_model_frame"),
+                    lua_tostring(L, 1));
+    return 0;
 }
 
 int lua_SetCharCustomizeBackground(lua_State* L) {
-    return rememberString(L, "wowee_charcustomize_background");
+    rememberString(L, "wowee_charcustomize_background");
+    recordModelPath(L, rememberedString(L, "wowee_charcustomize_model_frame"),
+                    lua_tostring(L, 1));
+    return 0;
+}
+
+/// Model:SetModel(path), for the one glue screen that never announces its
+/// scene any other way.
+///
+/// AccountLogin_OnLoad sets the login backdrop by calling this on itself -
+/// Interface\Glues\Models\UI_MainMenu_Northrend\UI_MainMenu_Northrend.m2 -
+/// rather than going through SetBackgroundModel, so without it the login
+/// screen's model is the one thing the glue vocabulary never says out loud.
+/// Recorded under the frame's own name, beside the two the character screens
+/// do announce.
+///
+/// Not registered as a widget method here: the frame metatable does not exist
+/// yet when the glue API is registered. The client installs it, and only for a
+/// run that is loading GlueXML - see Application::initialize.
+int lua_GlueSetModelPath(lua_State* L) {
+    if (!lua_istable(L, 1)) return 0;
+    const char* path = lua_tostring(L, 2);
+    if (!path || !*path) return 0;
+    lua_pushstring(L, "__name");
+    lua_rawget(L, 1);
+    const char* name = lua_tostring(L, -1);
+    if (name && *name) recordModelPath(L, name, path);
+    lua_pop(L, 1);
+    return 0;
 }
 
 /// Where the camera sits around the model, in degrees.
@@ -1080,7 +1146,10 @@ void registerGlueLuaAPI(lua_State* L) {
         {"ResetCharCustomize",      lua_ResetCharCustomize},
         {"CreateCharacter",         lua_CreateCharacter},
 
-        // Recorded, not yet drawn
+        // The model frames. Which frame holds the scene and which scene it
+        // holds are recorded here and drawn by the client - see
+        // ui::GlueBackdrop. The facing pair below is still recorded only.
+        {"__WoweeSetModelPath",         lua_GlueSetModelPath},
         {"SetCharSelectModelFrame",     lua_SetCharSelectModelFrame},
         {"SetCharCustomizeFrame",       lua_SetCharCustomizeFrame},
         {"SetCharSelectBackground",     lua_SetCharSelectBackground},

@@ -12,7 +12,13 @@
 // what they are visibly wearing, anything else from the model its display id
 // names. The party frames want the same thing and are left out on cost: each
 // of these is a 640x800 offscreen target and a character pass every frame.
+//
+// GlueBackdrop, at the bottom, is the other thing this client renders into a
+// widget rather than reading off disk: the M2 scene behind the login and
+// character screens. It shares the shape of the problem and none of the
+// answer - see the note above it.
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -141,6 +147,111 @@ private:
     // pointer-sized field would truncate on a 32-bit build, where two outfits
     // sharing the low half would stop the portrait redrawing.
     uint64_t loadedEquipHash_ = 0;
+};
+
+/// How a glue backdrop's view is aimed: where the camera looks and how wide.
+struct GlueBackdropFraming {
+    float yawDegrees = 0.0f;
+    float pitchDegrees = 0.0f;
+    /// Vertical, in degrees, which is what a projection takes.
+    float fovYDegrees = 0.0f;
+    /// False when the model's camera cannot frame anything - it looks nowhere,
+    /// or its field of view is not a field of view. Nothing else in a glue
+    /// screen says where to stand, so the answer is "not drawn" rather than a
+    /// substitute.
+    bool usable = false;
+};
+
+/// Work a glue backdrop's view out of the camera the artist baked into the
+/// model. `eye` and `target` are the M2 camera's base position and the point
+/// it looks at, in the model's own space; `diagonalFov` is its field of view
+/// as an M2 stores it, which is the diagonal one in radians.
+///
+/// Two conversions live here, both easy to get wrong and neither visible as an
+/// error when it is:
+///
+///  * A look-at becomes the yaw and pitch this client's Camera takes. Z is up,
+///    so the pitch is the asin of the direction's z and the yaw the atan2 of
+///    its y and x.
+///  * The diagonal field of view becomes the vertical one, which is the
+///    diagonal over sqrt(1 + aspect^2). Handing the diagonal straight to a
+///    projection widens the view by roughly the aspect ratio, and a scene seen
+///    too wide reads as one placed too far away rather than as a wrong field
+///    of view - which sends the search somewhere else entirely.
+///
+/// Free and header-only so the arithmetic can be tested without a device: the
+/// rest of GlueBackdrop needs Vulkan and this is the half that decides whether
+/// the picture is framed the way the artist framed it.
+inline GlueBackdropFraming glueBackdropFraming(const float eye[3], const float target[3],
+                                               float diagonalFov, float aspect) {
+    GlueBackdropFraming out;
+    const float dx = target[0] - eye[0];
+    const float dy = target[1] - eye[1];
+    const float dz = target[2] - eye[2];
+    const float len = std::sqrt(dx * dx + dy * dy + dz * dz);
+    if (!std::isfinite(len) || len < 1e-4f) return out;
+    if (!std::isfinite(aspect) || aspect <= 0.0f) return out;
+    // A field of view outside this is not one: zero draws nothing and a whole
+    // turn is not a camera. The bound is the same one the wider client uses
+    // when it decides whether an M2 camera's angle can be believed.
+    if (!std::isfinite(diagonalFov) || diagonalFov <= 0.01f || diagonalFov >= 3.5f) return out;
+
+    const float nz = dz / len;
+    constexpr float kRadToDeg = 57.29577951308232f;
+    out.yawDegrees = std::atan2(dy, dx) * kRadToDeg;
+    out.pitchDegrees = std::asin(nz < -1.0f ? -1.0f : (nz > 1.0f ? 1.0f : nz)) * kRadToDeg;
+    out.fovYDegrees = diagonalFov / std::sqrt(1.0f + aspect * aspect) * kRadToDeg;
+    out.usable = true;
+    return out;
+}
+
+/// The scene behind the login and character screens.
+///
+/// WoW's glue screens are not painted backdrops: each is an M2 scene - the
+/// Dark Portal at login, the race's own home on character select - drawn
+/// behind the interface. GlueParent.lua names one per screen, and the original
+/// client places it with the camera the artist baked into the model. That
+/// camera is the whole of the placement: no facing, no scale, no position, and
+/// nothing the interface computes. A model drawn through any other camera
+/// renders perfectly well and is framed wrongly, which reads as a different
+/// fault entirely.
+///
+/// Beside UnitPortrait rather than inside it. A portrait is a character built
+/// out of appearance bytes and worn gear and framed by a rig this client
+/// chooses; a backdrop is a whole authored scene that carries its own framing
+/// and has no appearance to build. The two share only "an M2 rendered into a
+/// widget's rectangle", which is not enough to share a class over.
+class GlueBackdrop {
+public:
+    GlueBackdrop();
+    ~GlueBackdrop();
+    GlueBackdrop(const GlueBackdrop&) = delete;
+    GlueBackdrop& operator=(const GlueBackdrop&) = delete;
+
+    /// Show `m2Path`, drawn into an image `width` x `height` pixels and framed
+    /// by the model's own camera. True once there is something to show.
+    ///
+    /// Safe to call every frame: the view is rebuilt only when the model or
+    /// the size actually changes. False is the honest answer for a model the
+    /// install does not carry, and for one that carries no camera - there is
+    /// no second way to place one of these scenes, so it stays unplaced rather
+    /// than being put somewhere that happens to look right on one screen.
+    bool update(const std::string& m2Path, int width, int height,
+                pipeline::AssetManager* assets,
+                rendering::Renderer* renderer, float deltaTime);
+
+    /// The rendered scene, or zero until the first pass has run. A
+    /// VkDescriptorSet carried as an integer, for the same reason
+    /// UnitPortrait::textureId is.
+    [[nodiscard]] uint64_t textureId() const;
+
+    /// Give the GPU resources back. Must run while the device is still alive,
+    /// which is why it is a call and not the destructor's business.
+    void shutdown();
+
+private:
+    struct View;
+    std::unique_ptr<View> view_;
 };
 
 } // namespace ui

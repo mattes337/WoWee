@@ -1381,6 +1381,13 @@ wowee_test_link_glm(test_open_format_emitter)
 add_test(NAME open_format_emitter COMMAND test_open_format_emitter)
 register_test_target(test_open_format_emitter)
 
+# ── test_glue_backdrop_framing ───────────────────────────────
+# Where a glue backdrop's camera looks and how wide, out of the camera the
+# artist baked into the model. Header-only arithmetic, so no device.
+wowee_add_test(test_glue_backdrop_framing
+    SOURCES test_glue_backdrop_framing.cpp
+            ${TEST_COMMON_SOURCES})
+
 # ── test_camera ──────────────────────────────────────────────
 wowee_add_test(test_camera
     SOURCES test_camera.cpp
