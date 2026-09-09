@@ -433,9 +433,7 @@ void LoadingScreen::render() {
             // swapchain under a loading screen that is drawn full width.
             int w = 0, h = 0;
             SDL_Vulkan_GetDrawableSize(sdlWindow, &w, &h);
-            if (w > 0 && h > 0) {
-                (void)vkCtx->recreateSwapchain(w, h);
-            }
+            if (w <= 0 || h <= 0 || !vkCtx->recreateSwapchain(w, h)) return;
         }
 
         uint32_t imageIndex = 0;
@@ -450,7 +448,6 @@ void LoadingScreen::render() {
             VkRenderPassBeginInfo rpInfo{};
             rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
             rpInfo.renderPass = vkCtx->getOverlayClearRenderPass();
-            rpInfo.framebuffer = vkCtx->getOverlayFramebuffers()[imageIndex];
             rpInfo.renderArea.offset = {.x = 0, .y = 0};
             rpInfo.renderArea.extent = vkCtx->getSwapchainExtent();
 
@@ -463,6 +460,7 @@ void LoadingScreen::render() {
                 rpInfo.renderPass != VK_NULL_HANDLE &&
                 imageIndex < vkCtx->getOverlayFramebuffers().size();
             if (overlayReady) {
+                rpInfo.framebuffer = vkCtx->getOverlayFramebuffers()[imageIndex];
                 vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
                 ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
                 vkCmdEndRenderPass(cmd);

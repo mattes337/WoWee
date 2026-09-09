@@ -919,7 +919,12 @@ void Renderer::applyMsaaChange() {
     if (!vkCtx->recreateSwapchain(window->getDrawableWidth(), window->getDrawableHeight())) {
         LOG_ERROR("MSAA change failed - reverting to 1x");
         vkCtx->setMsaaSamples(VK_SAMPLE_COUNT_1_BIT);
-        (void)vkCtx->recreateSwapchain(window->getDrawableWidth(), window->getDrawableHeight());
+        if (!vkCtx->recreateSwapchain(window->getDrawableWidth(), window->getDrawableHeight())) {
+            // Keep pipeline sample counts unchanged until targets can be rebuilt.
+            vkCtx->setMsaaSamples(current);
+            this->msaaChangePending_ = true;
+            return;
+        }
     }
 
     // Recreate all sub-renderer pipelines (they embed sample count from render pass)
@@ -1007,6 +1012,7 @@ void Renderer::beginFrame() {
     // Apply deferred MSAA change between frames (before any rendering state is used)
     if (msaaChangePending_) {
         applyMsaaChange();
+        if (this->msaaChangePending_) return;
         // The rebuild destroys and remakes the swapchain, every render pass and
         // every pipeline. The frame slots are left mid-cycle by it, and the
         // next frame would reset a fence and re-record a command buffer the
