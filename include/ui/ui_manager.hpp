@@ -76,6 +76,19 @@ public:
      */
     void render(core::AppState appState, auth::AuthHandler* authHandler, game::GameHandler* gameHandler);
 
+    /// Whether the original glue screens are the ones on screen for @p appState,
+    /// in which case this client's own must not draw at all.
+    ///
+    /// The two are alternatives, not layers: the login, realm, character-select
+    /// and character-create screens each exist twice over, once as GlueXML's
+    /// frames and once as this client's own ImGui windows, and drawing both
+    /// puts one on top of the other - the backdrop included, which is a
+    /// full-screen image and so the half that shows.
+    ///
+    /// Asked of the addon manager through the services, because "are the glue
+    /// screens built" is its answer to give and it is already wired here.
+    [[nodiscard]] bool glueOwnsScreen(core::AppState appState) const;
+
     /**
      * Process SDL event for ImGui
      * @param event SDL event to process

@@ -1260,6 +1260,27 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
                 }
             }
         }
+        // The login and character screens go before the world's interface is
+        // built, never beside it.
+        //
+        // They are a second interface in the same Lua state: both define
+        // GameFontNormal, both build a frame called VideoOptionsFrame, and the
+        // load that runs second is the one the globals end up naming. What the
+        // first load built does not go away - the widgets stay in the tree,
+        // still shown, and the pass that draws the world's frames draws them
+        // too, so the login screen's art sits on top of the game.
+        //
+        // Torn down here rather than at the state change that precedes it,
+        // because this is the line the collision is with: whatever else moves,
+        // the glue screens have to be gone by the time loadAllAddons runs.
+        // A no-op when they were never built, which is the default path.
+        if (!addonManager_->unloadGlue()) {
+            // The Lua state did not come back. Said here rather than left to
+            // the load below, which would report a hundred files failing and
+            // none of the reasons.
+            LOG_ERROR("GlueXML: the glue screens could not be taken down; "
+                      "the world interface is about to load into whatever is left");
+        }
         addonManager_->loadAllAddons();
         app_.addonsLoaded_ = true;
         addonManager_->fireEvent("VARIABLES_LOADED");

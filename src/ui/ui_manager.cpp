@@ -1,5 +1,6 @@
 #include "ui/ui_manager.hpp"
 #include <cstring>
+#include "addons/addon_manager.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "ui/interface_fonts.hpp"
 
@@ -372,6 +373,27 @@ void UIManager::update([[maybe_unused]] float deltaTime) {
     ImGui::NewFrame();
 }
 
+bool UIManager::glueOwnsScreen(core::AppState appState) const {
+    if (!services_.addonManager) return false;
+    if (!services_.addonManager->glueLoaded()) return false;
+    // The states GlueXML has a screen for, and only those. IN_GAME is
+    // FrameXML's, and DISCONNECTED is nobody's - nothing sets it.
+    //
+    // Realm selection is in the list even though the original interface has no
+    // screen for it: its realm list is a dialog that opens over whichever
+    // screen is showing, so what belongs there is the glue screen the player
+    // was already on, not this client's realm list drawn over it.
+    switch (appState) {
+        case core::AppState::AUTHENTICATION:
+        case core::AppState::REALM_SELECTION:
+        case core::AppState::CHARACTER_SELECTION:
+        case core::AppState::CHARACTER_CREATION:
+            return true;
+        default:
+            return false;
+    }
+}
+
 void UIManager::render(core::AppState appState, auth::AuthHandler* authHandler, game::GameHandler* gameHandler) {
     if (!imguiInitialized) return;
 
@@ -392,6 +414,23 @@ void UIManager::render(core::AppState appState, auth::AuthHandler* authHandler, 
             }
         }
     } stateReport{.start = uiRenderStart, .state = appState};
+
+    // The original screens, when they are the ones built, are the screen -
+    // this client's own draw nothing behind or over them.
+    //
+    // The backdrop is why this cannot be a per-screen decision: the realm and
+    // character screens draw it before their own content, it is a full-screen
+    // image, and it would cover the glue screens entirely whichever order the
+    // two ended up in.
+    //
+    // The login music still gets stopped. It belongs to this client's login
+    // screen, which does not run here to start it - but a session that reached
+    // the glue screens by some other route may have left it playing, and
+    // stopping music nobody started costs a flag test.
+    if (glueOwnsScreen(appState)) {
+        authScreen->stopLoginMusic();
+        return;
+    }
 
     // Render appropriate screen based on application state
     switch (appState) {

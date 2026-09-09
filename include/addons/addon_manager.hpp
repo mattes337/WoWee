@@ -62,6 +62,44 @@ public:
     [[nodiscard]] const std::string& getGlueXmlDir() const { return glueXmlDir_; }
     /// Whether the glue screens are the ones currently built.
     [[nodiscard]] bool glueLoaded() const { return glueLoaded_; }
+
+    /// Take the glue screens down, so the world's interface is built into a
+    /// state that is not already holding them.
+    ///
+    /// The other half of the lifetime loadGlueXml documents, and the half that
+    /// was never wired: glue was loaded once at startup and never torn down,
+    /// so world entry ran FrameXML over a state that still held the login
+    /// screens. Both define GameFontNormal and both create a frame called
+    /// VideoOptionsFrame, and the second load is the one the globals end up
+    /// naming - the glue widgets it displaced stay in the tree, shown, and
+    /// draw over the world.
+    ///
+    /// A no-op returning true when glue is not up, so the world's loader can
+    /// call it unconditionally and a session that never asked for the glue
+    /// screens pays nothing.
+    bool unloadGlue();
+
+    /// Build the glue screens again, after the world's interface came down.
+    ///
+    /// A logout closes the Lua state, and with it every frame in it - the
+    /// login screen this session started on included. Without this the client
+    /// returns to a login screen that no longer exists: glueLoaded() would
+    /// still be true, so the widget pass and the glue event route would keep
+    /// running against an empty tree while this client's own screens stayed
+    /// out of the way for an interface that is no longer there.
+    ///
+    /// Whether the glue screens are wanted at all was decided once, at
+    /// startup; this asks that question of glueWanted() rather than of the
+    /// environment, so the caller does not have to know how it was decided.
+    /// False when they are not wanted, or when the rebuild did not produce
+    /// them.
+    bool restoreGlue();
+
+    /// Whether the glue screens were ever built this session - which is how
+    /// this asks "did the client ask for them", the decision being made once
+    /// at startup and never revisited.
+    [[nodiscard]] bool glueWanted() const { return glueWanted_; }
+
     bool runScript(const std::string& code);
     /// Run one line of interface Lua, for a keybinding whose window FrameXML
     /// now owns. Errors are logged rather than thrown: a bad line here should
@@ -103,6 +141,12 @@ public:
 
     /// Take the interface down, leaving a live but empty Lua state.
     ///
+    /// Whichever interface it is: closing the state disposes of the widget
+    /// tree, so the glue screens go with it exactly as the world's frames do,
+    /// and glueLoaded() is cleared here for that reason. It used to survive
+    /// the state that held it, which left every caller asking "are the glue
+    /// screens up" answered yes about frames that no longer existed.
+    ///
     /// The interface belongs to the character that was playing: it is built by
     /// running FrameXML's files, and running them again over a state that
     /// already holds them builds every frame a second time - the widget tree
@@ -114,7 +158,12 @@ public:
     /// Saved variables are written on the way out, as they are on a reload.
     bool unloadAll();
 
-    /// Re-initialize the Lua VM and reload all addons (used by /reload).
+    /// Re-initialize the Lua VM and build again whichever interface was up
+    /// (used by /reload).
+    ///
+    /// Which one that is has to be read before the teardown, because the
+    /// teardown is what forgets it. /reload on a login screen used to answer
+    /// with the world's interface, on a screen that has no world behind it.
     bool reload();
 
 private:
@@ -126,6 +175,14 @@ private:
     game::GameHandler* gameHandler_ = nullptr;
     LuaServices luaServices_;
     std::string addonsPath_;
+    /// The directories scanAddons was given beside addonsPath_ - the
+    /// installation's own Interface/AddOns and the one beside this executable.
+    ///
+    /// Kept because unloadAll scans again, and scanning again with only
+    /// addonsPath_ is how the player's own addons disappeared from a session
+    /// that had already loaded them once: they live in the extra roots and
+    /// nothing else names them.
+    std::vector<std::string> extraAddonRoots_;
 
     /// Every global the load-on-demand addons on disk define, read out of their
     /// own files. This is the source of truth for which names must answer as
@@ -190,6 +247,11 @@ private:
     std::string frameXmlDir_;
     std::string glueXmlDir_;
     bool glueLoaded_ = false;
+    /// Whether the glue screens were ever built. Set by the first load that
+    /// produced them and never cleared: the client decides once, at startup,
+    /// whether this session has glue screens at all, and a logout rebuilding
+    /// them must not have to ask that question a second time.
+    bool glueWanted_ = false;
     /// The same directory as it is actually spelled on disk.
     ///
     /// The caller says ".../interface/FrameXML" and this install has

@@ -186,6 +186,10 @@ bool AddonManager::runUiLuaFile(const std::string& path) {
 void AddonManager::scanAddons(const std::string& addonsPath,
                               const std::vector<std::string>& extraRoots) {
     addonsPath_ = addonsPath;
+    // Kept, so that the scan unloadAll runs finds the same addons this one
+    // did. The player's own live in these roots and in nothing else, and a
+    // rescan without them is a rescan that loses every addon the session had.
+    extraAddonRoots_ = extraRoots;
     addons_.clear();
     lodAddons_.clear();
     lodLoaded_.clear();
@@ -980,7 +984,33 @@ bool AddonManager::loadGlueXml(const std::string& glueXmlDir) {
     }
 
     glueLoaded_ = run.failed == 0 || run.lua + run.xml > 0;
+    // Remembered rather than re-derived. Whether this session has glue screens
+    // at all is a decision the client makes once, before the first frame; a
+    // logout rebuilding them happens long afterwards and has no business
+    // asking the environment again.
+    if (glueLoaded_) glueWanted_ = true;
     return run.failed == 0;
+}
+
+bool AddonManager::unloadGlue() {
+    if (!glueLoaded_) return true;
+    LOG_INFO("GlueXML: taking the glue screens down");
+    // The whole state, because that is what disposes of a widget tree - the
+    // frames are not owned by the manifest that built them, they are owned by
+    // the Lua state, and there is no smaller unit to remove.
+    return unloadAll();
+}
+
+bool AddonManager::restoreGlue() {
+    if (glueLoaded_) return true;
+    if (!glueWanted_) return false;
+    LOG_INFO("GlueXML: building the glue screens again");
+    // The return value of loadGlueXml is "did every file load", which is not
+    // the question here: an install whose SecurityMatrix.xml fails still has a
+    // login screen, and a caller asking whether it can hand the screen over
+    // wants to know whether one was built.
+    loadGlueXml(glueXmlDir_);
+    return glueLoaded_;
 }
 
 bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
@@ -2024,6 +2054,12 @@ bool AddonManager::unloadAll() {
     lodAddons_.clear();
     lodLoaded_.clear();
     addonsLoaded_ = false;
+    // And the glue screens, when they are what is being taken down. They live
+    // in the same state and go down with it just as the world's frames do, so
+    // leaving this set was claiming a login screen that no longer existed -
+    // and every caller that asks it, from the widget draw pass to the glue
+    // event route, went on running against an empty tree.
+    glueLoaded_ = false;
     // Closing the state is what disposes of the interface: the widget tree
     // goes down with it, so the frames FrameXML built are gone rather than
     // left for the next load to build a second copy on top of.
@@ -2039,17 +2075,37 @@ bool AddonManager::unloadAll() {
     // The list of what is on disk is not part of the interface and has to
     // survive it - the AddOns manager on character select reads it while
     // nothing is loaded at all.
-    if (!addonsPath_.empty()) scanAddons(addonsPath_);
+    //
+    // With the roots the first scan was given, not with addonsPath_ alone: the
+    // player's own addons are in those roots and in nothing else, so scanning
+    // without them silently emptied the list this client had been loading from
+    // all session.
+    //
+    // Copied first: scanAddons writes the roots it is handed back into the
+    // member, and handing it the member itself is an alias it should not have
+    // to think about.
+    if (!addonsPath_.empty()) {
+        const std::vector<std::string> roots = extraAddonRoots_;
+        scanAddons(addonsPath_, roots);
+    }
     return true;
 }
 
 bool AddonManager::reload() {
-    LOG_INFO("AddonManager: reloading all addons...");
+    // Which interface is up, read before the teardown forgets it. /reload is
+    // the same keystroke on both screens and it means "build this one again":
+    // on a login screen that is GlueXML, and answering with the world's
+    // interface would put a HUD on a screen with no world behind it.
+    const bool wasGlue = glueLoaded_;
+    LOG_INFO("AddonManager: reloading the ", wasGlue ? "glue screens" : "world interface",
+             "...");
     if (!unloadAll()) {
         LOG_ERROR("AddonManager: failed to reinitialize Lua VM during reload");
         return false;
     }
-    if (!addonsPath_.empty()) {
+    if (wasGlue) {
+        loadGlueXml(glueXmlDir_);
+    } else if (!addonsPath_.empty()) {
         loadAllAddons();
     }
     LOG_INFO("AddonManager: reload complete");
@@ -2059,6 +2115,9 @@ bool AddonManager::reload() {
 void AddonManager::shutdown() {
     saveAllSavedVariables();
     addons_.clear();
+    // For the same reason unloadAll clears it: the frames are the state's, and
+    // the state is going.
+    glueLoaded_ = false;
     luaEngine_.shutdown();
 }
 
