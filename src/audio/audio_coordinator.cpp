@@ -100,9 +100,15 @@ bool AudioCoordinator::playGlueMusic(const std::string& soundEntryName) {
     // Said whether or not there is anything to play it on. The one machine
     // this is hardest to check on is the one with no sound device, and the
     // resolved path is the whole of what can be checked there.
+    //
+    // Said on every call, and the call is made on every screen change: whether
+    // the track is already running is MusicManager's question, not this one -
+    // it answers it with "the same path and still playing", which is the whole
+    // of the condition. Remembering the answer here as well would have got it
+    // wrong in the one case that matters: log out, and the glue screens come
+    // back asking for the track this had already recorded and the mixer had
+    // long since stopped.
     const std::string& track = files.front();
-    if (track == glueMusicTrack_) return true;
-    glueMusicTrack_ = track;
     LOG_INFO("PlayGlueMusic: ", soundEntryName, " -> ", track);
 
     if (!musicManager_) {

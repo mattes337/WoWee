@@ -142,10 +142,6 @@ private:
     /// SoundEntries.dbc, for the glue screens' music and ambience. Read on
     /// first use, which for a session that never sees a glue screen is never.
     SoundEntryTable soundEntries_;
-    /// The track PlayGlueMusic last asked for, so asking again for the one
-    /// already playing does not restart it - SetGlueScreen says it on every
-    /// screen change and every one of them names the same track.
-    std::string glueMusicTrack_;
 
     // Zone/music state - moved from Renderer
     uint32_t currentZoneId_ = 0;

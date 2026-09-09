@@ -289,6 +289,9 @@ private:
     // The glue screens' loop. One track at a time: one glue screen is up at a
     // time and each names its own.
     AmbientSample glueSample_;
+    /// The first file of the row last asked for, whether or not it is the one
+    /// that loaded - which is what "already asked for" has to be keyed on.
+    std::string glueRequest_;
     std::string glueTrack_;
     /// Seconds, read out of the wav's own header, so the re-trigger lands
     /// where the track ends rather than at a guessed interval.

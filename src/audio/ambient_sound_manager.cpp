@@ -278,13 +278,22 @@ void AmbientSoundManager::setGlueAmbience(const std::vector<std::string>& candid
         stopGlueAmbience();
         return;
     }
-    // Already running is not a reason to start again. GlueParent's
+    // Already asked for is not a reason to start again. GlueParent's
     // SetGlueScreen asks for this on every screen change and AccountLogin's
     // OnShow asks again on every show, so restarting on each call would cut
     // the loop off and begin it a second time whenever a dialog closed.
-    if (!glueTrack_.empty() && glueTrack_ == candidates.front()) return;
+    //
+    // Keyed on what was asked for rather than on what is playing: those are
+    // the same string only while the row's first file is the one that loaded.
+    // A row whose first file this install does not have would otherwise be
+    // read for, and missed, on every screen change - and if a later file in
+    // the row did load, the loop would be cut off and restarted each time as
+    // well.
+    if (glueRequest_ == candidates.front()) return;
+    const std::string request = candidates.front();
 
     stopGlueAmbience();
+    glueRequest_ = request;
 
     for (const std::string& path : candidates) {
         if (loadSampleFile(path, glueSample_, assets, "AmbientSoundManager")) {
@@ -316,6 +325,7 @@ void AmbientSoundManager::stopGlueAmbience() {
         glueVoice_ = 0;
     }
     glueSample_ = AmbientSample{};
+    glueRequest_.clear();
     glueTrack_.clear();
     glueDuration_ = 0.0f;
     glueElapsed_ = 0.0f;
