@@ -1,0 +1,29 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "quit_dispatched": true,
+  "shutdown_completed": true,
+  "errors": [],
+  "screenshot": {
+    "extent": [
+      1280,
+      720
+    ],
+    "bytes": 90931,
+    "sha256": "d4a8fab00a40d6072c772374a98b0e0b493fa690f7c5d5b6143e7be178c6c9c2",
+    "completion_logged": true
+  },
+  "binary_sha256": "b25035fbd6d274854c84dfa43d5aeac29ffd1a37d5af5f48220dac5df01f957c",
+  "input": {
+    "asset_root": "D:\\wowee-world-guards-startup-20260909\\runtime\\Data",
+    "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
+    "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "updates": 120,
+  "timeout_seconds": 90.0,
+  "layer_path": "G:\\Dev\\VulkanSDK\\1.4.357.0\\Bin",
+  "source_revision": "83b8e4d55f8e85613b4f3babbdf045889e8e2e6c",
+  "log_sha256": "9da6e1e4b89a17b6fc909220bcefe3e0bfb0c104d59b90981eafa6c0d35d0d17",
+  "scope": "offline startup and normal shutdown; no visual/presented-frame/gameplay certification"
+}

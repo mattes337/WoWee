@@ -1,0 +1,23 @@
+{
+  "result": "pass",
+  "exit_code": 0,
+  "quit_dispatched": true,
+  "shutdown_completed": true,
+  "errors": [],
+  "binary_sha256": "109fa287e315eb41ec4e84f998e1c867536be3a117efdbaa794d9ea587f35c0f",
+  "source_revision": "c3ee1d858",
+  "input": {
+    "asset_root": "D:\\wowee-private-live-login\\world-entry-buffer-fix-03\\runtime\\Data",
+    "manifest_sha256": "cd64a47d94f4ad0b9691d12ab2696e04de002b831789eab66303c0ac004d14de",
+    "manifest_base_path": "G:/WoW Projects/wowee/Data/extracted",
+    "saved_variables": "fresh, fixture-local"
+  },
+  "world_login_sent": true,
+  "in_world": true,
+  "parallel_world_rendered": true,
+  "screenshot_exists": true,
+  "updates": 700,
+  "scope": "Stationary local character world entry and shutdown, normal world render passes; no broader gameplay certification.",
+  "screenshot_sha256": "cb44e90cb55722997cfdb899bc9cf22c2afdb156b05281e38de499655f5ba741",
+  "visual_review": "Woweetrial and Deputy Willem visible in Elwynn Forest, with terrain, trees, stock UI and minimap."
+}

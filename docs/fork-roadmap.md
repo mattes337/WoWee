@@ -113,6 +113,8 @@ Current full-build evaluation: Vulkan SDK 1.4.357.0 installed locally; fresh MSV
 
 - [x] **TEST-05b:** Add real runner text/key dispatch and Windows UTF-8 argument handling; repair byte-based caret movement found by the actual stock EditBox scenario. Three fresh combined menu/EditBox runs pass, the isolated disabled-handler negative fails exactly as intended, all 27 CLI matrix cases pass, and focused caret tests pass 136 assertions in 15 cases. [Evidence and preserved failure](evidence/test-05-text-key-validation-20260909.md). SDL stock-panel routing and a stable GPU crop remain open under TEST-05.
 
+- [x] **QUALITY-04i:** Fix the world-entry stack overflow by sizing the secondary-command list from `NUM_SECONDARIES`; all seven world passes now fit. A real stationary world entry, capture and normal shutdown pass without validation errors. Also guard zero-extent/failed swapchain recreation and dependent loading/MSAA callers. [Crash, fixes and exact validation boundaries](evidence/world-secondary-buffer-overflow-20260909.md). Minimize/restore journeys, broader gameplay and Debug performance remain open.
+
 ## 1. Baselines and working agreement
 
 | Item | Recorded state |
