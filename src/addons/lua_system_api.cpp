@@ -1950,28 +1950,52 @@ static int lua_GetLocale(lua_State* L) {
     return 1;
 }
 
+/// GetBuildInfo() - versionType, buildType, version, internalVersion, date,
+/// and the interface number after them.
+///
+/// Five values, in that order, because that is what the screens that read it
+/// destructure. AccountLogin.lua does
+///
+///     local versionType, buildType, version, internalVersion, date = GetBuildInfo()
+///     AccountLoginVersion:SetFormattedText(VERSION_TEMPLATE, versionType,
+///                                          version, internalVersion, buildType, date)
+///
+/// and VERSION_TEMPLATE carries five specifiers across two lines. This
+/// answered with four, so `date` was nil, string.format raised, and
+/// SetFormattedText fell back to the unformatted template: the login screen
+/// showed a literal "%s %s (%s) (%s)" over a literal "%s". The fallback is
+/// right - losing the label is worse than showing it unformatted - which is
+/// exactly why the count being wrong was visible on screen rather than in a
+/// log.
+///
+/// The three that are knowable are answered from what this client knows: the
+/// game version and build from the active profile, and the date from this
+/// client's own build, which is the more useful of the two dates a player
+/// could be shown. The release channel and build type are Blizzard's and mean
+/// nothing here, so they are constants and say so.
 static int lua_GetBuildInfo(lua_State* L) {
     auto* svc = getLuaServices(L);
     auto* profile = svc && svc->expansionRegistry
         ? svc->expansionRegistry->getActive() : nullptr;
-    if (!profile) {
-        lua_pushstring(L, "3.3.5a");
-        lua_pushnumber(L, 12340);
-        lua_pushstring(L, "");
-        lua_pushnumber(L, 30300);
-        return 4;
+
+    std::string version = "3.3.5a";
+    uint32_t build = 12340;
+    uint32_t tocVersion = 30300;
+    if (profile) {
+        version = profile->versionString();
+        build = profile->build;
+        tocVersion = profile->majorVersion >= 3   ? 30300
+                   : profile->majorVersion == 2   ? 20400
+                                                  : 11200;
     }
 
-    const std::string version = profile->versionString();
-    uint32_t tocVersion = 11200;
-    if (profile->majorVersion == 2) tocVersion = 20400;
-    else if (profile->majorVersion >= 3) tocVersion = 30300;
-
-    lua_pushstring(L, version.c_str());
-    lua_pushnumber(L, profile->build);
-    lua_pushstring(L, "");
-    lua_pushnumber(L, tocVersion);
-    return 4;
+    lua_pushstring(L, "Release");                       // versionType
+    lua_pushstring(L, "0");                             // buildType
+    lua_pushstring(L, version.c_str());                 // version
+    lua_pushstring(L, std::to_string(build).c_str());   // internalVersion
+    lua_pushstring(L, core::kBuildDate);                // date
+    lua_pushnumber(L, tocVersion);                      // interface
+    return 6;
 }
 
 static int lua_GetCurrentMapAreaID(lua_State* L) {
