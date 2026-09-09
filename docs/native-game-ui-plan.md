@@ -21,10 +21,31 @@ This includes **GlueXML** before world entry and **FrameXML** in the world.
 Rendering these files is only part of completion: their APIs, events, input,
 settings, and lifecycle must perform the requested actions.
 
-First acceptance target: WotLK 3.3.5a, build 12340, using the existing controlled
-server fixture. Preserve existing Classic/TBC/Turtle paths and add separate
-build-specific acceptance gates; do not claim those versions pass based on a
-WotLK result. New archive formats or unsupported builds require explicit work.
+All game versions currently supported by Wowee are implementation and acceptance
+targets from the start. None is deferred to a later compatibility milestone:
+
+| Profile | Target game version | Build contract |
+| --- | --- | --- |
+| `classic` | Vanilla 1.12.1 | 5875 |
+| `tbc` | The Burning Crusade 2.4.3 | 8606 |
+| `wotlk` | Wrath of the Lich King 3.3.5a | 12340 |
+| `turtle` | Turtle WoW 1.18.x (profile: 1.18.1) | Auth 7272 by default; world 5875; preserve supported auth-build override |
+
+Every delivery stage below applies to every row: direct archive loading,
+original GlueXML/FrameXML, settings, addons, and the drop-in executable journey.
+Use each installation's own UI files and build-specific APIs, event conventions,
+archive precedence, asset formats, and addon metadata. Do not substitute WotLK
+files or assume its API contracts apply to Vanilla, TBC, or Turtle.
+
+The existing WotLK controlled server may provide an early smoke test, but a
+WotLK pass cannot close a multi-version task. Establish matching installations
+and server fixtures for all four profiles; missing fixtures leave acceptance
+open. Include Turtle's custom patches and interface changes explicitly.
+
+The repository has a Cataclysm movement-sequence file but no complete `cata`
+expansion profile, and README does not advertise Cataclysm as supported. Track
+it as an unsupported future version, not as existing support or a completed
+target. Newly supported profiles must be added to this acceptance matrix.
 
 ## Current baseline
 
@@ -50,6 +71,9 @@ WotLK result. New archive formats or unsupported builds require explicit work.
 - [ ] Detect the installation relative to the executable, independent of the
   working directory; identify supported build and locale without extraction.
   Keep an explicit path override for development and alternate installs.
+- [ ] Verify automatic detection for all four profiles, including distinguishing
+  Turtle installations from stock Vanilla. Bundle every supported profile in
+  the same executable; switching installations must not require a rebuild.
 - [ ] Implement direct MPQ reads in the client. Audit existing extractor archive
   discovery for reuse; verify base, expansion, patch, and locale precedence,
   patched/deleted files, case handling, and missing/corrupt archive diagnostics.
@@ -131,6 +155,8 @@ is complete only when every in-scope row passes or its limitation is agreed.
 - [ ] Validate representative unmodified addons: a simple frame, event-driven
   HUD, bags/action bars, configuration UI, and a load-on-demand dependency.
   Publish a tested compatibility matrix; do not promise arbitrary addon parity.
+  Use addon releases intended for each target version and record that version
+  in every result; an addon working on WotLK proves nothing about its older port.
 
 Acceptance: addons run from their existing folders, survive logout/reload and
 restart, and save their state without modifying the original client's files.
@@ -150,6 +176,10 @@ restart, and save their state without modifying the original client's files.
   and addons, logout, restart, and launch the original client afterward.
 - [ ] Verify no archive modifications, original configuration changes, or
   required extraction output; repeat with a read-only game-data directory.
+- [ ] Run the complete drop-in journey against Vanilla, TBC, WotLK, and Turtle
+  separately, including their own original UI, settings, and compatible addons.
+  Record build, locale, patch set, and server fixture for each run. Completion
+  requires all four profiles to pass, not just the first working installation.
 
 ## Implementation and evidence rules
 
