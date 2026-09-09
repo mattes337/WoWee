@@ -235,13 +235,19 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot,
         }
         if (!at.empty() && fs::is_directory(at, ec)) { fontDir = at; break; }
     }
-    if (fontDir.empty()) {
+    if (fontDir.empty() && !assets) {
         // Said out loud: the client still runs, in a face that is not the
         // game's, and nothing else reports why.
         LOG_WARNING("No interface fonts under ", dataRoot,
                     " - keeping the built-in face, so text will not look right");
         return;
     }
+    // No directory is not no fonts. A drop-in install never extracted its
+    // Data, so every face is still inside the archives, and returning here
+    // because the walk found no folder is what kept the whole interface on
+    // ImGui's built-in face: the archive fallback below is reached only by
+    // falling through. Carry on with an empty fontDir - resolve() below
+    // answers nothing for it and each face comes from the archives instead.
 
     // Built at a size above what the interface mostly asks for. A font string
     // carries its own height and is drawn scaled from its face, and scaling
@@ -262,7 +268,8 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot,
 
     // Case is not agreed on here either, so look for the file rather than
     // assuming the spelling the manifest happens to use.
-    auto resolve = [&](const char* name) {
+    auto resolve = [&](const char* name) -> fs::path {
+        if (fontDir.empty()) return {};   // archives only; nothing on disk to find
         fs::path file = fontDir / name;
         if (fs::exists(file, ec)) return file;
         for (const auto& entry : fs::directory_iterator(fontDir, ec)) {
@@ -329,7 +336,8 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot,
             io.Fonts->AddFontDefault();
         }
     } else {
-        LOG_WARNING("No frizqt__.ttf in ", fontDir.string(),
+        LOG_WARNING("No frizqt__.ttf in ",
+                    fontDir.empty() ? std::string("the archives") : fontDir.string(),
                     " - keeping the built-in face");
         io.Fonts->AddFontDefault();
     }
@@ -362,7 +370,8 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot,
             ++loaded;
         }
     }
-    LOG_WARNING("Interface fonts loaded: ", loaded, " of 5 from ", fontDir.string());
+    LOG_WARNING("Interface fonts loaded: ", loaded, " of 5 from ",
+                fontDir.empty() ? std::string("the archives") : fontDir.string());
     if (loaded > 0) interfaceFontsLoaded_ = true;
 }
 
