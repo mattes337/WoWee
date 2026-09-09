@@ -422,6 +422,14 @@ bool Application::initialize() {
     // Create asset manager
     assetManager = std::make_unique<pipeline::AssetManager>();
 
+    // The sound tables the glue screens name their music and ambience out of
+    // are read through the asset manager, and the coordinator is built before
+    // there is one - it is built before the renderer needs it. Told here,
+    // whether or not its own initialize succeeded: a client that cannot make a
+    // sound should still be able to say which track it wanted, which on a
+    // machine with no audio device is the only thing that can be checked.
+    if (audioCoordinator_) audioCoordinator_->setAssetManager(assetManager.get());
+
     // Populate game services - all subsystems now available
     gameServices_.renderer = renderer.get();
     gameServices_.audioCoordinator = audioCoordinator_.get();
@@ -4318,6 +4326,19 @@ void Application::render() {
             // "the screen looks wrong" - a dialog that raises mid-show leaves
             // every glue frame on screen at once - and turning the backdrop off
             // for one run is what tells the two apart.
+            // The glue screens' own music and ambience, which nothing else
+            // drives: the music and ambient managers are pumped by the
+            // renderer's zone pass, and there is no zone at a login screen. So
+            // PlayGlueMusic started a track that then never faded in, never
+            // looped and never ended.
+            //
+            // Outside the backdrop's switch below: turning the backdrop off to
+            // see what a glue screen looks like without it should not also
+            // turn the sound off.
+            if (glueOnScreen && audioCoordinator_) {
+                audioCoordinator_->updateGlueAudio(io.DeltaTime);
+            }
+
             if (glueOnScreen && !core::envFlagEnabled("WOWEE_NO_GLUE_BACKDROP")) {
                 updateGlueBackdrop(*engine, assetManager.get(), renderer.get(),
                                    io.DeltaTime);
@@ -4326,6 +4347,10 @@ void Application::render() {
                 // to fill it, held for a screen that is behind us. Cheap after
                 // the first call, which is why it can sit in the frame loop.
                 glueBackdrop().shutdown();
+                // And the loop that was playing under it. Nothing else would
+                // stop it: the glue ambience is not a zone's, so the world's
+                // own zone change leaves it running under the world.
+                if (audioCoordinator_) audioCoordinator_->stopGlueAmbience();
             }
 
             // The portrait is the character itself rendered small, so it is

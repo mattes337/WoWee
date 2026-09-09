@@ -417,6 +417,16 @@ uint32_t AudioEngine::playSound2DStoppable(const std::vector<uint8_t>& wavData, 
     return id;
 }
 
+void AudioEngine::setSoundVolume(uint32_t id, float volume) {
+    if (id == 0 || !initialized_) return;
+    for (const ActiveSound& active : activeSounds_) {
+        if (active.id == id) {
+            ma_sound_set_volume(active.sound, volume);
+            return;
+        }
+    }
+}
+
 void AudioEngine::stopSound(uint32_t id) {
     if (id == 0) return;
     for (auto it = activeSounds_.begin(); it != activeSounds_.end(); ++it) {

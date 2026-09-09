@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <vector>
 #include <memory>
 #include <string>
@@ -12,6 +13,67 @@ class AssetManager;
 }
 
 namespace audio {
+
+/// How long a WAV runs, in seconds, read out of its own header. Zero when the
+/// bytes are not a WAV whose length can be worked out.
+///
+/// Needed because this client's mixer has no looping one-shot: a sound that
+/// should run continuously is re-triggered, and re-triggering it at the wrong
+/// interval is either a gap of silence or the same track playing over itself.
+/// The zone and city ambience get away with a fixed thirty seconds because
+/// they are meant to be occasional; a glue screen's ambience is a loop.
+///
+/// Free and header-only so the arithmetic can be tested without a device.
+[[nodiscard]] inline float wavDurationSeconds(const std::vector<uint8_t>& wav) {
+    auto u16 = [&wav](size_t at) -> uint32_t {
+        return static_cast<uint32_t>(wav[at]) | (static_cast<uint32_t>(wav[at + 1]) << 8);
+    };
+    auto u32 = [&wav](size_t at) -> uint32_t {
+        return static_cast<uint32_t>(wav[at]) | (static_cast<uint32_t>(wav[at + 1]) << 8) |
+               (static_cast<uint32_t>(wav[at + 2]) << 16) |
+               (static_cast<uint32_t>(wav[at + 3]) << 24);
+    };
+    // "RIFF" .... "WAVE", then chunks.
+    if (wav.size() < 44) return 0.0f;
+    if (wav[0] != 'R' || wav[1] != 'I' || wav[2] != 'F' || wav[3] != 'F') return 0.0f;
+    if (wav[8] != 'W' || wav[9] != 'A' || wav[10] != 'V' || wav[11] != 'E') return 0.0f;
+
+    uint32_t byteRate = 0;
+    size_t at = 12;
+    // Walked rather than assumed to be at offset 36: a WAV written by a tool
+    // that puts a LIST or fact chunk between fmt and data is still a WAV, and
+    // reading the chunk that happens to sit at a fixed offset gives a length
+    // wrong by whatever that chunk holds.
+    while (at + 8 <= wav.size()) {
+        const uint32_t chunkSize = u32(at + 4);
+        const size_t body = at + 8;
+        if (wav[at] == 'f' && wav[at + 1] == 'm' && wav[at + 2] == 't' && wav[at + 3] == ' ') {
+            if (chunkSize < 16 || body + 16 > wav.size()) return 0.0f;
+            byteRate = u32(body + 8);
+            // Some encoders leave byteRate at zero; the three fields it is the
+            // product of are also there.
+            if (byteRate == 0) {
+                const uint32_t channels = u16(body + 2);
+                const uint32_t sampleRate = u32(body + 4);
+                const uint32_t bits = u16(body + 14);
+                byteRate = channels * sampleRate * (bits / 8);
+            }
+        } else if (wav[at] == 'd' && wav[at + 1] == 'a' && wav[at + 2] == 't' &&
+                   wav[at + 3] == 'a') {
+            if (byteRate == 0) return 0.0f;
+            // The header may claim more than the file holds - a truncated
+            // download, or a stream whose size was never filled in.
+            const uint32_t have = static_cast<uint32_t>(
+                std::min<size_t>(chunkSize, wav.size() - body));
+            return static_cast<float>(have) / static_cast<float>(byteRate);
+        }
+        // Chunks are padded to an even length, and a zero-length one would
+        // otherwise walk this loop forever.
+        at = body + chunkSize + (chunkSize & 1u);
+        if (chunkSize == 0) break;
+    }
+    return 0.0f;
+}
 
 class AmbientSoundManager {
 public:
@@ -77,6 +139,33 @@ public:
     };
 
     uint64_t addEmitter(const glm::vec3& position, AmbientType type);
+
+    // ---- The login and character screens' ambience -----------------------
+    //
+    // Its own pair rather than a ZoneType, because it is not a zone: the glue
+    // screens name a SoundEntries row - GlueScreenIntro behind the login
+    // screen, GlueScreenTauren behind a tauren - and want it running under the
+    // screen for as long as the screen is up. Zone ambience is an occasional
+    // sound in a place; this is a loop.
+
+    /// Start looping `candidates`, the files a SoundEntries row lists, taking
+    /// the first that reads. Asking for what is already playing does nothing,
+    /// so the glue screens may say it on every show, which they do.
+    ///
+    /// `fadeSeconds` is how long it takes to come up to volume - four, from
+    /// every caller in GlueXML.
+    void setGlueAmbience(const std::vector<std::string>& candidates, float fadeSeconds,
+                         pipeline::AssetManager* assets);
+    void stopGlueAmbience();
+
+    /// Pumped by whoever is drawing the glue screens. update() above is the
+    /// world's and does not run there - the renderer's zone pass is what calls
+    /// it, and there is no zone at the login screen.
+    void updateGlueAmbience(float deltaTime);
+
+    /// Which track is looping, or empty. For the client to report what it
+    /// asked for on a machine where nothing can be heard.
+    [[nodiscard]] const std::string& getGlueAmbienceTrack() const { return glueTrack_; }
 
     // Time of day control (0-24 hours)
     void setGameTime(float hours);
@@ -196,6 +285,18 @@ private:
         float startTime;
     };
     std::vector<ActiveSound> activeSounds_;
+
+    // The glue screens' loop. One track at a time: one glue screen is up at a
+    // time and each names its own.
+    AmbientSample glueSample_;
+    std::string glueTrack_;
+    /// Seconds, read out of the wav's own header, so the re-trigger lands
+    /// where the track ends rather than at a guessed interval.
+    float glueDuration_ = 0.0f;
+    float glueElapsed_ = 0.0f;
+    float glueFadeSeconds_ = 0.0f;
+    float glueFadeElapsed_ = 0.0f;
+    uint32_t glueVoice_ = 0;
 
     // Helper methods
     void updatePositionalEmitters(float deltaTime, const glm::vec3& cameraPos);

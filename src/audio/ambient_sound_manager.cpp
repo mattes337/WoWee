@@ -254,9 +254,102 @@ bool AmbientSoundManager::initialize(pipeline::AssetManager* assets) {
 }
 
 void AmbientSoundManager::shutdown() {
+    stopGlueAmbience();
     emitters_.clear();
     activeSounds_.clear();
     initialized_ = false;
+}
+
+// ---------------------------------------------------------------------------
+// The login and character screens' ambience
+// ---------------------------------------------------------------------------
+
+namespace {
+/// How loud the glue loop runs under the screen, before the player's own
+/// ambience slider. Between the zone loop's 0.35 and the city loop's 0.4, and
+/// close to the 0.45 SoundEntries itself carries for these rows.
+constexpr float kGlueAmbienceVolume = 0.4f;
+}  // namespace
+
+void AmbientSoundManager::setGlueAmbience(const std::vector<std::string>& candidates,
+                                          float fadeSeconds,
+                                          pipeline::AssetManager* assets) {
+    if (candidates.empty()) {
+        stopGlueAmbience();
+        return;
+    }
+    // Already running is not a reason to start again. GlueParent's
+    // SetGlueScreen asks for this on every screen change and AccountLogin's
+    // OnShow asks again on every show, so restarting on each call would cut
+    // the loop off and begin it a second time whenever a dialog closed.
+    if (!glueTrack_.empty() && glueTrack_ == candidates.front()) return;
+
+    stopGlueAmbience();
+
+    for (const std::string& path : candidates) {
+        if (loadSampleFile(path, glueSample_, assets, "AmbientSoundManager")) {
+            glueTrack_ = path;
+            break;
+        }
+    }
+    if (!glueSample_.loaded) {
+        LOG_WARNING("Glue ambience: none of the ", candidates.size(),
+                    " files that row names could be read; the first was ",
+                    candidates.front());
+        glueTrack_.clear();
+        return;
+    }
+
+    glueDuration_ = wavDurationSeconds(glueSample_.data);
+    glueFadeSeconds_ = std::max(0.0f, fadeSeconds);
+    glueFadeElapsed_ = 0.0f;
+    // Past the end, so the first update starts it rather than waiting a whole
+    // track length for a loop that has not begun.
+    glueElapsed_ = glueDuration_;
+    LOG_INFO("Glue ambience: ", glueTrack_, " (", glueSample_.data.size(),
+             " bytes, ", glueDuration_, "s, fading in over ", glueFadeSeconds_, "s)");
+}
+
+void AmbientSoundManager::stopGlueAmbience() {
+    if (glueVoice_ != 0) {
+        AudioEngine::instance().stopSound(glueVoice_);
+        glueVoice_ = 0;
+    }
+    glueSample_ = AmbientSample{};
+    glueTrack_.clear();
+    glueDuration_ = 0.0f;
+    glueElapsed_ = 0.0f;
+    glueFadeElapsed_ = 0.0f;
+    glueFadeSeconds_ = 0.0f;
+}
+
+void AmbientSoundManager::updateGlueAmbience(float deltaTime) {
+    if (!glueSample_.loaded) return;
+
+    glueFadeElapsed_ += deltaTime;
+    const float fade = (glueFadeSeconds_ <= 0.0f)
+        ? 1.0f
+        : std::min(1.0f, glueFadeElapsed_ / glueFadeSeconds_);
+    const float volume = kGlueAmbienceVolume * volumeScale_ * fade;
+
+    glueElapsed_ += deltaTime;
+    // A track whose length could not be read is still played, once: repeating
+    // it on a guessed interval is what produces the same wave over itself.
+    const bool due = glueDuration_ > 0.0f ? (glueElapsed_ >= glueDuration_)
+                                          : (glueVoice_ == 0 && glueElapsed_ > 0.0f);
+    if (due) {
+        if (glueVoice_ != 0) AudioEngine::instance().stopSound(glueVoice_);
+        glueVoice_ = AudioEngine::instance().playSound2DStoppable(glueSample_.data, volume);
+        glueElapsed_ = 0.0f;
+        if (glueVoice_ == 0 && glueDuration_ <= 0.0f) {
+            // Nothing to retry against and no length to wait out: stop asking.
+            glueSample_.loaded = false;
+        }
+        return;
+    }
+    if (glueVoice_ != 0 && fade < 1.0f) {
+        AudioEngine::instance().setSoundVolume(glueVoice_, volume);
+    }
 }
 
 bool AmbientSoundManager::loadSound(const std::string& path, AmbientSample& sample, pipeline::AssetManager* assets) {

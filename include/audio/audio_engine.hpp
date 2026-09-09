@@ -69,6 +69,14 @@ public:
     uint32_t playSound2DStoppable(const std::vector<uint8_t>& wavData, float volume = 1.0f);
     // Stop a sound started with playSound2DStoppable (no-op if already finished)
     void stopSound(uint32_t id);
+    /// Change how loud a sound started with playSound2DStoppable is, while it
+    /// runs. No-op once it has finished.
+    ///
+    /// What a fade needs. The glue screens ask for their ambience to come up
+    /// over four seconds, and without this the only volume a one-shot ever has
+    /// is the one it was started at - so the ambience would arrive at full
+    /// under a screen that is still fading in.
+    void setSoundVolume(uint32_t id, float volume);
 
     // 3D positional sound playback
     bool playSound3D(const std::vector<uint8_t>& wavData, const glm::vec3& position,

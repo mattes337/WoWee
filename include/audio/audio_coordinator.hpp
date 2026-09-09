@@ -5,6 +5,8 @@
 #include <string>
 #include <glm/vec3.hpp>
 
+#include "audio/sound_entries.hpp"
+
 namespace wowee {
 namespace pipeline { class AssetManager; }
 namespace game { class ZoneManager; }
@@ -68,6 +70,36 @@ public:
     /// Called from Renderer::update() with a pre-filled context.
     void updateZoneAudio(const ZoneAudioContext& ctx);
 
+    // ---- The login and character screens ---------------------------------
+    //
+    // GlueXML's own three sound calls. Each names a row in SoundEntries.dbc
+    // rather than a file - PlayGlueMusic("GS_LichKing"),
+    // PlayGlueAmbience(GlueAmbienceTracks["DARKPORTAL"], 4.0) - so what these
+    // do first is read that table.
+    //
+    // Here rather than on MusicManager because the resolution is shared with
+    // the ambience, and because these must answer with the path they resolved
+    // even on a machine whose audio device did not come up: initialize()
+    // builds no managers at all when it did not, and a client that cannot make
+    // a sound should still be able to say which track it wanted.
+
+    /// The asset manager the sound tables and files are read through. Set
+    /// whether or not initialize() succeeded.
+    void setAssetManager(pipeline::AssetManager* assets) { assets_ = assets; }
+
+    /// PlayGlueMusic(track): the glue screens' background music, looping.
+    /// False when the row names nothing this install carries.
+    bool playGlueMusic(const std::string& soundEntryName);
+    /// PlayGlueAmbience(track, fadeSeconds): the loop under the screen.
+    bool playGlueAmbience(const std::string& soundEntryName, float fadeSeconds);
+    void stopGlueAmbience();
+
+    /// Pump the glue screens' own audio. The music and the ambience are
+    /// driven by updateZoneAudio() in the world, and the world is not running
+    /// while a glue screen is up - so without this the track starts and then
+    /// never fades in, never loops and never ends.
+    void updateGlueAudio(float deltaTime);
+
     [[nodiscard]] const std::string& getCurrentZoneName() const { return currentZoneName_; }
     [[nodiscard]] uint32_t getCurrentZoneId() const { return currentZoneId_; }
 
@@ -106,6 +138,14 @@ private:
     std::unique_ptr<MovementSoundManager> movementSoundManager_;
 
     bool audioAvailable_ = false;
+    pipeline::AssetManager* assets_ = nullptr;
+    /// SoundEntries.dbc, for the glue screens' music and ambience. Read on
+    /// first use, which for a session that never sees a glue screen is never.
+    SoundEntryTable soundEntries_;
+    /// The track PlayGlueMusic last asked for, so asking again for the one
+    /// already playing does not restart it - SetGlueScreen says it on every
+    /// screen change and every one of them names the same track.
+    std::string glueMusicTrack_;
 
     // Zone/music state - moved from Renderer
     uint32_t currentZoneId_ = 0;

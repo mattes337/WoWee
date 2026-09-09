@@ -1388,6 +1388,15 @@ wowee_add_test(test_glue_backdrop_framing
     SOURCES test_glue_backdrop_framing.cpp
             ${TEST_COMMON_SOURCES})
 
+# ── test_wav_duration ────────────────────────────────────────
+# How long a WAV runs, which is the interval the glue screens' ambience is
+# re-triggered at. Header-only, and no audio device is involved in reading a
+# header - which is just as well, because the machine this is checked on has
+# none.
+wowee_add_test(test_wav_duration
+    SOURCES test_wav_duration.cpp
+            ${TEST_COMMON_SOURCES})
+
 # ── test_camera ──────────────────────────────────────────────
 wowee_add_test(test_camera
     SOURCES test_camera.cpp

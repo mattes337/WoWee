@@ -85,6 +85,73 @@ void AudioCoordinator::setZoneMusicLooping(bool loop) {
     if (musicManager_) musicManager_->setLooping(loop);
 }
 
+// ---------------------------------------------------------------------------
+// The login and character screens
+// ---------------------------------------------------------------------------
+
+bool AudioCoordinator::playGlueMusic(const std::string& soundEntryName) {
+    if (soundEntryName.empty()) return false;
+    const std::vector<std::string>& files = soundEntries_.files(assets_, soundEntryName);
+    if (files.empty()) {
+        LOG_WARNING("PlayGlueMusic: '", soundEntryName,
+                    "' names no row this install has; the glue screen is silent");
+        return false;
+    }
+    // Said whether or not there is anything to play it on. The one machine
+    // this is hardest to check on is the one with no sound device, and the
+    // resolved path is the whole of what can be checked there.
+    const std::string& track = files.front();
+    if (track == glueMusicTrack_) return true;
+    glueMusicTrack_ = track;
+    LOG_INFO("PlayGlueMusic: ", soundEntryName, " -> ", track);
+
+    if (!musicManager_) {
+        LOG_WARNING("PlayGlueMusic: no music manager - the audio device did not "
+                    "come up, so nothing will be heard");
+        return false;
+    }
+    if (!musicManager_->isInitialized()) musicManager_->initialize(assets_);
+    // Looping and fading in over two seconds, which is what the glue screens
+    // themselves fade over.
+    musicManager_->playMusic(track, true, 2000.0f);
+    return true;
+}
+
+bool AudioCoordinator::playGlueAmbience(const std::string& soundEntryName, float fadeSeconds) {
+    if (soundEntryName.empty()) {
+        // CharacterSelect_OnShow indexes GlueAmbienceTracks with whatever
+        // model is up, and a model with no row there hands over nil. Stopping
+        // is the right answer: the screen has changed and the old loop belongs
+        // to the screen that left.
+        stopGlueAmbience();
+        return false;
+    }
+    const std::vector<std::string>& files = soundEntries_.files(assets_, soundEntryName);
+    if (files.empty()) {
+        LOG_WARNING("PlayGlueAmbience: '", soundEntryName,
+                    "' names no row this install has");
+        return false;
+    }
+    LOG_INFO("PlayGlueAmbience: ", soundEntryName, " -> ", files.front(),
+             " over ", fadeSeconds, "s");
+    if (!ambientSoundManager_) {
+        LOG_WARNING("PlayGlueAmbience: no ambient manager - the audio device "
+                    "did not come up, so nothing will be heard");
+        return false;
+    }
+    ambientSoundManager_->setGlueAmbience(files, fadeSeconds, assets_);
+    return true;
+}
+
+void AudioCoordinator::stopGlueAmbience() {
+    if (ambientSoundManager_) ambientSoundManager_->stopGlueAmbience();
+}
+
+void AudioCoordinator::updateGlueAudio(float deltaTime) {
+    if (musicManager_) musicManager_->update(deltaTime);
+    if (ambientSoundManager_) ambientSoundManager_->updateGlueAmbience(deltaTime);
+}
+
 void AudioCoordinator::onOriginalSoundtrackDisabled(game::ZoneManager* zm) {
     if (!zm || !musicManager_) return;
     if (!musicManager_->isCurrentTrackFile()) return;

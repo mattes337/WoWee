@@ -38,6 +38,9 @@
 //     holds are recorded here, and the client draws the model through the
 //     camera the artist baked into it - see ui::GlueBackdrop. The lighting
 //     GlueParent's SetLighting asks for around it is not applied.
+//   * The music and the ambience are real: both name a row in
+//     SoundEntries.dbc and both reach the audio coordinator, which reads the
+//     table and plays what the row names.
 //   * The character-select camera angle is recorded and nothing more. The glue
 //     screens hand the client a frame to draw a character into and an angle to
 //     draw it at; that half is not here, so it is remembered and can be asked
@@ -48,6 +51,7 @@
 
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_api_registrations.hpp"
+#include "audio/audio_coordinator.hpp"
 #include "auth/auth_handler.hpp"
 #include "core/config_paths.hpp"
 #include "game/character.hpp"
@@ -1053,6 +1057,45 @@ int lua_GlueSetModelPath(lua_State* L) {
     return 0;
 }
 
+// ---------------------------------------------------------------------------
+// The glue screens' own music and ambience
+// ---------------------------------------------------------------------------
+
+/// PlayGlueMusic(track) and PlayGlueAmbience(track, fadeSeconds).
+///
+/// Both name a row in SoundEntries.dbc rather than a file - "GS_LichKing" is
+/// the WotLK title theme, "GlueScreenIntro" the wind under the login screen -
+/// and the audio coordinator is what reads that table.
+///
+/// They were missing entirely, so the glue screens were silent: this client's
+/// own login music belongs to its own login screen and is stopped the moment
+/// the glue screens take the display, which left nothing playing at all.
+int lua_PlayGlueMusic(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    auto* ac = svc ? svc->audioCoordinator : nullptr;
+    const char* track = luaL_optstring(L, 1, "");
+    if (ac && track && *track) ac->playGlueMusic(track);
+    return 0;
+}
+
+int lua_PlayGlueAmbience(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    auto* ac = svc ? svc->audioCoordinator : nullptr;
+    // CharacterSelect_OnShow indexes GlueAmbienceTracks with whatever model is
+    // showing, and a model with no row there hands over nil rather than
+    // skipping the call.
+    const char* track = luaL_optstring(L, 1, "");
+    const float fade = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    if (ac) ac->playGlueAmbience(track ? track : "", fade);
+    return 0;
+}
+
+int lua_StopGlueAmbience(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    if (svc && svc->audioCoordinator) svc->audioCoordinator->stopGlueAmbience();
+    return 0;
+}
+
 /// Where the camera sits around the model, in degrees.
 ///
 /// Read back as it was set. Nothing turns yet, and this does not claim
@@ -1166,6 +1209,11 @@ void registerGlueLuaAPI(lua_State* L) {
         {"RandomizeCharCustomization", lua_RandomizeCharCustomization},
         {"ResetCharCustomize",      lua_ResetCharCustomize},
         {"CreateCharacter",         lua_CreateCharacter},
+
+        // The glue screens' sound. Both name a SoundEntries row.
+        {"PlayGlueMusic",               lua_PlayGlueMusic},
+        {"PlayGlueAmbience",            lua_PlayGlueAmbience},
+        {"StopGlueAmbience",            lua_StopGlueAmbience},
 
         // The model frames. Which frame holds the scene and which scene it
         // holds are recorded here and drawn by the client - see
