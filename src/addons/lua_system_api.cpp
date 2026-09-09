@@ -4648,6 +4648,10 @@ static int lua_WoweeSettingList(lua_State* L) {
         lua_pushnumber(L, d.defaultValue); lua_setfield(L, -2, "default");
         lua_pushstring(L, d.enabledWhen);  lua_setfield(L, -2, "enabledwhen");
         lua_pushstring(L, d.store);        lua_setfield(L, -2, "store");
+        // Why the client cannot honour it, or "". The panel draws such a row
+        // greyed with this line under its tooltip rather than leaving it out -
+        // see SettingDesc::unavailable.
+        lua_pushstring(L, d.unavailable);  lua_setfield(L, -2, "unavailable");
         lua_rawseti(L, -2, static_cast<int>(i) + 1);
     }
     return 1;
@@ -4746,6 +4750,20 @@ static std::string readStoredSetting(lua_State* L, const ui::SettingDesc& row) {
 // interface reads and the refresh that shows it, from `after` with the new
 // value in `v`.
 static void writeStoredSetting(lua_State* L, const ui::SettingDesc& row, const std::string& value) {
+    // A setting this client cannot honour is not written anywhere.
+    //
+    // The row is drawn - greyed, with the reason in its tooltip - so a player
+    // looking for the original client's option finds it rather than a hole.
+    // What must not follow is the CVar being set: nothing here reads it, so
+    // the only thing SetCVar would achieve is a control that remembers what
+    // was chosen and changes nothing, which reads exactly like one that works.
+    //
+    // Reached anyway on the paths that walk every control at once - the
+    // panel's Defaults and Cancel buttons, and a slider's own OnValueChanged
+    // firing as the greyed control is set to its current value - so this is
+    // the refusal rather than an assertion that nobody asks.
+    if (ui::settingUnavailable(row)) return;
+
     std::string stored = value;
     if (row.values[0] != '\0') {
         const auto values = splitBar(row.values);
@@ -4808,6 +4826,11 @@ static int lua_WoweeSetSetting(lua_State* L) {
     if (lua_isboolean(L, 2)) value = lua_toboolean(L, 2) ? "1" : "0";
     else if (lua_isstring(L, 2) || lua_isnumber(L, 2)) value = lua_tostring(L, 2);
     else value = "0";
+    // Before either store, so the refusal holds for a row that has none. Every
+    // unavailable row names a CVar today and would be stopped inside
+    // writeStoredSetting; one that named nothing would go to the client's own
+    // fields instead and be quietly kept there.
+    if (const auto* row = schemaRow(key); row && ui::settingUnavailable(*row)) return 0;
     if (const auto* row = schemaRow(key); row && row->store[0] != '\0') {
         writeStoredSetting(L, *row, value);
         return 0;

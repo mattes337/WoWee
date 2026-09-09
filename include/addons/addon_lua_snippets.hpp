@@ -106,7 +106,24 @@ local function waitingOn(setting)
     return "Available when " .. name .. " is " .. choice .. "."
 end
 
+-- Why a control cannot be honoured at all, as the schema states it.
+--
+-- Not waitingOn: that one names another setting to switch on and comes back
+-- when it is. This has nothing to wait for - the option is in the original
+-- client and there is no code here it could reach. The row is drawn anyway,
+-- greyed with this line under its tooltip, because a control that vanishes
+-- tells a player nothing and a control that takes the click and writes a
+-- value nobody reads tells them something false.
+local function unavailableReason(setting)
+    local why = setting.unavailable
+    if not why or why == "" then return nil end
+    return why
+end
+
 local function isEnabled(setting)
+    -- Permanently, so it is asked first: there is no value of any other
+    -- setting that would bring one of these back.
+    if unavailableReason(setting) then return false end
     local test = setting.enabledwhen
     if not test or test == "" then return true end
     local key, want = test:match("^(.-)!=(.*)$")
@@ -144,6 +161,15 @@ local function joinReason(tip, reason)
     if not reason then return tip end
     if not tip or tip == "" then return reason end
     return tip .. "\n" .. reason
+end
+
+-- Why a greyed control is greyed, in words, or nil for one that is not.
+--
+-- The permanent answer first: a control this client cannot honour is greyed
+-- whatever the setting it would otherwise depend on happens to say, so naming
+-- that setting would send the player to switch something that changes nothing.
+local function greyedReason(setting)
+    return unavailableReason(setting) or waitingOn(setting)
 end
 
 -- The game's own hover text, one line per line of the schema's tooltip.
@@ -276,7 +302,7 @@ local function addCheckButton(layout, panel, setting, onChanged)
         if onChanged then onChanged(setting.key) end
     end)
     withTooltip(button, setting.label,
-                joinReason(setting.tooltip, waitingOn(setting)))
+                joinReason(setting.tooltip, greyedReason(setting)))
     return {
         read = function()
             button:SetChecked(WoweeGetSetting(setting.key) == "1")
@@ -317,7 +343,7 @@ local function addSlider(layout, panel, setting)
         WoweeSetSetting(setting.key, tostring(value))
     end)
     withTooltip(slider, setting.label,
-                joinReason(setting.tooltip, waitingOn(setting)))
+                joinReason(setting.tooltip, greyedReason(setting)))
     return {
         read = function()
             local value = tonumber(WoweeGetSetting(setting.key)) or setting.min
@@ -381,7 +407,7 @@ local function addDropdown(layout, panel, setting, onChanged)
         end
     end)
     withTooltip(dropdown, setting.label,
-                joinReason(setting.tooltip, waitingOn(setting)))
+                joinReason(setting.tooltip, greyedReason(setting)))
     return {
         read = function()
             UIDropDownMenu_SetText(dropdown, choices[selected()] or "")
@@ -916,11 +942,27 @@ end
 
 /// Controls for things this client does not do, taken out of the panels.
 ///
-/// These used to be greyed with a reason in the tooltip. A disabled row is
-/// still a row: the player reads it, works out whether it matters, and skips
-/// it, and a page of those is harder to use than a shorter page of settings
-/// that work. So they are removed, and the reason each one cannot work is kept
-/// here as a comment for whoever wonders later.
+/// These used to be greyed with a reason in the tooltip, on the game's own
+/// pages, all of them. A disabled row is still a row: the player reads it,
+/// works out whether it matters, and skips it, and a page of those is harder
+/// to use than a shorter page of settings that work. So they are removed, and
+/// the reason each one cannot work is kept here as a comment for whoever
+/// wonders later.
+///
+/// Six of them are back, and it is worth being exact about what changed rather
+/// than reading this as the earlier decision reversed. They are rows on the
+/// schema's own pages now - four on Display, two on Sound - each carrying its
+/// reason in SettingDesc::unavailable, greyed there and refused by the write
+/// path. The entries here stay: the control the player finds is the row, and
+/// the game's copy beside it would be the live one. What is different from
+/// greying every one of these in place is the count and the placement - six
+/// named options a player is likely to go looking for, spread over two pages
+/// that are otherwise full of settings that work, rather than whole pages of
+/// controls that do nothing.
+///
+/// The rest are still only hidden, which says nothing to the player. Each is a
+/// candidate for the same treatment; the argument above is why they are not
+/// all converted at once.
 ///
 /// Removing a row is not hiding it. The panels stack their controls by
 /// anchoring each to the one above, so hiding one alone leaves the hole it
@@ -1062,6 +1104,13 @@ local kRemoved = {
     -- hardware path, no DSPs. The output device is whichever one the system
     -- hands over and cannot be switched. Emotes have no sound of their own,
     -- and a pet is voiced as any creature is.
+    --
+    -- Two of them - Reverb and Use Hardware - are rows on the schema's Sound
+    -- page now, greyed with the reason in their tooltip: see
+    -- SettingDesc::unavailable. This entry stays for each, because the row is
+    -- what the player is meant to find and the game's own control beside it
+    -- would be the live one, taking the click and writing a CVar nothing
+    -- reads. The rest are still only hidden.
     "AudioOptionsSoundPanelSoundQuality",
     "AudioOptionsSoundPanelSoundChannels",
     "AudioOptionsSoundPanelReverb",
@@ -1083,6 +1132,14 @@ local kRemoved = {
     -- cursor is drawn by the interface, the window is sized by the desktop and
     -- stays resizable, brightness is applied in this client's own pipeline,
     -- and the refresh rate is not ours to set.
+    --
+    -- Four of them - triple buffering, input lag, the hardware cursor and
+    -- desktop gamma - are rows on the schema's Display page now, greyed with
+    -- the reason in their tooltip: see SettingDesc::unavailable. Hiding was
+    -- the only tool when this list was written, and hiding a control a player
+    -- remembers leaves them to guess. These entries stay: the Resolution page
+    -- is not retired, so the game's control would still be there beside the
+    -- row, live, writing a CVar nothing reads.
     "VideoOptionsResolutionPanelTripleBuffer",
     "VideoOptionsResolutionPanelFixInputLag",
     "VideoOptionsResolutionPanelHardwareCursor",

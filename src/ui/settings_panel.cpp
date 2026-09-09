@@ -665,7 +665,14 @@ void SettingsPanel::drawSchemaCategory(const char* category,
         if (std::string(d.category) != category) continue;
         // A row on the game's own store is the interface's to show; this
         // window has no CVar to read and is not on screen while it is.
-        if (d.store[0] != '\0') continue;
+        //
+        // Except a row this client cannot honour. The interface's own control
+        // for one of those is hidden - it would take the click and write a
+        // CVar nothing reads - so if this window skipped it too the option
+        // would appear nowhere, which is the silence the row exists to break.
+        // There is nothing to read for it either way: it is drawn to be seen,
+        // not to be set.
+        if (d.store[0] != '\0' && !settingUnavailable(d)) continue;
         if (d.section[0] != '\0' && d.section != heading) {
             heading = d.section;
             ImGui::SeparatorText(d.section);
@@ -678,7 +685,15 @@ void SettingsPanel::drawSchemaCategory(const char* category,
         bool changed = false;
         // Greyed rather than hidden, so the panel keeps its shape and a player
         // can see both that the setting exists and what it waits on.
+        //
+        // Two ways to be greyed and they are not the same thing. A control
+        // waiting on another setting comes back when that one is switched; a
+        // control this client cannot honour never does, and saying so is the
+        // whole reason its row is here. Both end in the same BeginDisabled -
+        // what differs is the line the tooltip carries below.
+        const bool unavailable = settingUnavailable(d);
         const bool enabled =
+            !unavailable &&
             settingEnabled(d, [this](const std::string& key) { return settingValue(key); });
         if (!enabled) ImGui::BeginDisabled();
         switch (d.kind) {
@@ -738,8 +753,18 @@ void SettingsPanel::drawSchemaCategory(const char* category,
             if (ImGui::IsItemActive()) windowUiScaleEditing_ = true;
             if (ImGui::IsItemDeactivatedAfterEdit()) windowUiScaleEditing_ = false;
         }
-        if (d.tooltip[0] != '\0' && ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("%s", d.tooltip);
+        // AllowWhenDisabled, or the greyed rows - the ones with something to
+        // explain - are exactly the rows whose tooltip never appears.
+        // IsItemHovered answers false on a disabled item by default, so the
+        // reason a control cannot be touched was unreachable from the control.
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            if (unavailable && d.tooltip[0] != '\0') {
+                ImGui::SetTooltip("%s\n\n%s", d.tooltip, d.unavailable);
+            } else if (unavailable) {
+                ImGui::SetTooltip("%s", d.unavailable);
+            } else if (d.tooltip[0] != '\0') {
+                ImGui::SetTooltip("%s", d.tooltip);
+            }
         }
         if (!enabled) ImGui::EndDisabled();
         if (changed && saveCallback) saveCallback();

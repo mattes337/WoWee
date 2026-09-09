@@ -243,6 +243,44 @@ constexpr SettingDesc kSchema[] = {
     // GetGamma answers it divided by 50 - and both end in SetGamma, so the
     // two cannot disagree whichever a player reaches for.
 
+    // Four the original client's Resolution page offers and this one cannot -
+    // see SettingDesc::unavailable. They are rows rather than nothing because
+    // a player who knows that page comes looking for them, and until now the
+    // answer was a hole where the control had been: kRemoved hides all four,
+    // and hiding says nothing. Drawn greyed, with the reason in the tooltip,
+    // and refused if anything asks for one to be set.
+    //
+    // The store names the CVar each one wrote, because that is still where a
+    // macro writing it would put the value - and the point is precisely that
+    // nothing in this client reads it. The game's own controls stay hidden:
+    // two controls for one setting is one too many, and of these two the live
+    // one would be the one that lies.
+    {"triplebuffer", "Triple Buffering", SettingKind::Bool, 0, 0, 0,
+     "Display", "Not available in WoWee",
+     "The original client's switch for buffering an extra frame while\n"
+     "vertical sync is on.", "", 0, "", "cvar:gxTripleBuffer", "", "",
+     "Nothing here queues frames ahead. The swapchain asks for one of two\n"
+     "present modes - in step with the display, or as fast as it can - and\n"
+     "Vertical sync above is the choice between them."},
+    {"hardwarecursor", "Hardware Cursor", SettingKind::Bool, 0, 0, 0, "Display", "",
+     "The original client's switch for letting the graphics driver draw\n"
+     "the mouse pointer.", "", 0, "", "cvar:gxCursor", "", "",
+     "The pointer is drawn into the frame like everything else in the\n"
+     "interface. There is no driver cursor here to hand it to."},
+    {"fixinputlag", "Reduce Input Lag", SettingKind::Bool, 0, 0, 0, "Display", "",
+     "The original client's switch for trading frame rate against a\n"
+     "shorter delay between moving the mouse and seeing it.", "", 0,
+     "", "cvar:gxFixLag", "", "",
+     "How many frames this renderer works on at once is fixed when it is\n"
+     "built, so there is no queue to shorten and nothing to flush."},
+    {"desktopgamma", "Use desktop gamma", SettingKind::Bool, 0, 0, 0, "Display", "",
+     "The original client's switch for leaving the screen's brightness\n"
+     "to the desktop rather than setting it.", "", 0,
+     "", "cvar:desktopGamma", "", "",
+     "Brightness above is applied in this client's own pipeline. The\n"
+     "desktop's gamma ramp is never touched, so there is nothing to\n"
+     "hand back to it."},
+
     // ------------------------------------------------------------------ Camera
     {"fov", "Field of view", SettingKind::Float, 45, 110, 1, "Camera", "View",
      "How wide a view the camera takes, in degrees. 70 is what the\n"
@@ -679,6 +717,24 @@ constexpr SettingDesc kSchema[] = {
     {"errorspeech", "Spoken refusals", SettingKind::Bool, 0, 0, 0, "Sound", "",
      "Your character saying why an action was refused - \"I can't do that\n"
      "yet\", \"Not enough rage\".", "", 1},
+
+    // Two the original client's Sound page offers and this one cannot - see
+    // SettingDesc::unavailable, and the four on Display for why they are rows
+    // rather than nothing. Both describe a mixer this client does not have:
+    // sound is mixed in software at the device's own rate, with no effect
+    // chain in front of it. The other seven on that page are still only
+    // hidden, in kRemoved, where each names what it would need.
+    {"soundreverb", "Enable Reverb", SettingKind::Bool, 0, 0, 0,
+     "Sound", "Not available in WoWee",
+     "The original client's switch for reverb on sounds indoors and\n"
+     "underground.", "", 0, "", "cvar:Sound_EnableReverb", "", "",
+     "Samples are mixed straight to the output with no effect chain in\n"
+     "front of them, so there is no reverb stage to switch on."},
+    {"soundhardware", "Use Hardware", SettingKind::Bool, 0, 0, 0, "Sound", "",
+     "The original client's switch for mixing sound on the sound card\n"
+     "rather than in software.", "", 0, "", "cvar:Sound_EnableHardware", "", "",
+     "Mixing is done in software here. There is no hardware 3D audio\n"
+     "path to hand the voices to."},
 
     // ----------------------------------------------------------- Sound Effects
     //

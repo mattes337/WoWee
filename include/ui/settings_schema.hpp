@@ -103,7 +103,38 @@ struct SettingDesc {
     /// game's own control did beyond writing its CVar - the global the
     /// interface reads, and the refresh that made the change show.
     const char* after = "";
+    /// Why this client cannot honour the setting at all. "" when it can.
+    ///
+    /// Not the same thing as `enabledWhen`, which says a control is waiting on
+    /// another setting and comes back when that one is switched. This one has
+    /// nothing to wait for: the option exists in the original client, a player
+    /// who knows that client goes looking for it, and there is no code here it
+    /// could ever reach.
+    ///
+    /// There were two ways to treat one of those before this field, and both
+    /// are wrong. Hiding it - which is what kRemovedControlsLua does, and what
+    /// most of these are still - says nothing at all: the control is gone, the
+    /// page it was on has a hole in it, and the player is left to work out
+    /// whether they misremembered. Drawing it live is worse: it takes the
+    /// click, writes a CVar nothing reads, ticks itself back the same way next
+    /// time, and reports the setting as applied. That second one is what the
+    /// plan names - "never silently report an unsupported setting as applied".
+    ///
+    /// So a row with a reason here is drawn, and is inert. Both panels grey it
+    /// and show this line in its tooltip, and the write path refuses it, so
+    /// there is no route by which it can pretend to have worked.
+    const char* unavailable = "";
 };
+
+/// Whether this client cannot honour the setting - see SettingDesc::unavailable.
+///
+/// Beside settingEnabled and shared for the same reason: two panels draw these
+/// rows, and a row that one of them greys and the other offers is the worst of
+/// both. A caller asking "may this be written?" wants both answers - a control
+/// waiting on another setting is temporarily inert, one of these permanently.
+inline bool settingUnavailable(const SettingDesc& desc) {
+    return desc.unavailable != nullptr && desc.unavailable[0] != '\0';
+}
 
 /// Whether `enabledWhen` is satisfied, given a way to read the other setting.
 ///
