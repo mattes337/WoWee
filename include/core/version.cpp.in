@@ -1,0 +1,12 @@
+#include "core/version.hpp"
+
+namespace wowee::core {
+
+const char* version() noexcept { return "@WOWEE_GIT_VERSION@"; }
+const char* buildDate() noexcept { return "@WOWEE_BUILD_DATE@"; }
+const char* sourceRevision() noexcept { return "@WOWEE_SOURCE_REVISION@"; }
+const char* versionString() noexcept {
+    return "@WOWEE_GIT_VERSION@ (built @WOWEE_BUILD_DATE@)";
+}
+
+} // namespace wowee::core

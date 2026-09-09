@@ -1,4 +1,4 @@
-# Writes core/version.hpp from `git describe`, so the version shown in the client
+# Writes core/version.cpp from `git describe`, so the version shown in the client
 # is always the last tag reachable from HEAD.
 #
 # Run as a script (cmake -P) from a build-time custom target, not just at configure
@@ -65,7 +65,7 @@ if(GIT_FOUND)
 endif()
 
 # Date only, no clock time: a timestamp would differ on every build and force a
-# recompile of everything including this header.
+# recompile of the generated version translation unit.
 string(TIMESTAMP WOWEE_BUILD_DATE "%Y-%m-%d" UTC)
 
 configure_file(${IN_FILE} ${OUT_FILE}.tmp @ONLY)

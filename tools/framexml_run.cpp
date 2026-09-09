@@ -202,7 +202,7 @@ static int framexmlMain(int argc, char** argv) {
             }
         }
     }
-    std::printf("== source: %s; built %s\n", wowee::core::kSourceRevision, wowee::core::kBuildDate);
+    std::printf("== source: %s; built %s\n", wowee::core::sourceRevision(), wowee::core::buildDate());
     const float viewportWidth = static_cast<float>(viewport.width);
     const float viewportHeight = static_cast<float>(viewport.height);
     std::printf("== setup: assets=%s viewport=%dx%d server=none expression-timeout-ms=5000 fallback=%s\n",

@@ -4665,7 +4665,7 @@ static int lua_WoweeSettingList(lua_State* L) {
 // without the version being written out a second time in Lua, where it would go
 // stale the first time a tag was cut.
 static int lua_WoweeVersion(lua_State* L) {
-    lua_pushstring(L, core::kVersionString);
+    lua_pushstring(L, core::versionString());
     return 1;
 }
 

@@ -234,8 +234,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
 #else
         constexpr const char* kArch = "unknown-arch";
 #endif
-        LOG_WARNING("Wowee ", wowee::core::kVersionString, " ", kPlatform, " ", kArch);
-        LOG_WARNING("Source revision: ", wowee::core::kSourceRevision);
+        LOG_WARNING("Wowee ", wowee::core::versionString(), " ", kPlatform, " ", kArch);
+        LOG_WARNING("Source revision: ", wowee::core::sourceRevision());
         LOG_INFO("Starting application...");
 
         // Seed portable config from the per-user location on first portable launch.

@@ -366,9 +366,9 @@ void AuthScreen::render(auth::AuthHandler& authHandler) {
         ui_.setLayer(PaperLayer::Overlay);
         const float size = ui_.px(kSmallSize);
         const ImVec2 at(ui_.px(14), screen.y - ui_.lineHeight(size) - ui_.px(8));
-        ui_.text(ImVec2(at.x + 1.0f, at.y + 1.0f), core::kVersionString, size,
+        ui_.text(ImVec2(at.x + 1.0f, at.y + 1.0f), core::versionString(), size,
                  IM_COL32(0, 0, 0, 150));
-        ui_.text(at, core::kVersionString, size, IM_COL32(0xEC, 0xE2, 0xCC, 0xC8));
+        ui_.text(at, core::versionString(), size, IM_COL32(0xEC, 0xE2, 0xCC, 0xC8));
         ui_.setLayer(PaperLayer::Page);
     }
 

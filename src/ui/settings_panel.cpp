@@ -448,7 +448,7 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
         ImGui::SameLine();
         {
             // Right-align the build version against the window's content edge.
-            const char* version = core::kVersionString;
+            const char* version = core::versionString();
             float versionWidth = ImGui::CalcTextSize(version).x;
             ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - versionWidth);
             ImGui::TextDisabled("%s", version);

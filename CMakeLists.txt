@@ -1193,24 +1193,25 @@ if(GLSLC)
     compile_shaders(wowee)
 endif()
 
-# Version header generated from `git describe`. Regenerated on every build (the
-# script rewrites the header only when the version changed), so tagging a release
+# Version source generated from `git describe`. Regenerated on every build (the
+# script rewrites the source only when the version changed), so tagging a release
 # is enough to update the version shown in the client.
-set(WOWEE_VERSION_HEADER ${CMAKE_BINARY_DIR}/generated/core/version.hpp)
+set(WOWEE_VERSION_SOURCE ${CMAKE_BINARY_DIR}/generated/core/version.cpp)
 set(WOWEE_VERSION_SCRIPT_ARGS
     -DSRC_DIR=${CMAKE_SOURCE_DIR}
-    -DIN_FILE=${CMAKE_SOURCE_DIR}/include/core/version.hpp.in
-    -DOUT_FILE=${WOWEE_VERSION_HEADER}
+    -DIN_FILE=${CMAKE_SOURCE_DIR}/include/core/version.cpp.in
+    -DOUT_FILE=${WOWEE_VERSION_SOURCE}
     -P ${CMAKE_SOURCE_DIR}/cmake/GitVersion.cmake
 )
-# Once now, so the header exists before the first compile.
+# Once now, so the source exists when CMake adds it to the target.
 execute_process(COMMAND ${CMAKE_COMMAND} ${WOWEE_VERSION_SCRIPT_ARGS})
 add_custom_target(wowee_version ALL
     COMMAND ${CMAKE_COMMAND} ${WOWEE_VERSION_SCRIPT_ARGS}
-    BYPRODUCTS ${WOWEE_VERSION_HEADER}
+    BYPRODUCTS ${WOWEE_VERSION_SOURCE}
     COMMENT "Resolving version from git"
     VERBATIM
 )
+target_sources(wowee PRIVATE ${WOWEE_VERSION_SOURCE})
 add_dependencies(wowee wowee_version)
 
 # Include directories
@@ -1551,6 +1552,7 @@ if(WOWEE_BUILD_FRAMEXML_RUN)
     list(REMOVE_ITEM WOWEE_HEADLESS_SOURCES src/main.cpp)
     add_executable(framexml_run
         ${CMAKE_CURRENT_SOURCE_DIR}/tools/framexml_run.cpp
+        ${WOWEE_VERSION_SOURCE}
         ${WOWEE_HEADLESS_SOURCES}
         ${WOWEE_PLATFORM_SOURCES}
         ${WOWEE_MACOS_SOURCES}
