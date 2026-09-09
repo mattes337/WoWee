@@ -7719,8 +7719,10 @@ void registerSystemLuaAPI(lua_State* L) {
             if (!gh) return 0;
             const auto rows = calendarInviteRows(*gh);
             if (!gh->getCalendarInviteView().sort(criterion, reverse, rows)) return 0;
-            if (auto* engine = getEngine(L))
-                engine->fireEvent("CALENDAR_UPDATE_INVITE_LIST", {});
+            lua_getfield(L, LUA_REGISTRYINDEX, "wowee_lua_engine");
+            auto* engine = static_cast<LuaEngine*>(lua_touserdata(L, -1));
+            lua_pop(L, 1);
+            if (engine) engine->fireEvent("CALENDAR_UPDATE_INVITE_LIST", {});
             return 0;
         }},
                 // name, level, className, classFilename, inviteStatus - the
