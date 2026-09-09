@@ -2,10 +2,10 @@
 #include <chrono>
 #include <iomanip>
 #include <ctime>
+#include <cctype>
 #include <filesystem>
 #include <cstdlib>
 #include <algorithm>
-#include <cctype>
 #include <cstring>
 #include <iterator>
 #include <ranges>
@@ -54,6 +54,38 @@ std::filesystem::path perUserLogDir() {
     return std::filesystem::temp_directory_path() / "wowee-logs";
 }
 
+/// Whether the working directory is a game installation rather than a
+/// developer checkout.
+///
+/// A log is written beside the working directory, which is right for a
+/// checkout and wrong for the drop-in case this client is built for: launched
+/// beside the original executable, the working directory is the player's own
+/// installation, and writing a logs/ folder into it breaks the promise that
+/// nothing there is touched.
+///
+/// Told apart by the archives. A stock installation keeps them in Data/ and an
+/// extracted tree has none, so the presence of one is the difference - and it
+/// is a directory listing rather than the installation detection in
+/// pipeline::game_install, which the logger cannot reach: it is linked into
+/// every tool and most of the tests, and none of them wants that behind it.
+bool workingDirectoryHoldsArchives() {
+    std::error_code ec;
+    for (const char* spelling : {"Data", "data", "DATA"}) {
+        const std::filesystem::path data(spelling);
+        if (!std::filesystem::is_directory(data, ec)) continue;
+        for (const auto& entry : std::filesystem::directory_iterator(data, ec)) {
+            if (ec) break;
+            if (!entry.is_regular_file()) continue;
+            std::string ext = entry.path().extension().string();
+            for (char& c : ext) {
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            }
+            if (ext == ".mpq") return true;
+        }
+    }
+    return false;
+}
+
 }  // namespace
 
 void Logger::ensureFile() {
@@ -95,7 +127,13 @@ void Logger::ensureFile() {
         else if (std::ranges::equal(v, "fatal"sv)) setLogLevel(LogLevel::FATAL);
     }
     std::error_code ec;
-    std::filesystem::create_directories("logs", ec);
+    // Not into the player's own installation. Everywhere else the log belongs
+    // beside the working directory, which is where a checkout and every tool
+    // looks for it.
+    const bool insideAnInstallation = workingDirectoryHoldsArchives();
+    if (!insideAnInstallation) {
+        std::filesystem::create_directories("logs", ec);
+    }
     // WOWEE_LOG_FILE names the file, so a tool run beside the client does not
     // destroy the log the client wrote.
     //
@@ -107,7 +145,9 @@ void Logger::ensureFile() {
     const char* logName = std::getenv("WOWEE_LOG_FILE");
     const std::string logFile = (logName && *logName) ? logName : "wowee.log";
     const std::string logPath = std::string("logs/") + logFile;
-    fileStream.open(logPath, std::ios::out | std::ios::trunc);
+    if (!insideAnInstallation) {
+        fileStream.open(logPath, std::ios::out | std::ios::trunc);
+    }
 
     // Beside the working directory when that is writable, which is how this is
     // run from a checkout and where every tool expects to find it.

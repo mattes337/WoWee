@@ -59,5 +59,21 @@ struct GameInstall {
 /// working directory last.
 [[nodiscard]] GameInstall detectGameInstall(const std::string& explicitPath = {});
 
+/// Remember the installation this process is reading.
+///
+/// A process reads one installation, and the two places that need to know
+/// where it is are nowhere near the one that found it: the legacy integrity
+/// hash and Warden's memory scans both want the original executable, and both
+/// looked for it under working-directory-relative extraction folders or an
+/// environment variable the player was told to set - which is exactly the
+/// setup step the drop-in contract removes.
+///
+/// Set once during start-up, before any thread that reads it exists, and not
+/// changed afterwards.
+void setActiveGameInstall(GameInstall install);
+
+/// What setActiveGameInstall was given; invalid when there is none.
+[[nodiscard]] const GameInstall& activeGameInstall();
+
 }  // namespace pipeline
 }  // namespace wowee

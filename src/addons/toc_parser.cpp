@@ -1,4 +1,5 @@
 #include "addons/toc_parser.hpp"
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -89,6 +90,34 @@ std::vector<std::string> TocFile::getSavedVariables() const {
 std::vector<std::string> TocFile::getSavedVariablesPerCharacter() const {
     auto it = directives.find("SavedVariablesPerCharacter");
     return (it != directives.end()) ? parseVarList(it->second) : std::vector<std::string>{};
+}
+
+std::vector<std::string> TocFile::getDependencies() const {
+    // Both spellings, because both are shipped: Blizzard's own addons use
+    // "Dependencies" and a good many third-party ones use "RequiredDeps".
+    std::vector<std::string> names;
+    for (const char* key : {"Dependencies", "RequiredDeps"}) {
+        auto it = directives.find(key);
+        if (it == directives.end()) continue;
+        for (auto& name : parseVarList(it->second)) names.push_back(std::move(name));
+    }
+    return names;
+}
+
+std::vector<std::string> TocFile::getOptionalDependencies() const {
+    std::vector<std::string> names;
+    for (const char* key : {"OptionalDeps", "OptionalDependencies"}) {
+        auto it = directives.find(key);
+        if (it == directives.end()) continue;
+        for (auto& name : parseVarList(it->second)) names.push_back(std::move(name));
+    }
+    return names;
+}
+
+int TocFile::getInterfaceVersion() const {
+    auto it = directives.find("Interface");
+    if (it == directives.end()) return 0;
+    return std::atoi(it->second.c_str());
 }
 
 std::optional<TocFile> parseTocFile(const std::string& tocPath) {

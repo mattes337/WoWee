@@ -1,4 +1,5 @@
 #include "game/warden_memory.hpp"
+#include "pipeline/game_install.hpp"
 #include "core/logger.hpp"
 #include <chrono>
 #include <fstream>
@@ -620,6 +621,11 @@ std::string WardenMemory::findWowExe(uint16_t build) const {
     std::vector<std::string> candidateDirs;
     if (const char* env = std::getenv("WOWEE_INTEGRITY_DIR")) {
         if (env && *env) candidateDirs.emplace_back(env);
+    }
+    // The installation being read. Under the drop-in this is built for, the
+    // executable Warden wants to scan is the one wowee.exe was placed beside.
+    if (const auto& install = pipeline::activeGameInstall(); install.isValid()) {
+        candidateDirs.push_back(install.root);
     }
     if (const char* home = std::getenv("HOME")) {
         if (home && *home) {

@@ -305,6 +305,9 @@ bool Application::initialize() {
     const char* installPathEnv = std::getenv("WOW_INSTALL_PATH");
     const pipeline::GameInstall install =
         pipeline::detectGameInstall(installPathEnv ? installPathEnv : "");
+    // Remembered for the two places that need the original executable and are
+    // nowhere near here: the legacy integrity hash and Warden's memory scans.
+    pipeline::setActiveGameInstall(install);
     if (install.isValid()) {
         LOG_INFO("Found game installation: ", install.root, " (", install.expansion,
                  ", locale ", install.locale.empty() ? std::string("unknown") : install.locale,

@@ -18,6 +18,25 @@ struct TocFile {
     [[nodiscard]] bool isLoadOnDemand() const;
     [[nodiscard]] std::vector<std::string> getSavedVariables() const;
     [[nodiscard]] std::vector<std::string> getSavedVariablesPerCharacter() const;
+
+    /// Addons this one cannot run without. An addon whose dependency is
+    /// missing or disabled is not loaded at all, and one whose dependency is
+    /// present is loaded after it - which is the whole reason the order
+    /// matters, since a dependency exists to define what the dependant reads
+    /// at file scope.
+    ///
+    /// Spelled "Dependencies" or "RequiredDeps"; both are taken.
+    [[nodiscard]] std::vector<std::string> getDependencies() const;
+
+    /// Addons this one uses when they are there. They order the load the same
+    /// way and their absence is not an error.
+    ///
+    /// Spelled "OptionalDeps" or "OptionalDependencies".
+    [[nodiscard]] std::vector<std::string> getOptionalDependencies() const;
+
+    /// The interface version the addon states, or 0 when it states none.
+    /// 11200 is 1.12.0, 20400 is 2.4.3, 30300 is 3.3.5a.
+    [[nodiscard]] int getInterfaceVersion() const;
 };
 
 /// Read and parse a TOC from the filesystem.

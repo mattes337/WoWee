@@ -18,6 +18,7 @@ extern "C" {
 #include <cctype>
 #include <algorithm>
 #include <set>
+#include <functional>
 #include <optional>
 #include <cstdlib>
 #include <filesystem>
@@ -559,19 +560,107 @@ void AddonManager::loadAllAddons() {
     }
     luaEngine_.setAddonList(enabled);
     int loaded = 0, failed = 0, skipped = 0;
-    for (const auto& addon : addons_) {
-        if (!isAddonEnabled(addon.addonName)) {
-            LOG_INFO("AddonManager: skipping disabled addon: ", addon.addonName);
-            skipped++;
-            continue;
-        }
-        if (loadAddon(addon)) loaded++;
+    for (const TocFile* addon : loadOrder(skipped)) {
+        if (loadAddon(*addon)) loaded++;
         else failed++;
     }
     addonsLoaded_ = true;
     LOG_INFO("AddonManager: loaded ", loaded, " addons",
              (failed > 0 ? (", " + std::to_string(failed) + " failed") : ""),
              (skipped > 0 ? (", " + std::to_string(skipped) + " disabled") : ""));
+}
+
+std::vector<const TocFile*> AddonManager::loadOrder(int& skipped) const {
+    // Alphabetical is not a load order. An addon's dependency exists to define
+    // what the dependant reads at file scope, so loading them in the order they
+    // were scanned means a dependant whose name sorts first runs against
+    // nothing - and the real client refuses to load it at all rather than
+    // letting it raise.
+    //
+    // Names are matched without regard to case, the way every other addon
+    // lookup here is: a manifest names Blizzard_TalentUI and the directory on a
+    // case-sensitive filesystem is blizzard_talentui.
+    const auto fold = [](std::string v) {
+        for (char& c : v) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        return v;
+    };
+
+    std::unordered_map<std::string, const TocFile*> byName;
+    for (const auto& addon : addons_) byName[fold(addon.addonName)] = &addon;
+    // A load-on-demand addon satisfies a dependency by existing: the client
+    // loads it when the dependant asks, which is not this pass's business.
+    std::unordered_map<std::string, const TocFile*> knownOnDemand;
+    for (const auto& addon : lodAddons_) knownOnDemand[fold(addon.addonName)] = &addon;
+
+    enum class State { Untouched, Visiting, Placed, Refused };
+    std::unordered_map<std::string, State> state;
+    std::vector<const TocFile*> order;
+    order.reserve(addons_.size());
+
+    // Depth-first, so a dependency is placed before whatever named it. A cycle
+    // is refused rather than followed: two addons naming each other is a broken
+    // pair, and the alternative is not returning.
+    const std::function<bool(const TocFile&)> place = [&](const TocFile& addon) -> bool {
+        const std::string key = fold(addon.addonName);
+        switch (state[key]) {
+            case State::Placed:  return true;
+            case State::Refused: return false;
+            case State::Visiting:
+                LOG_WARNING("AddonManager: '", addon.addonName,
+                            "' is part of a dependency cycle and will not load");
+                state[key] = State::Refused;
+                return false;
+            case State::Untouched: break;
+        }
+        state[key] = State::Visiting;
+
+        for (const auto& dependency : addon.getDependencies()) {
+            const std::string wanted = fold(dependency);
+            if (knownOnDemand.count(wanted)) continue;
+            auto it = byName.find(wanted);
+            if (it == byName.end()) {
+                LOG_WARNING("AddonManager: '", addon.addonName, "' needs '", dependency,
+                            "', which this installation does not have - not loading it");
+                state[key] = State::Refused;
+                return false;
+            }
+            if (!isAddonEnabled(it->second->addonName)) {
+                LOG_WARNING("AddonManager: '", addon.addonName, "' needs '", dependency,
+                            "', which is disabled - not loading it");
+                state[key] = State::Refused;
+                return false;
+            }
+            if (!place(*it->second)) {
+                LOG_WARNING("AddonManager: '", addon.addonName, "' needs '", dependency,
+                            "', which did not load - not loading it");
+                state[key] = State::Refused;
+                return false;
+            }
+        }
+        // An optional dependency orders the load and nothing more: its absence
+        // is the ordinary case rather than a fault.
+        for (const auto& dependency : addon.getOptionalDependencies()) {
+            auto it = byName.find(fold(dependency));
+            if (it != byName.end() && isAddonEnabled(it->second->addonName)) {
+                place(*it->second);
+            }
+        }
+
+        state[key] = State::Placed;
+        order.push_back(&addon);
+        return true;
+    };
+
+    for (const auto& addon : addons_) {
+        if (!isAddonEnabled(addon.addonName)) {
+            LOG_INFO("AddonManager: skipping disabled addon: ", addon.addonName);
+            ++skipped;
+            state[fold(addon.addonName)] = State::Refused;
+            continue;
+        }
+        if (!place(addon)) ++skipped;
+    }
+    return order;
 }
 
 // ---- Per-addon enable/disable (persisted) ----------------------------------

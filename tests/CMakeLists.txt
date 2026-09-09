@@ -747,6 +747,11 @@ add_test(NAME cata_movement COMMAND test_cata_movement
          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 register_test_target(test_cata_movement)
 
+# ── test_toc_parser ────────────────────────────────────────────────────
+# Addon manifests, including the dependency directives the load order needs.
+wowee_add_test(test_toc_parser
+    SOURCES test_toc_parser.cpp ${CMAKE_SOURCE_DIR}/src/addons/toc_parser.cpp)
+
 # ── test_virtual_path ──────────────────────────────────────────────────
 # Archive paths and the ".." the original interface's own includes carry.
 wowee_add_test(test_virtual_path SOURCES test_virtual_path.cpp)

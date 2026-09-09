@@ -1,4 +1,5 @@
 #include "auth/auth_handler.hpp"
+#include "pipeline/game_install.hpp"
 #include "auth/pin_auth.hpp"
 #include "auth/integrity.hpp"
 #include "network/tcp_socket.hpp"
@@ -309,6 +310,16 @@ void AuthHandler::sendLogonProof() {
         std::vector<std::string> candidateDirs;
         if (const char* env = std::getenv("WOWEE_INTEGRITY_DIR")) {
             if (env && *env) candidateDirs.emplace_back(env);
+        }
+        // The installation this client is reading, which under the drop-in
+        // this is built for is the folder the original executable sits in -
+        // literally the file wowee.exe was placed beside. Without it the
+        // search below is working-directory-relative extraction folders that
+        // do not exist in the repository, and the advice at the end of a
+        // failure is to set an environment variable, which is the setup step
+        // the whole drop-in path exists to remove.
+        if (const auto& install = pipeline::activeGameInstall(); install.isValid()) {
+            candidateDirs.push_back(install.root);
         }
         // Expansion-isolated extraction layouts. Select narrowly so a Wrath or
         // stock Classic executable can never be used for a Turtle integrity hash.

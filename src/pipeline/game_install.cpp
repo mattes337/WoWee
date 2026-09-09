@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iterator>
 #include <unordered_map>
+#include <utility>
 
 namespace wowee {
 namespace pipeline {
@@ -282,6 +283,21 @@ GameInstall inspectCandidate(const fs::path& candidate) {
 }
 
 }  // namespace
+
+namespace {
+GameInstall& activeInstallStorage() {
+    static GameInstall install;
+    return install;
+}
+}  // namespace
+
+void setActiveGameInstall(GameInstall install) {
+    activeInstallStorage() = std::move(install);
+}
+
+const GameInstall& activeGameInstall() {
+    return activeInstallStorage();
+}
 
 GameInstall detectGameInstall(const std::string& explicitPath) {
     if (!explicitPath.empty()) {

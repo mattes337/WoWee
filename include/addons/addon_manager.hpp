@@ -119,6 +119,11 @@ private:
 
     bool loadAddon(const TocFile& addon);
 
+    /// The enabled addons in the order they may be loaded, dependencies first.
+    /// @param skipped counts the ones refused - disabled, or wanting an addon
+    ///        that is missing, disabled, cyclic or itself refused.
+    [[nodiscard]] std::vector<const TocFile*> loadOrder(int& skipped) const;
+
     /// Read a file the interface named, from disk if it is there and from the
     /// installation's archives otherwise.
     ///
