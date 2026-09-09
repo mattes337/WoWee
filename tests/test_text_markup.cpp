@@ -232,6 +232,17 @@ std::string backspaceAt(std::string s, size_t& at) {
 }  // namespace
 
 TEST_CASE("erasing removes what draws as one character", "[markup]") {
+    SECTION("backspace removes a UTF-8 character as one unit") {
+        std::string s = "h\xC3\xA9 ";
+        size_t at = s.size();
+        s = backspaceAt(s, at);
+        REQUIRE(s == "h\xC3\xA9");
+        REQUIRE(at == 3);
+        s = backspaceAt(s, at);
+        REQUIRE(s == "h");
+        REQUIRE(at == 1);
+    }
+
     SECTION("backspace over a link takes all of it") {
         std::string s = "hi |Hitem:1|h[AB]|h";
         size_t at = s.size();
@@ -251,6 +262,29 @@ TEST_CASE("erasing removes what draws as one character", "[markup]") {
             REQUIRE(parseMarkup(s).size() <= 3);
         }
         REQUIRE(s.empty());
+    }
+}
+
+TEST_CASE("plain caret stepping validates UTF-8 and progresses on malformed bytes", "[markup]") {
+    const std::string valid =
+        "A\xC2\xA2\xE2\x82\xAC\xF0\x9F\x98\x80Z";
+    const std::vector<size_t> boundaries{0, 1, 3, 6, 10, 11};
+    for (size_t i = 0; i + 1 < boundaries.size(); ++i) {
+        CHECK(caretStepRight(valid, boundaries[i]) == boundaries[i + 1]);
+        CHECK(caretStepLeft(valid, boundaries[i + 1]) == boundaries[i]);
+    }
+
+    const std::vector<std::string> malformed{
+        "\xC0\x80",             // overlong two-byte form
+        "\xE0\x80\x80",       // overlong three-byte form
+        "\xED\xA0\x80",       // UTF-16 surrogate U+D800
+        "\xF4\x90\x80\x80", // above U+10FFFF
+        "\xE2\x82",             // truncated sequence
+        "\x80"};                 // stray continuation byte
+    for (const auto& text : malformed) {
+        INFO("first byte: " << static_cast<unsigned>(
+                 static_cast<unsigned char>(text.front())));
+        CHECK(caretStepRight(text, 0) == 1);
     }
 }
 

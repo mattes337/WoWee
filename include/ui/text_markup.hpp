@@ -176,7 +176,33 @@ inline size_t caretStepRight(const std::string& s, size_t at) {
         }
         break;                                             // a bar meaning nothing
     }
-    return (at >= s.size()) ? s.size() : at + 1;
+    if (at >= s.size()) return s.size();
+
+    // Plain text advances by one Unicode scalar, while malformed input still
+    // advances by one byte. Besides matching what the player sees, validating
+    // the lead-specific ranges rejects overlong encodings, UTF-16 surrogates,
+    // and values above U+10FFFF instead of treating their whole byte run as a
+    // character.
+    const auto byte = [&](size_t i) { return static_cast<unsigned char>(s[i]); };
+    const auto continuation = [&](size_t i) {
+        return i < s.size() && (byte(i) & 0xC0u) == 0x80u;
+    };
+    const unsigned char first = byte(at);
+    if (first < 0x80u) return at + 1;
+    if (first >= 0xC2u && first <= 0xDFu && continuation(at + 1)) return at + 2;
+    if (first >= 0xE0u && first <= 0xEFu && at + 2 < s.size() &&
+        continuation(at + 1) && continuation(at + 2)) {
+        const unsigned char second = byte(at + 1);
+        if ((first != 0xE0u || second >= 0xA0u) &&
+            (first != 0xEDu || second <= 0x9Fu)) return at + 3;
+    }
+    if (first >= 0xF0u && first <= 0xF4u && at + 3 < s.size() &&
+        continuation(at + 1) && continuation(at + 2) && continuation(at + 3)) {
+        const unsigned char second = byte(at + 1);
+        if ((first != 0xF0u || second >= 0x90u) &&
+            (first != 0xF4u || second <= 0x8Fu)) return at + 4;
+    }
+    return at + 1;
 }
 
 /// The previous caret position, by the same rule. Walked forward from the
