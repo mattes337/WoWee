@@ -220,6 +220,17 @@ target_link_libraries(test_framexml PRIVATE catch2_main)
 add_test(NAME framexml COMMAND test_framexml)
 register_test_target(test_framexml)
 
+# ── test_parent_name ────────────────────────────────────────
+# $parent in a name handed to CreateFrame at runtime, which is the same token
+# the XML carries and was resolved only on the XML side. A frame published
+# under the literal "$parentFoo" raises nothing where it is made; it costs a
+# nil index in whatever file reads the real name back, which is how the glue
+# screens died on securitymatrix.lua.
+wowee_add_test(test_parent_name
+    SOURCES test_parent_name.cpp
+            ${CMAKE_SOURCE_DIR}/src/ui/framexml_emitter.cpp
+            ${CMAKE_SOURCE_DIR}/src/ui/xml_parser.cpp)
+
 # ── test_framexml_takeover ──────────────────────────────────
 # Which interface draws what in the configuration a run actually gets. The
 # transition's state is "FrameXML draws all of it", and that rested on a list

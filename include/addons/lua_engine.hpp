@@ -2,6 +2,10 @@
 
 #include "addons/lua_services.hpp"
 #include "ui/widget_tree.hpp"
+// For substituteParent: the one definition of FrameXML's $parent token, shared
+// with the XML path so a name means the same thing however the frame was made.
+#include "ui/framexml_emitter.hpp"
+#include <cstring>
 #include <map>
 #include <functional>
 #include <unordered_map>
@@ -16,6 +20,37 @@ namespace wowee::game { class GameHandler; }
 namespace wowee::addons {
 
 struct TocFile;  // forward declaration
+
+/// `name` with FrameXML's `$parent` token resolved against `ownerName`, and
+/// whether a name is left at all.
+///
+/// CreateFrame, CreateTexture and CreateFontString all take a name, and
+/// FrameXML writes those names with the same token the XML uses:
+/// securitymatrix.lua asks for "$parentElementSparkle1_1" under
+/// SecurityMatrixFrame and reads
+/// _G["SecurityMatrixFrameElementSparkle1_1Highlight"] back a few lines later.
+/// Substituted nowhere, the frame was published under the literal
+/// "$parentElementSparkle1_1" - unreachable under the name every later line
+/// uses, and useless as a prefix for the children a template names off it,
+/// since those are built by concatenating onto GetName().
+///
+/// An owner without a name lends none: the region is left unnamed rather than
+/// published under the bare suffix, because every frame replaying the same
+/// template would then publish over the last one. That is the rule the
+/// emitter's `nameArg` follows for this token, and the one the client follows.
+///
+/// Here rather than beside the callers so it can be read without a Lua state:
+/// the rule is a fact about names, and the stack is only how the owner is
+/// found.
+[[nodiscard]] inline bool resolveOwnedName(const char* name,
+                                           const std::string& ownerName,
+                                           std::string& out) {
+    if (!name || !*name) return false;
+    if (std::strncmp(name, "$parent", 7) != 0) { out = name; return true; }
+    if (ownerName.empty()) return false;
+    out = ui::substituteParent(name, ownerName);
+    return true;
+}
 
 class LuaEngine {
 public:

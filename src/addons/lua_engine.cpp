@@ -5127,16 +5127,45 @@ int lua_StatusBar_SetOrientation(lua_State* L) {
     return 0;
 }
 
+// ── $parent in a name argument ──────────────────────────────────────────────
+//
+// The rule itself is resolveOwnedName, in the header, where it can be read
+// without a Lua state. This is the half that needs one: finding the owner the
+// caller passed, which is the frame for a region and the third argument for a
+// frame.
+
+/// Whatever the object at `index` calls itself, for a `$parent` name to be
+/// built from. Empty when it is not an object, or is unnamed.
+static std::string ownerNameAt(lua_State* L, int index) {
+    // A parent given by name rather than by table names itself.
+    if (lua_isstring(L, index)) return lua_tostring(L, index);
+    if (!lua_istable(L, index)) return {};
+    std::string name;
+    lua_getfield(L, index, "__name");
+    if (const char* n = lua_tostring(L, -1)) name = n;
+    lua_pop(L, 1);
+    // A texture or a font string keeps its name in the widget tree instead of
+    // in its table, so ask the tree when the table has nothing to say.
+    if (name.empty()) {
+        if (const auto* w = widgetOf(L, index)) name = w->name;
+    }
+    return name;
+}
+
 // Frame method: frame:CreateTexture(name, layer) → a real region
 static int lua_Frame_CreateTexture(lua_State* L) {
     auto* tree = wowee::addons::getWidgetTree(L);
     const uint32_t parent = widgetIdOf(L, 1);
-    const char* name = luaL_optstring(L, 2, "");
+    const char* rawName = luaL_optstring(L, 2, "");
+    // The owner is the frame the method was called on, always.
+    std::string name;
+    const bool named = resolveOwnedName(rawName, ownerNameAt(L, 1), name);
     const char* layer = luaL_optstring(L, 3, "ARTWORK");
 
     lua_newtable(L);
     if (tree) {
-        const uint32_t id = tree->create(wowee::ui::WidgetKind::Texture, parent, name ? name : "");
+        const uint32_t id = tree->create(wowee::ui::WidgetKind::Texture, parent,
+                                         named ? name : std::string());
         if (auto* w = tree->get(id)) {
             w->layer = wowee::ui::parseDrawLayer(layer);
             w->objectType = "Texture";
@@ -5155,9 +5184,9 @@ static int lua_Frame_CreateTexture(lua_State* L) {
     lua_pushvalue(L, 1);
     lua_setfield(L, -2, "__parent");
     installRegionMethods(L, /*isTexture=*/true, /*isFontString=*/false);
-    if (name && *name) {
+    if (named) {
         lua_pushvalue(L, -1);
-        lua_setglobal(L, name);
+        lua_setglobal(L, name.c_str());
     }
     return 1;
 }
@@ -5166,12 +5195,16 @@ static int lua_Frame_CreateTexture(lua_State* L) {
 static int lua_Frame_CreateFontString(lua_State* L) {
     auto* tree = wowee::addons::getWidgetTree(L);
     const uint32_t parent = widgetIdOf(L, 1);
-    const char* name = luaL_optstring(L, 2, "");
+    const char* rawName = luaL_optstring(L, 2, "");
+    // The owner is the frame the method was called on, always.
+    std::string name;
+    const bool named = resolveOwnedName(rawName, ownerNameAt(L, 1), name);
     const char* layer = luaL_optstring(L, 3, "ARTWORK");
 
     lua_newtable(L);
     if (tree) {
-        const uint32_t id = tree->create(wowee::ui::WidgetKind::FontString, parent, name ? name : "");
+        const uint32_t id = tree->create(wowee::ui::WidgetKind::FontString, parent,
+                                         named ? name : std::string());
         if (auto* w = tree->get(id)) {
             w->layer = wowee::ui::parseDrawLayer(layer);
             w->objectType = "FontString";
@@ -5192,9 +5225,9 @@ static int lua_Frame_CreateFontString(lua_State* L) {
     lua_pushstring(L, "");
     lua_setfield(L, -2, "_text");
     installRegionMethods(L, /*isTexture=*/false, /*isFontString=*/true);
-    if (name && *name) {
+    if (named) {
         lua_pushvalue(L, -1);
-        lua_setglobal(L, name);
+        lua_setglobal(L, name.c_str());
     }
     return 1;
 }
@@ -5300,7 +5333,26 @@ static int lua_RecordMissingApi(lua_State* L) {
 // CreateFrame(frameType, name, parent, template)
 static int lua_CreateFrame(lua_State* L) {
     const char* frameType = luaL_optstring(L, 1, "Frame");
-    const char* name = luaL_optstring(L, 2, nullptr);
+    const char* rawName = luaL_optstring(L, 2, nullptr);
+    // The name, with $parent resolved against the parent this call was given -
+    // the same three cases the parenting below distinguishes, read the same
+    // way. An explicit nil is a frame with no parent, so there is nothing for
+    // $parent to name it after and the name is dropped; anything else that is
+    // neither a table nor a string means the argument was left off, which
+    // means UIParent.
+    std::string name;
+    bool named = false;
+    {
+        std::string ownerName;
+        if (lua_gettop(L) >= 3 && lua_isnil(L, 3)) {
+            // No parent, so no name.
+        } else if (lua_istable(L, 3) || lua_isstring(L, 3)) {
+            ownerName = ownerNameAt(L, 3);
+        } else {
+            ownerName = "UIParent";
+        }
+        named = resolveOwnedName(rawName, ownerName, name);
+    }
     // Which of the per-type methods go on this frame; see where they are set,
     // below the metatable.
     bool createdStatusBar = false;
@@ -5360,7 +5412,7 @@ static int lua_CreateFrame(lua_State* L) {
             if (parent == 0) parent = tree->uiParentId();
         }
         const uint32_t id = tree->create(wowee::ui::WidgetKind::Frame, parent,
-                                         name ? name : "");
+                                         named ? name : std::string());
         // A Button takes the mouse without being asked; a plain Frame does not,
         // which is what EnableMouse is for.
         if (auto* w = tree->get(id)) {
@@ -5429,12 +5481,12 @@ static int lua_CreateFrame(lua_State* L) {
     }
 
     // Set frame name
-    if (name && *name) {
-        lua_pushstring(L, name);
+    if (named) {
+        lua_pushstring(L, name.c_str());
         lua_setfield(L, -2, "__name");
         // Also set as a global so other addons can find it by name
         lua_pushvalue(L, -1);
-        lua_setglobal(L, name);
+        lua_setglobal(L, name.c_str());
     }
 
     // The fifth argument is the frame's id, and it has to be in place before
