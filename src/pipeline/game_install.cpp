@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <unordered_map>
 
 namespace wowee {
@@ -25,6 +27,28 @@ const std::vector<std::string> kKnownLocales = {
     "enUS", "enGB", "deDE", "frFR", "esES", "esMX",
     "ruRU", "koKR", "zhCN", "zhTW", "ptBR"
 };
+
+// Whether a small text file under @p directory contains @p needle, matched
+// without regard to case. Used to read a client's own realm list, which is a
+// few dozen bytes.
+bool fileMentions(const fs::path& directory, const std::string& fileName,
+                  const std::string& needle) {
+    std::error_code ec;
+    if (!fs::is_directory(directory, ec)) return false;
+    const std::string wantedName = toLowerStr(fileName);
+    for (const auto& entry : fs::directory_iterator(directory, ec)) {
+        if (ec) break;
+        if (!entry.is_regular_file()) continue;
+        if (toLowerStr(entry.path().filename().string()) != wantedName) continue;
+        if (fs::file_size(entry.path(), ec) > 64 * 1024 || ec) return false;
+        std::ifstream in(entry.path(), std::ios::binary);
+        if (!in) return false;
+        const std::string text((std::istreambuf_iterator<char>(in)),
+                               std::istreambuf_iterator<char>());
+        return toLowerStr(text).find(toLowerStr(needle)) != std::string::npos;
+    }
+    return false;
+}
 
 bool hasFileCaseInsensitive(const fs::path& directory, const std::string& expectedName) {
     std::error_code ec;
@@ -151,6 +175,20 @@ std::string detectExpansionAt(const std::string& dataDir) {
         hasFileCaseInsensitive(dataDir, "terrain.mpq")) {
         const fs::path clientRoot = fs::path(dataDir).parent_path();
         if (hasFileCaseInsensitive(clientRoot, "TurtleWoW.exe")) return "turtle";
+        // The installation on hand is a Turtle client whose launcher is the
+        // stock WoW.exe beside VanillaFixes, with patch-3 and patch-4 rather
+        // than the lettered archives below - so neither existing signal fires
+        // and it read as plain Vanilla, which is the wrong auth build.
+        //
+        // Its own realm list names the realm it was shipped for, and a Vanilla
+        // client pointed at a Vanilla server does not. Read rather than
+        // guessed at, because the alternative - treating any patch tier past
+        // stock Vanilla's patch-2 as Turtle - would call every community patch
+        // Turtle and send auth build 7272 to a server expecting 5875.
+        if (fileMentions(clientRoot, "realmlist.wtf", "turtle-wow") ||
+            fileMentions(clientRoot / "WTF", "Config.wtf", "turtle-wow")) {
+            return "turtle";
+        }
         for (int patch = 8; patch <= 9; ++patch) {
             if (hasFileCaseInsensitive(dataDir,
                                        "patch-" + std::to_string(patch) + ".mpq")) {
