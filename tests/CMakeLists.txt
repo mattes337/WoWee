@@ -747,6 +747,15 @@ add_test(NAME cata_movement COMMAND test_cata_movement
          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 register_test_target(test_cata_movement)
 
+# ── test_game_install ──────────────────────────────────────────────────
+# The order a build loads its archives in, which is the whole of archive
+# precedence for both the client and the extractor.
+wowee_add_test(test_game_install
+    SOURCES test_game_install.cpp
+            ${CMAKE_SOURCE_DIR}/src/pipeline/game_install.cpp
+            ${CMAKE_SOURCE_DIR}/src/core/config_paths.cpp
+            ${TEST_COMMON_SOURCES})
+
 # ── test_base_fallback ─────────────────────────────────────────────────
 # Whether one client's asset tree may answer for another's missing files.
 add_executable(test_base_fallback

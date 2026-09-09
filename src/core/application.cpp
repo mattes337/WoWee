@@ -76,6 +76,7 @@
 #include "game/expansion_profile.hpp"
 #include "game/packet_parsers.hpp"
 #include "pipeline/asset_manager.hpp"
+#include "pipeline/game_install.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "pipeline/spell_icon_paths.hpp"
 
@@ -298,6 +299,29 @@ bool Application::initialize() {
     // Scan for available expansion profiles
     expansionRegistry_->initialize(dataPath);
 
+    // The installation wowee was dropped into, if there is one. Found relative
+    // to this executable rather than the working directory, so launching from
+    // anywhere finds the same one.
+    const char* installPathEnv = std::getenv("WOW_INSTALL_PATH");
+    const pipeline::GameInstall install =
+        pipeline::detectGameInstall(installPathEnv ? installPathEnv : "");
+    if (install.isValid()) {
+        LOG_INFO("Found game installation: ", install.root, " (", install.expansion,
+                 ", locale ", install.locale.empty() ? std::string("unknown") : install.locale,
+                 ", ", install.archives.size(), " archives)");
+        // The installation is what says which game is being run: the registry's
+        // own default prefers WotLK, which is the wrong protocol and the wrong
+        // UI files for a Vanilla or TBC folder wowee was placed in.
+        if (expansionRegistry_->getProfile(install.expansion) &&
+            expansionRegistry_->getActiveId() != install.expansion) {
+            expansionRegistry_->setActive(install.expansion);
+            LOG_INFO("Selected expansion '", install.expansion,
+                     "' from the installation being read");
+        }
+    } else if (installPathEnv && *installPathEnv) {
+        LOG_WARNING("WOW_INSTALL_PATH names no readable installation: ", installPathEnv);
+    }
+
     // Load the tables this expansion's protocol is described by.
     if (gameHandler && expansionRegistry_) {
         if (auto* profile = expansionRegistry_->getActive()) {
@@ -326,6 +350,12 @@ bool Application::initialize() {
                 }
             }
         }
+    }
+
+    // Arm archive reads before initialize(), so an installation with no
+    // extracted tree and no manifest still initializes.
+    if (install.isValid()) {
+        assetManager->setGameArchives(install.archives);
     }
 
     LOG_INFO("Attempting to load WoW assets from: ", assetPath);

@@ -16,6 +16,8 @@
 namespace wowee {
 namespace pipeline {
 
+class MpqProvider;
+
 /**
  * AssetManager - Unified interface for loading WoW assets
  *
@@ -109,6 +111,24 @@ public:
     }
 
     /**
+     * Read from the installation's own MPQ archives when a file is not on
+     * disk. This is what lets wowee run beside an untouched installation with
+     * no extracted tree and no manifest: loose files still win where they
+     * exist, and everything else is served straight out of the archives.
+     *
+     * @param archives absolute archive paths, lowest priority first
+     * @return whether at least one archive is open
+     */
+    bool setGameArchives(const std::vector<std::string>& archives);
+
+    [[nodiscard]] bool hasGameArchives() const;
+
+    /// How many reads the archives answered rather than the extracted tree.
+    [[nodiscard]] uint64_t getArchiveHits() const {
+        return archiveHits_.load(std::memory_order_relaxed);
+    }
+
+    /**
      * Load a DBC file
      * @param name DBC file name (e.g., "Map.dbc")
      * @return Loaded DBC file (check isLoaded())
@@ -197,6 +217,12 @@ private:
     // a plain mutable: nothing orders against this and a torn count would be
     // a data race for a diagnostic.
     mutable std::atomic<uint64_t> baseFallbackHits_{0};
+
+    // The installation's own archives, consulted after the extracted tree.
+    // Held by pointer so StormLib stays out of every translation unit that
+    // includes this header.
+    std::unique_ptr<MpqProvider> archives_;
+    mutable std::atomic<uint64_t> archiveHits_{0};
 
     // (resolveFile moved to public - declaration above.)
 

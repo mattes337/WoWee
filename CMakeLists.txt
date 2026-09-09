@@ -542,9 +542,45 @@ function(compile_shaders TARGET_NAME)
     add_dependencies(${TARGET_NAME} ${TARGET_NAME}_shaders)
 endfunction()
 
-# StormLib for MPQ extraction tool (not needed for main executable)
+# StormLib: the extraction tool needs it, and so does reading an untouched
+# installation's archives at runtime. Without it wowee still runs against an
+# extracted tree; only the drop-in path that needs no extraction goes missing.
 find_library(STORMLIB_LIBRARY NAMES StormLib stormlib storm)
 find_path(STORMLIB_INCLUDE_DIR StormLib.h PATH_SUFFIXES StormLib)
+
+# Give a target direct MPQ reads. A no-op, rather than an error, when StormLib
+# or the libraries a static one pulls in are absent: an existing build that
+# never had StormLib must keep building.
+function(wowee_link_stormlib target)
+    if(NOT (STORMLIB_LIBRARY AND STORMLIB_INCLUDE_DIR))
+        return()
+    endif()
+    if(WIN32)
+        # Static StormLib exposes its LibTomCrypt/LibTomMath dependencies.
+        find_library(TOMCRYPT_LIB NAMES tomcrypt libtomcrypt)
+        find_library(TOMMATH_LIB NAMES tommath libtommath)
+        if(NOT (TOMCRYPT_LIB AND TOMMATH_LIB))
+            message(STATUS "  ${target} direct MPQ reads: DISABLED "
+                           "(StormLib needs LibTomCrypt and LibTomMath)")
+            return()
+        endif()
+        target_link_libraries(${target} PRIVATE ${TOMCRYPT_LIB} ${TOMMATH_LIB})
+        find_library(WININET_LIB wininet)
+        if(WININET_LIB)
+            target_link_libraries(${target} PRIVATE ${WININET_LIB})
+        endif()
+    endif()
+    # StormLib compresses with bzip2 as well as zlib and leaves both to
+    # whoever links it.
+    find_library(BZ2_LIB NAMES bz2 bzip2)
+    if(BZ2_LIB)
+        target_link_libraries(${target} PRIVATE ${BZ2_LIB})
+    endif()
+    target_include_directories(${target} PRIVATE ${STORMLIB_INCLUDE_DIR})
+    target_link_libraries(${target} PRIVATE ${STORMLIB_LIBRARY} ZLIB::ZLIB)
+    target_compile_definitions(${target} PRIVATE WOWEE_HAVE_STORMLIB)
+    message(STATUS "  ${target} direct MPQ reads: ENABLED")
+endfunction()
 
 # Include ImGui as a static library (Vulkan backend)
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/imgui)
@@ -692,6 +728,8 @@ set(WOWEE_SOURCES
     src/pipeline/dbc_loader.cpp
     src/pipeline/asset_manager.cpp
     src/pipeline/asset_manifest.cpp
+    src/pipeline/game_install.cpp
+    src/pipeline/mpq_provider.cpp
     src/pipeline/loose_file_reader.cpp
     src/pipeline/m2_loader.cpp
     src/pipeline/wmo_loader.cpp
@@ -1396,6 +1434,10 @@ if(HAVE_UNICORN)
     target_compile_definitions(wowee PRIVATE HAVE_UNICORN)
 endif()
 
+# Read the installation's own archives, so wowee dropped beside the game
+# executable needs no extraction step.
+wowee_link_stormlib(wowee)
+
 # Prefer GLM's explicit header-only target. GLM 1.0 may build glm::glm as a
 # shared library, which creates an unnecessary runtime dependency in app bundles.
 if(TARGET glm::glm-header-only)
@@ -1655,6 +1697,7 @@ if(STORMLIB_LIBRARY AND STORMLIB_INCLUDE_DIR)
         tools/asset_extract/path_mapper.cpp
         tools/asset_extract/manifest_writer.cpp
         tools/asset_extract/open_format_emitter.cpp
+        src/pipeline/game_install.cpp
         src/pipeline/dbc_loader.cpp
         src/pipeline/blp_loader.cpp
         src/pipeline/m2_loader.cpp
@@ -1663,6 +1706,7 @@ if(STORMLIB_LIBRARY AND STORMLIB_INCLUDE_DIR)
         src/pipeline/wowee_model.cpp
         src/pipeline/wowee_building.cpp
         src/pipeline/wowee_collision.cpp
+        src/core/config_paths.cpp
         src/core/logger.cpp
     )
     target_include_directories(asset_extract PRIVATE
@@ -2068,6 +2112,7 @@ add_executable(wowee_editor
     src/pipeline/spell_icon_paths.cpp
     src/pipeline/asset_manager.cpp
     src/pipeline/asset_manifest.cpp
+    src/pipeline/mpq_provider.cpp
     src/pipeline/loose_file_reader.cpp
     src/pipeline/m2_loader.cpp
     src/pipeline/wmo_loader.cpp

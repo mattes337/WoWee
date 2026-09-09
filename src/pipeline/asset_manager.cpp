@@ -1,5 +1,6 @@
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/base_fallback.hpp"
+#include "pipeline/mpq_provider.hpp"
 #include "core/logger.hpp"
 #include "core/memory_monitor.hpp"
 #include "core/profiler.hpp"
@@ -64,16 +65,26 @@ bool AssetManager::initialize(const std::string& dataPath_) {
 
     setupFileCacheBudget();
 
+    // A manifest is how an extracted tree is indexed, not how assets are
+    // found. An installation read through its own archives has neither a
+    // manifest nor an extracted tree, and needs neither.
+    const bool haveArchives = archives_ && archives_->isOpen();
     std::string manifestPath = dataPath + "/manifest.json";
     if (!std::filesystem::exists(manifestPath)) {
-        LOG_ERROR("manifest.json not found in: ", dataPath);
-        LOG_ERROR("Run asset_extract to extract MPQ archives first");
-        return false;
-    }
-
-    if (!manifest_.load(manifestPath)) {
-        LOG_ERROR("Failed to load manifest");
-        return false;
+        if (!haveArchives) {
+            LOG_ERROR("manifest.json not found in: ", dataPath);
+            LOG_ERROR("Run asset_extract to extract MPQ archives first, or place "
+                      "wowee beside the game executable to read its archives directly");
+            return false;
+        }
+        LOG_INFO("No manifest in ", dataPath, "; reading the installation's archives directly");
+    } else if (!manifest_.load(manifestPath)) {
+        if (!haveArchives) {
+            LOG_ERROR("Failed to load manifest");
+            return false;
+        }
+        LOG_WARNING("Manifest in ", dataPath,
+                    " failed to load; falling back to the installation's archives");
     }
 
     if (std::filesystem::is_directory(overridePath_)) {
@@ -158,6 +169,7 @@ void AssetManager::shutdown() {
     }
 
     clearCache();
+    archives_.reset();
     initialized = false;
 }
 
@@ -198,6 +210,29 @@ std::string AssetManager::resolveFile(const std::string& normalizedPath) const {
         return looseCandidate;
     }
     return {};
+}
+
+bool AssetManager::setGameArchives(const std::vector<std::string>& archives) {
+    if (archives.empty()) {
+        archives_.reset();
+        return false;
+    }
+    if (!MpqProvider::isSupported()) {
+        LOG_WARNING("AssetManager: this build cannot read MPQ archives directly");
+        return false;
+    }
+    auto provider = std::make_unique<MpqProvider>();
+    if (!provider->open(archives)) {
+        return false;
+    }
+    // Cached reads were answered without the archives and may now be stale.
+    clearCache();
+    archives_ = std::move(provider);
+    return true;
+}
+
+bool AssetManager::hasGameArchives() const {
+    return archives_ && archives_->isOpen();
 }
 
 bool AssetManager::setBaseFallbackPath(const std::string& basePath,
@@ -617,7 +652,10 @@ bool AssetManager::fileExists(const std::string& path) const {
     // of them took the wrong branch at once: a weapon texture that is present
     // under Weapon\ was declared missing and looked for under Shield\, where
     // it has never been, and the weapon drew white.
-    return !resolveFile(normalized).empty();
+    if (!resolveFile(normalized).empty()) {
+        return true;
+    }
+    return archives_ && archives_->exists(normalized);
 }
 
 std::vector<uint8_t> AssetManager::readFile(const std::string& path) const {
@@ -639,16 +677,25 @@ std::vector<uint8_t> AssetManager::readFile(const std::string& path) const {
         }
     }
 
-    // Read from filesystem (override dir first, then base manifest)
+    // Read from filesystem (override dir first, then base manifest), then from
+    // the installation's own archives. Loose files win so a development tree
+    // and an override directory still shadow the archives they came from.
     std::string fsPath = resolveFile(normalized);
-    if (fsPath.empty()) {
+    std::vector<uint8_t> data;
+    if (!fsPath.empty()) {
+        data = LooseFileReader::readFile(fsPath);
+        if (data.empty()) {
+            LOG_WARNING("Manifest entry exists but file unreadable: ", fsPath);
+            return data;
+        }
+    } else if (archives_) {
+        data = archives_->read(normalized);
+        if (data.empty()) {
+            return {};
+        }
+        archiveHits_.fetch_add(1, std::memory_order_relaxed);
+    } else {
         return {};
-    }
-
-    auto data = LooseFileReader::readFile(fsPath);
-    if (data.empty()) {
-        LOG_WARNING("Manifest entry exists but file unreadable: ", fsPath);
-        return data;
     }
 
     // Add to cache if within budget
