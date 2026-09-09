@@ -1027,6 +1027,50 @@ int lua_Region_GetRect(lua_State* L) {
     lua_pushnumber(L, ownUnits(w, w->rectH));
     return 4;
 }
+/// GetBoundsRect() - the rectangle that holds a frame and everything drawn
+/// inside it, as left, bottom, width, height.
+///
+/// Not the same question as GetRect, which answers where the frame itself is.
+/// A frame's regions routinely reach past it - a SimpleHTML block is sized by
+/// the text flowed into it and its own rect is whatever markup declared - and
+/// this is how the interface asks how much room the content actually took.
+///
+/// GlueDialog.lua is the one that needs it here: an HTML dialog reads the
+/// fourth value and nothing else, and sizes the dialog box around it. Without
+/// this the call raised, GlueDialog_Show stopped there, and every HTML dialog
+/// on the glue screens - the terms of use, the end user agreement, the
+/// connection help - kept whatever height it was last left at.
+///
+/// Hidden regions are not in it. They are not drawn, so they take up no room,
+/// and the real client agrees; counting them made a dialog leave a gap where
+/// its hidden button used to be.
+int lua_Frame_GetBoundsRect(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const auto* w = measuredWidgetOf(L, 1);
+    if (!tree || !w) return 0;
+
+    float x0 = w->left, y0 = w->bottom;
+    float x1 = w->left + w->rectW, y1 = w->bottom + w->rectH;
+    // Iterative rather than recursive: a frame's subtree is as deep as the
+    // interface cares to nest, and this runs from a Lua call.
+    std::vector<uint32_t> pending(w->children.begin(), w->children.end());
+    while (!pending.empty()) {
+        const uint32_t id = pending.back();
+        pending.pop_back();
+        const wowee::ui::Widget* c = tree->get(id);
+        if (!c || !c->shown) continue;
+        x0 = std::min(x0, c->left);
+        y0 = std::min(y0, c->bottom);
+        x1 = std::max(x1, c->left + c->rectW);
+        y1 = std::max(y1, c->bottom + c->rectH);
+        pending.insert(pending.end(), c->children.begin(), c->children.end());
+    }
+    lua_pushnumber(L, ownUnits(w, x0));
+    lua_pushnumber(L, ownUnits(w, y0));
+    lua_pushnumber(L, ownUnits(w, x1 - x0));
+    lua_pushnumber(L, ownUnits(w, y1 - y0));
+    return 4;
+}
 /// Per-frame scale is not modelled - the tree scales the whole interface at
 /// once, which is what UIParent's scale means and where the number FrameXML
 /// wants comes from. One is therefore the true answer for every frame, and it
@@ -3543,6 +3587,36 @@ int lua_Texture_SetBlendMode(lua_State* L) {
     }
     return 0;
 }
+/// SetGradient(orientation, minR, minG, minB, maxR, maxG, maxB)
+/// SetGradientAlpha(orientation, minR, minG, minB, minA, maxR, maxG, maxB, maxA)
+///
+/// A colour ramp across the region rather than one colour. The alpha form is
+/// the one that matters here: the credits scroll masks the top and bottom of
+/// its list with a texture that ramps from opaque to transparent, and with
+/// this unimplemented CreditsFrame.xml did not build at all - the emitted call
+/// raised on a nil and took the rest of the file with it.
+///
+/// VERTICAL runs the ramp bottom to top, which is the direction WoW's own
+/// coordinates run and the one the masks are written against.
+static int setGradient(lua_State* L, bool withAlpha) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    const char* orient = luaL_optstring(L, 2, "HORIZONTAL");
+    w->gradient = true;
+    w->gradientVertical = (std::strcmp(orient, "VERTICAL") == 0);
+    int at = 3;
+    auto read = [&](float (&out)[4]) {
+        out[0] = static_cast<float>(luaL_optnumber(L, at++, 1.0));
+        out[1] = static_cast<float>(luaL_optnumber(L, at++, 1.0));
+        out[2] = static_cast<float>(luaL_optnumber(L, at++, 1.0));
+        out[3] = withAlpha ? static_cast<float>(luaL_optnumber(L, at++, 1.0)) : 1.0f;
+    };
+    read(w->gradientMin);
+    read(w->gradientMax);
+    return 0;
+}
+int lua_Texture_SetGradient(lua_State* L) { return setGradient(L, false); }
+int lua_Texture_SetGradientAlpha(lua_State* L) { return setGradient(L, true); }
 int lua_Texture_GetBlendMode(lua_State* L) {
     auto* w = widgetOf(L, 1);
     lua_pushstring(L, (w && w->blendAdd) ? "ADD" : "BLEND");
@@ -4091,6 +4165,7 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     set("GetBottom", lua_Region_GetBottom);
     set("GetTop", lua_Region_GetTop);
     set("GetRect", lua_Region_GetRect);
+    set("GetBoundsRect", lua_Frame_GetBoundsRect);
     set("GetPoint", lua_Region_GetPoint);
     set("GetObjectType", lua_Region_GetObjectType);
     set("IsObjectType", lua_Region_IsObjectType);
@@ -4127,6 +4202,8 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
         set("GetTexture", lua_Texture_GetTexture);
         set("SetTexCoord", lua_Texture_SetTexCoord);
         set("SetBlendMode", lua_Texture_SetBlendMode);
+        set("SetGradient", lua_Texture_SetGradient);
+        set("SetGradientAlpha", lua_Texture_SetGradientAlpha);
         set("GetBlendMode", lua_Texture_GetBlendMode);
     }
     if (isFontString) {
@@ -6038,6 +6115,7 @@ void LuaEngine::registerCoreAPI() {
         {"GetBottom",       lua_Region_GetBottom},
         {"GetTop",          lua_Region_GetTop},
         {"GetRect",         lua_Region_GetRect},
+        {"GetBoundsRect",   lua_Frame_GetBoundsRect},
         {"IsMouseOver",     lua_Region_IsMouseOver},
         {"GetFrameLevel",   lua_Frame_GetFrameLevel},
         {"GetNumPoints",    lua_Region_GetNumPoints},
