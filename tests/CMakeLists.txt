@@ -1419,6 +1419,7 @@ add_executable(test_calendar_packet
     ${TEST_COMMON_SOURCES}
     ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
     ${CMAKE_SOURCE_DIR}/src/game/calendar_data.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/calendar_invite_view.cpp
 )
 target_include_directories(test_calendar_packet PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_calendar_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})

@@ -2,6 +2,7 @@
 
 #include "game/quest_giver_status.hpp"
 #include "game/calendar_data.hpp"
+#include "game/calendar_invite_view.hpp"
 #include "game/game_interfaces.hpp"
 #include "game/world_packets.hpp"
 #include "game/character.hpp"
@@ -769,7 +770,10 @@ public:
     }
     void clearCalendarEventDetail() {
         calendarEventDetail_ = CalendarEventDetail{};
+        calendarInviteView_.reset();
     }
+    CalendarInviteViewState& getCalendarInviteView() { return calendarInviteView_; }
+    const CalendarInviteViewState& getCalendarInviteView() const { return calendarInviteView_; }
     /// Invite someone to an event, or to one not yet created.
     void inviteToCalendarEvent(uint64_t eventId, uint64_t inviteId,
                                const std::string& name, bool isPreInvite,
@@ -5056,6 +5060,7 @@ private:
     CalendarData calendarData_;
     /// One event in full, as of the last one opened.
     CalendarEventDetail calendarEventDetail_;
+    CalendarInviteViewState calendarInviteView_;
 
     // ---- Spell modifiers (SMSG_SET_FLAT_SPELL_MODIFIER / SMSG_SET_PCT_SPELL_MODIFIER) ----
     // Keyed by (SpellModOp, groupIndex); cleared on logout/character change.

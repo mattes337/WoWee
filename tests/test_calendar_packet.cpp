@@ -14,6 +14,7 @@
 
 #include "core/application.hpp"
 #include "game/calendar_data.hpp"
+#include "game/calendar_invite_view.hpp"
 #include "network/packet.hpp"
 
 #include <ctime>
@@ -25,6 +26,53 @@ Application* Application::instance = nullptr;
 
 using namespace wowee::game;
 using wowee::network::Packet;
+
+TEST_CASE("calendar invite view keeps selection through sorting", "[calendar][invite-view]") {
+    std::vector<CalendarInviteViewRow> rows{
+        {30, 300, "beta", 2, 1}, {10, 100, "Alpha", 1, 2},
+        {20, 200, "", 0, 2}, {40, 400, "alpha", 1, 2}};
+    CalendarInviteViewState view;
+    view.synchronize(7, rows);
+    REQUIRE(view.select(1, rows));
+    REQUIRE(view.sort("name", false, rows));
+    CHECK(view.sourceIndex(1, rows) == 2);
+    CHECK(view.sourceIndex(2, rows) == 4);
+    CHECK(view.sourceIndex(3, rows) == 1);
+    CHECK(view.sourceIndex(4, rows) == 3);
+    CHECK(view.selectedDisplayIndex(rows) == 3);
+    REQUIRE(view.sort("name", true, rows));
+    CHECK(view.sourceIndex(1, rows) == 1);
+    CHECK(view.sourceIndex(4, rows) == 3);
+    CHECK(view.selectedDisplayIndex(rows) == 1);
+    rows.erase(rows.begin());
+    view.synchronize(7, rows);
+    CHECK(view.selectedDisplayIndex(rows) == 0);
+    view.synchronize(8, rows);
+    CHECK(view.criterion().empty());
+    CHECK_FALSE(view.reverse());
+}
+
+TEST_CASE("calendar invite projection is stable and duplicate-safe", "[calendar][invite-view]") {
+    std::vector<CalendarInviteViewRow> rows{
+        {90, 900, "same", 3, 1}, {80, 800, "same", 2, 3},
+        {70, 700, "unknown", 0, 2}};
+    CalendarInviteViewState view;
+    view.synchronize(4, rows);
+    REQUIRE(view.sort("name", false, rows));
+    CHECK(view.sourceIndex(1, rows) == 1);
+    CHECK(view.sourceIndex(2, rows) == 2);
+    REQUIRE(view.sort("status", false, rows));
+    CHECK(rows[view.sourceIndex(2, rows) - 1].inviteId == 70);
+    REQUIRE(view.sort("class", true, rows));
+    CHECK(view.sourceIndex(1, rows) == 1);
+    CHECK(view.sourceIndex(3, rows) == 3);
+    CHECK_FALSE(view.sort("party", false, rows));
+    rows.push_back(rows.front());
+    view.synchronize(4, rows);
+    CHECK_FALSE(view.select(1, rows));
+    CHECK(view.selectedDisplayIndex(rows) == 0);
+    CHECK(view.sourceIndex(4, rows) != 0);
+}
 
 TEST_CASE("calendar event edit permission requires a known creator matching the player",
           "[calendar][permission]") {

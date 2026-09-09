@@ -127,6 +127,8 @@ bool GameHandler::connect(const std::string& host,
         return false;
     }
 
+    clearCalendarEventDetail();
+
     LOG_INFO("========================================");
     LOG_INFO("   CONNECTING TO WORLD SERVER");
     LOG_INFO("========================================");
@@ -176,6 +178,7 @@ bool GameHandler::connect(const std::string& host,
 
 void GameHandler::disconnect() {
     if (socialHandler_) socialHandler_->resetReadyCheckSession();
+    clearCalendarEventDetail();
     taxiRecoverPending_ = onTaxiFlight_;
     if (socket) {
         socket->disconnect();

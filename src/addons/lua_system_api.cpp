@@ -27,6 +27,7 @@
 #include "game/bg_score_defs.hpp"
 #include "game/calendar_month.hpp"
 #include "game/calendar_data.hpp"
+#include "game/calendar_invite_view.hpp"
 #include "game/pet_action.hpp"
 #include "audio/activity_sound_manager.hpp"
 #include "audio/ambient_sound_manager.hpp"
@@ -152,6 +153,28 @@ struct CalendarContextRow { int monthOffset = 0; int day = 0; int index = 0; };
 static CalendarContextRow& calendarContextRow() {
     static CalendarContextRow row;
     return row;
+}
+
+static std::vector<wowee::game::CalendarInviteViewRow> calendarInviteRows(
+        wowee::game::GameHandler& gh) {
+    const auto& event = gh.getCalendarEventDetail();
+    std::vector<wowee::game::CalendarInviteViewRow> rows;
+    rows.reserve(event.invitees.size());
+    for (const auto& invite : event.invitees) {
+        rows.push_back({invite.inviteId, invite.guid, gh.lookupName(invite.guid),
+                        gh.lookupPlayerClass(invite.guid), invite.status});
+    }
+    gh.getCalendarInviteView().synchronize(event.eventId, rows);
+    return rows;
+}
+
+static const wowee::game::CalendarEventInvitee* calendarDisplayedInvite(
+        wowee::game::GameHandler& gh, int displayIndex) {
+    const auto rows = calendarInviteRows(gh);
+    const size_t source = displayIndex > 0
+        ? gh.getCalendarInviteView().sourceIndex(static_cast<size_t>(displayIndex), rows) : 0;
+    const auto& invites = gh.getCalendarEventDetail().invitees;
+    return source > 0 && source <= invites.size() ? &invites[source - 1] : nullptr;
 }
 
 /// The rows of a day, for a caller that already has the handler and the day.
@@ -7664,19 +7687,60 @@ void registerSystemLuaAPI(lua_State* L) {
                 gh->getCalendarEventDetail().invitees.size()) : 0);
             return 1;
         }},
+                {"CalendarEventGetSelectedInvite", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushnumber(L, 0); return 1; }
+            const auto rows = calendarInviteRows(*gh);
+            lua_pushnumber(L, static_cast<lua_Number>(
+                gh->getCalendarInviteView().selectedDisplayIndex(rows)));
+            return 1;
+        }},
+                {"CalendarEventSelectInvite", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || index < 1) return 0;
+            const auto rows = calendarInviteRows(*gh);
+            gh->getCalendarInviteView().select(static_cast<size_t>(index), rows);
+            return 0;
+        }},
+                {"CalendarEventGetInviteSortCriterion", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto& view = gh->getCalendarInviteView();
+            if (view.criterion().empty()) return 0;
+            lua_pushstring(L, view.criterion().c_str());
+            lua_pushboolean(L, view.reverse() ? 1 : 0);
+            return 2;
+        }},
+                {"CalendarEventSortInvites", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* criterion = luaL_optstring(L, 1, "");
+            const bool reverse = lua_toboolean(L, 2) != 0;
+            if (!gh) return 0;
+            const auto rows = calendarInviteRows(*gh);
+            if (!gh->getCalendarInviteView().sort(criterion, reverse, rows)) return 0;
+            if (auto* engine = getEngine(L))
+                engine->fireEvent("CALENDAR_UPDATE_INVITE_LIST", {});
+            return 0;
+        }},
                 // name, level, className, classFilename, inviteStatus - the
                 // five the invite list reads.
                 {"CalendarEventGetInvite", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return 0;
-            const auto& list = gh->getCalendarEventDetail().invitees;
-            if (index < 1 || static_cast<size_t>(index) > list.size()) return 0;
-            const auto& inv = list[static_cast<size_t>(index) - 1];
+            const auto* invite = calendarDisplayedInvite(*gh, index);
+            if (!invite) return 0;
+            const auto& inv = *invite;
             lua_pushstring(L, gh->lookupName(inv.guid).c_str());
             lua_pushnumber(L, inv.level);
-            lua_pushstring(L, "");              // className
-            lua_pushstring(L, "");              // classFilename
+            const uint8_t classId = gh->lookupPlayerClass(inv.guid);
+            if (luaClassToken(classId)) {
+                lua_pushstring(L, kLuaClasses[classId]);
+            } else {
+                lua_pushnil(L);
+            }
+            luaPushClassToken(L, classId);
             lua_pushnumber(L, inv.status + 1);   // wire counts from zero
             lua_pushnumber(L, inv.rank);
             lua_pushboolean(L, inv.isGuildMember ? 1 : 0);
@@ -7828,8 +7892,9 @@ void registerSystemLuaAPI(lua_State* L) {
             const int uiStatus = static_cast<int>(luaL_optnumber(L, 2, 1));
             if (!gh) return 0;
             const auto& ev = gh->getCalendarEventDetail();
-            if (index < 1 || static_cast<size_t>(index) > ev.invitees.size()) return 0;
-            const auto& inv = ev.invitees[static_cast<size_t>(index) - 1];
+            const auto* invite = calendarDisplayedInvite(*gh, index);
+            if (!invite) return 0;
+            const auto& inv = *invite;
             gh->setCalendarInviteStatus(inv.guid, ev.eventId, inv.inviteId,
                                         static_cast<uint8_t>(uiStatus > 0 ? uiStatus - 1 : 0));
             return 0;
@@ -7839,8 +7904,9 @@ void registerSystemLuaAPI(lua_State* L) {
             const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return 0;
             const auto& ev = gh->getCalendarEventDetail();
-            if (index < 1 || static_cast<size_t>(index) > ev.invitees.size()) return 0;
-            const auto& inv = ev.invitees[static_cast<size_t>(index) - 1];
+            const auto* invite = calendarDisplayedInvite(*gh, index);
+            if (!invite) return 0;
+            const auto& inv = *invite;
             gh->setCalendarInviteModerator(inv.guid, ev.eventId, inv.inviteId, 1);
             return 0;
         }},
@@ -7849,8 +7915,9 @@ void registerSystemLuaAPI(lua_State* L) {
             const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return 0;
             const auto& ev = gh->getCalendarEventDetail();
-            if (index < 1 || static_cast<size_t>(index) > ev.invitees.size()) return 0;
-            const auto& inv = ev.invitees[static_cast<size_t>(index) - 1];
+            const auto* invite = calendarDisplayedInvite(*gh, index);
+            if (!invite) return 0;
+            const auto& inv = *invite;
             gh->setCalendarInviteModerator(inv.guid, ev.eventId, inv.inviteId, 0);
             return 0;
         }},

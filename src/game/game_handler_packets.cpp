@@ -2901,6 +2901,7 @@ void GameHandler::registerRemainingOpcodes() {
             packet.skipAll();
             return;
         }
+        calendarInviteView_.reset();
         calendarEventDetail_ = std::move(parsed);
         LOG_INFO("SMSG_CALENDAR_SEND_EVENT: '", calendarEventDetail_.title,
                  "' with ", calendarEventDetail_.invitees.size(), " invitee(s)");
