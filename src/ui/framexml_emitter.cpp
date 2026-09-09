@@ -201,13 +201,36 @@ struct Emitter {
 
     void emitScripts(const XmlNode& scripts, const std::string& var) {
         for (const XmlNode& s : scripts.children) {
-            // <OnClick function="Foo"/> names an existing global; an inline body
-            // is a function literal. Both end up as the same SetScript call.
+            // <OnClick function="Foo"/> names a global; an inline body is a
+            // function literal. Both end up as the same SetScript call.
             // Present but empty is not a name. Emitted as one it produces
             // SetScript("X", ) - a syntax error that loses the whole file, not
             // just the handler.
+            //
+            // The name is looked up when the handler fires, not when the frame
+            // is built, which is what the real client does with it.
+            //
+            // Reading it here reads it at the wrong moment. Whatever defines
+            // the function need not have run yet - a handler is declared in one
+            // file and written in another all through the interface - and the
+            // value captured then is nil for the life of the frame. That is two
+            // faults at once: a handler that works in the real client does
+            // nothing here for good, and a name that was merely early is
+            // recorded as a name that is absent, which is the one thing the
+            // missing-API list is for. AccountLogin.xml's three cinematics
+            // buttons are the case that showed it - all three name
+            // Cinematics_PlayMovie, and it read as missing while nothing had
+            // yet clicked a button.
+            //
+            // Still reported when it really is absent: the read that finds
+            // nothing is the one inside the handler, so the report happens if
+            // and when the handler runs, which is the only moment at which it
+            // is true. Resolving by name is also what lets a later definition
+            // take effect, as it does in the client.
             if (const std::string* fn = s.attr("function"); fn && !fn->empty()) {
-                line(var + ":SetScript(" + quote(s.name) + ", " + *fn + ")");
+                line(var + ":SetScript(" + quote(s.name) +
+                     ", function(...) local f = _G[" + quote(*fn) +
+                     "] if f then return f(...) end end)");
                 continue;
             }
             std::string body = s.text;

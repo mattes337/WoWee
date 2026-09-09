@@ -451,7 +451,11 @@ TEST_CASE("Scripts bind both inline bodies and named functions",
     const EmitResult r = emitFrameXml(root);
     REQUIRE(has(r.lua, ":SetScript(\"OnLoad\", function(self, ...)"));
     REQUIRE(has(r.lua, "self:SetAlpha(0.5)"));
-    REQUIRE(has(r.lua, ":SetScript(\"OnClick\", MyHandler)"));
+    // A named function is bound by name and read when the handler fires. The
+    // name still has to reach the emitted handler, and the global must not be
+    // read at the moment the frame is built - see the test below.
+    REQUIRE(has(r.lua, ":SetScript(\"OnClick\", function(...)"));
+    REQUIRE(has(r.lua, "_G[\"MyHandler\"]"));
     // OnLoad is expected to run once the frame is built, which is what every
     // handler in FrameXML assumes about itself. Through the engine, which is
     // what puts `this` in scope for an interface written before 3.0.
@@ -905,7 +909,30 @@ TEST_CASE("An empty function attribute is not emitted as a handler name",
         "</Scripts></Frame></Ui>");
     const EmitResult r = emitFrameXml(root);
     REQUIRE_FALSE(has(r.lua, "SetScript(\"OnMouseWheel\", )"));
-    REQUIRE(has(r.lua, "SetScript(\"OnShow\", RealHandler)"));
+    REQUIRE_FALSE(has(r.lua, "_G[\"\"]"));
+    REQUIRE(has(r.lua, "SetScript(\"OnShow\", function(...)"));
+    REQUIRE(has(r.lua, "_G[\"RealHandler\"]"));
+}
+
+TEST_CASE("A named handler is looked up when it fires, not when it is bound",
+          "[framexml][emit]") {
+    // FrameXML declares handlers in XML that nothing has defined yet - the
+    // three cinematics buttons in AccountLogin.xml name Cinematics_PlayMovie -
+    // and the real client keeps the name and resolves it at the call. Read at
+    // bind time the value is nil for the life of the frame, so the handler is
+    // permanently dead however late the name is defined, and it is reported as
+    // a missing API before anything could ever have clicked the button.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Scripts>"
+        "<OnClick function=\"NotYetDefined\"/>"
+        "</Scripts></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+
+    // The name reaches the handler as a string, and the global is read inside
+    // it rather than beside it.
+    REQUIRE(has(r.lua, "_G[\"NotYetDefined\"]"));
+    // Never as a bare symbol, which is what reading it at bind time looks like.
+    REQUIRE_FALSE(has(r.lua, ", NotYetDefined)"));
 }
 
 TEST_CASE("$parent follows the parent attribute, not the file structure",
