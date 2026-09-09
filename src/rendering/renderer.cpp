@@ -1040,7 +1040,7 @@ void Renderer::beginFrame() {
         // Pixels, like the extent below: a window with a surface behind it is
         // never rebuilt from the size the desktop places it at.
         if (window->getDrawableWidth() == 0 || window->getDrawableHeight() == 0) return;
-        (void)vkCtx->recreateSwapchain(window->getDrawableWidth(), window->getDrawableHeight());
+        if (!vkCtx->recreateSwapchain(window->getDrawableWidth(), window->getDrawableHeight())) return;
         // Rebuild water resources that reference swapchain extent/views
         if (waterRenderer) {
             waterRenderer->recreatePipelines();

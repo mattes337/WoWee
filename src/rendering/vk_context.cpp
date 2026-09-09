@@ -2499,6 +2499,16 @@ bool VkContext::restoreSurface(SDL_Window* window, int width, int height) {
 }
 
 bool VkContext::recreateSwapchain(int width, int height) {
+    // SDL can retain a nonzero drawable size while the minimized surface is 0x0.
+    // Defer recreation before destroying resources, and retry after restoration.
+    this->swapchainDirty = true;
+    if (width <= 0 || height <= 0) return false;
+    VkSurfaceCapabilitiesKHR surfaceCapabilities{};
+    if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(this->physicalDevice, this->surface,
+                                                 &surfaceCapabilities) != VK_SUCCESS) return false;
+    if (surfaceCapabilities.currentExtent.width == 0 ||
+        surfaceCapabilities.currentExtent.height == 0) return false;
+
     vkDeviceWaitIdle(device);
 
     // Destroy old framebuffers
