@@ -18,6 +18,19 @@ struct LuaServices {
     audio::AudioCoordinator* audioCoordinator  = nullptr;
     game::ExpansionRegistry* expansionRegistry = nullptr;
 
+    /// The installation's own files, by the path the interface names them
+    /// with - "interface\framexml\ui.xml".
+    ///
+    /// The original interface lives inside the game's archives, which is where
+    /// an installation nobody extracted keeps it, and nothing in wowee::addons
+    /// can reach an AssetManager. These three are that reach: a read, an
+    /// existence check, and the one listing that is genuinely needed, which is
+    /// which addons the installation ships. Unset in a build with no asset
+    /// manager, so every caller must check before calling.
+    std::function<bool(const std::string&, std::string&)> readGameFile;
+    std::function<bool(const std::string&)> gameFileExists;
+    std::function<std::vector<std::string>(const std::string&)> listGameFiles;
+
     /// Run a macro body, as RunMacroText() does - one command per line,
     /// through the same path the action bar uses for a macro button.
     std::function<void(const std::string&)> runMacroText;

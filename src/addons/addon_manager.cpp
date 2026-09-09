@@ -1,4 +1,5 @@
 #include "addons/addon_manager.hpp"
+#include "pipeline/virtual_path.hpp"
 #include "addons/lua_handler_globals.hpp"
 #include "addons/addon_lua_snippets.hpp"
 #include "addons/lua_api_registrations.hpp"
@@ -99,7 +100,90 @@ std::filesystem::path resolvePath(const std::filesystem::path& base,
 
 } // namespace
 
-void AddonManager::scanAddons(const std::string& addonsPath) {
+/// A filesystem directory inside an extracted interface tree, as the archives
+/// spell it: everything from the "interface" component on.
+///
+/// Empty for a directory that is not under one - wowee's own addons ship beside
+/// the executable rather than inside the game's data, and no archive answers
+/// for those.
+static std::string virtualiseInterfaceDir(const std::string& dir) {
+    const std::string normalized = pipeline::normalizeVirtual(dir);
+    static const std::string kInterface = "interface";
+    size_t at = 0;
+    while (at <= normalized.size()) {
+        const size_t end = normalized.find('\\', at);
+        const size_t len = (end == std::string::npos ? normalized.size() : end) - at;
+        if (len == kInterface.size() && normalized.compare(at, len, kInterface) == 0) {
+            return normalized.substr(at);
+        }
+        if (end == std::string::npos) break;
+        at = end + 1;
+    }
+    return {};
+}
+
+bool AddonManager::readUiFile(const std::string& path, std::string& out) const {
+    if (path.empty()) return false;
+    {
+        std::ifstream in(path, std::ios::binary);
+        if (in) {
+            std::stringstream buffer;
+            buffer << in.rdbuf();
+            out = buffer.str();
+            return true;
+        }
+    }
+    if (luaServices_.readGameFile) return luaServices_.readGameFile(path, out);
+    return false;
+}
+
+bool AddonManager::uiFileExists(const std::string& path) const {
+    if (path.empty()) return false;
+    std::error_code ec;
+    if (std::filesystem::is_regular_file(path, ec)) return true;
+    return luaServices_.gameFileExists && luaServices_.gameFileExists(path);
+}
+
+std::string AddonManager::resolveUiPath(const std::string& baseDir,
+                                        const std::string& relative) const {
+    if (relative.empty()) return {};
+
+    std::string archiveBase = baseDir;
+    std::error_code ec;
+    if (!baseDir.empty() && std::filesystem::is_directory(baseDir, ec)) {
+        std::string onDisk = relative;
+        std::replace(onDisk.begin(), onDisk.end(), '\\', '/');
+        if (auto p = resolvePath(std::filesystem::path(baseDir), onDisk); !p.empty()) {
+            return p.string();
+        }
+        // A real directory that does not have this file. An extraction is
+        // routinely partial - one report's tree had StaticPopup.xml and not the
+        // StaticPopup.lua it names, and every static popup in the game was dead
+        // for it - so the archives are still asked, under the path the
+        // interface knows the directory by rather than where it sits on disk.
+        archiveBase = virtualiseInterfaceDir(baseDir);
+        if (archiveBase.empty()) return {};
+    }
+
+    const std::string inArchive = pipeline::joinVirtual(archiveBase, relative);
+    if (luaServices_.gameFileExists && luaServices_.gameFileExists(inArchive)) {
+        return inArchive;
+    }
+    return {};
+}
+
+bool AddonManager::runUiLuaFile(const std::string& path) {
+    std::string source;
+    if (!readUiFile(path, source)) {
+        // executeFile fails the same way and records the same reason, which is
+        // what a caller reads back through lastError().
+        return luaEngine_.executeFile(path);
+    }
+    return luaEngine_.executeBuffer(path, std::move(source));
+}
+
+void AddonManager::scanAddons(const std::string& addonsPath,
+                              const std::vector<std::string>& extraRoots) {
     addonsPath_ = addonsPath;
     addons_.clear();
     lodAddons_.clear();
@@ -145,9 +229,21 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
         fs::path p = fs::absolute(local, rec);
         if (fs::is_directory(p, rec)) roots.push_back(fs::weakly_canonical(p, rec));
     }
+    // And whatever the caller found - the Interface/AddOns of the installation
+    // wowee was dropped into, which is where a player's own addons actually
+    // live and which no path derived from wowee's own data tree reaches.
+    for (const auto& extra : extraRoots) {
+        fs::path p(extra);
+        if (!fs::is_directory(p, rec)) continue;
+        bool already = false;
+        for (const auto& root : roots) {
+            if (fs::equivalent(root, p, rec)) { already = true; break; }
+        }
+        if (!already) roots.push_back(std::move(p));
+    }
 
     int scannedDirs = 0, loadOnDemand = 0, noToc = 0;
-    std::vector<fs::path> dirs;
+    std::vector<std::string> dirs;
     for (const auto& root : roots) {
         std::error_code ec;
         if (!fs::is_directory(root, ec)) {
@@ -160,8 +256,30 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
         // for it is unanswerable without knowing where the scan looked.
         LOG_WARNING("AddonManager: scanning for addons in ", root.string());
         for (const auto& entry : fs::directory_iterator(root, ec)) {
-            if (entry.is_directory()) dirs.push_back(entry.path());
+            if (entry.is_directory()) dirs.push_back(entry.path().string());
         }
+    }
+    // And the addons the installation keeps inside its own archives, which is
+    // where every Blizzard panel lives in an installation nobody extracted -
+    // the talent tree, the achievements, the macro editor, twenty-odd of them.
+    //
+    // The one listing wowee asks an archive for. Everything else it reads it
+    // knows the name of; which addons an installation ships is the question a
+    // known path cannot answer.
+    if (luaServices_.listGameFiles) {
+        static constexpr std::string_view kAddonRoot = "interface\\addons\\";
+        std::set<std::string> archiveDirs;
+        for (const auto& path : luaServices_.listGameFiles(std::string(kAddonRoot))) {
+            if (path.size() <= kAddonRoot.size()) continue;
+            const size_t at = path.find('\\', kAddonRoot.size());
+            if (at == std::string::npos) continue;
+            archiveDirs.insert(path.substr(0, at));
+        }
+        if (!archiveDirs.empty()) {
+            LOG_WARNING("AddonManager: ", archiveDirs.size(),
+                        " addon(s) in the installation's archives");
+        }
+        for (const auto& dir : archiveDirs) dirs.push_back(dir);
     }
     // Sort alphabetically for deterministic load order
     std::sort(dirs.begin(), dirs.end());
@@ -176,9 +294,16 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
     std::set<std::string> lodSeen;
     int duplicates = 0;
 
+    // The last component of a directory, on disk or in an archive, with its
+    // spelling left alone: an addon is named by its folder.
+    const auto lastComponent = [](const std::string& p) {
+        const size_t at = p.find_last_of("/\\");
+        return at == std::string::npos ? p : p.substr(at + 1);
+    };
+
     for (const auto& dir : dirs) {
         ++scannedDirs;
-        std::string dirName = dir.filename().string();
+        std::string dirName = lastComponent(dir);
         // The original interface is not an addon and must never be loaded as
         // one. It ships with a .toc of its own, so a scan that lands on
         // Data/interface rather than Data/interface/AddOns - which is what a
@@ -198,8 +323,11 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
             }
         }
 
-        std::string tocPath = (dir / (dirName + ".toc")).string();
-        auto toc = parseTocFile(tocPath);
+        const std::string tocPath = resolveUiPath(dir, dirName + ".toc");
+        std::string tocText;
+        auto toc = tocPath.empty() || !readUiFile(tocPath, tocText)
+                       ? std::nullopt
+                       : parseTocText(tocPath, tocText);
         if (!toc) { ++noToc; continue; }
 
         if (toc->isLoadOnDemand()) {
@@ -216,12 +344,12 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
         if (!seen.insert(toc->addonName).second) {
             ++duplicates;
             LOG_INFO("AddonManager: '", toc->addonName, "' already found elsewhere; "
-                     "ignoring the copy at ", dir.string());
+                     "ignoring the copy at ", dir);
             continue;
         }
 
         LOG_INFO("AddonManager: registered addon '", toc->getTitle(),
-                 "' (", toc->files.size(), " files) from ", dir.string());
+                 "' (", toc->files.size(), " files) from ", dir);
         addons_.push_back(std::move(*toc));
     }
 
@@ -260,14 +388,11 @@ std::vector<std::string> AddonManager::deferredAddonGlobals() const {
         for (size_t qi = 0; qi < queue.size(); ++qi) {
             const std::string& rel = queue[qi];
             if (!seen.insert(rel).second) continue;
-            const fs::path file = resolvePath(fs::path(addon.basePath), rel);
+            const std::string file = resolveUiPath(addon.basePath, rel);
             if (file.empty()) continue;
-            std::ifstream in(file, std::ios::binary);
-            if (!in) continue;
-            const std::string text((std::istreambuf_iterator<char>(in)),
-                                   std::istreambuf_iterator<char>());
-            const std::string ext = file.extension().string();
-            if (ext == ".lua" || ext == ".Lua" || ext == ".LUA") {
+            std::string text;
+            if (!readUiFile(file, text)) continue;
+            if (pipeline::virtualHasExtension(file, ".lua")) {
                 collectLuaGlobals(text, names);
                 continue;
             }
@@ -491,13 +616,25 @@ void AddonManager::saveEnabledState() const {
     }
 }
 
+// Saved variables live with wowee's own configuration, not with the addon.
+//
+// They used to be written into each addon's own folder. Beside an extracted
+// tree that was merely untidy; beside an installation it is wrong twice over -
+// it writes into the player's own client, which the drop-in contract forbids,
+// and an addon inside an archive has no folder to write to at all. Kept apart
+// from the original client's WTF for the same reason: launching either client
+// must not overwrite what the other saved.
+std::string AddonManager::savedVariablesDir() {
+    return core::getConfigRoot() + "/savedvariables";
+}
+
 std::string AddonManager::getSavedVariablesPath(const TocFile& addon) const {
-    return addon.basePath + "/" + addon.addonName + ".lua.saved";
+    return savedVariablesDir() + "/" + addon.addonName + ".lua";
 }
 
 std::string AddonManager::getSavedVariablesPerCharacterPath(const TocFile& addon) const {
     if (characterName_.empty()) return "";
-    return addon.basePath + "/" + addon.addonName + "." + characterName_ + ".lua.saved";
+    return savedVariablesDir() + "/" + addon.addonName + "." + characterName_ + ".lua";
 }
 
 // The client's settings, as panels in FrameXML's Interface Options.
@@ -603,20 +740,31 @@ void AddonManager::giveCoinAmountsClearance() {
 
 bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     std::error_code ec;
-    std::filesystem::path dir(frameXmlDir);
-    if (!std::filesystem::is_directory(dir, ec)) {
-        // The directory itself may be spelled differently on disk.
-        dir = resolvePath(std::filesystem::path(frameXmlDir).parent_path(),
-                          std::filesystem::path(frameXmlDir).filename().string());
+    // On disk first, so an extracted tree and a working copy still shadow the
+    // archives they came from; then the installation's own archives, which is
+    // where an interface nobody extracted lives.
+    std::string dir;
+    {
+        std::filesystem::path onDisk(frameXmlDir);
+        if (!std::filesystem::is_directory(onDisk, ec)) {
+            // The directory itself may be spelled differently on disk.
+            onDisk = resolvePath(std::filesystem::path(frameXmlDir).parent_path(),
+                                 std::filesystem::path(frameXmlDir).filename().string());
+        }
+        if (!onDisk.empty() && std::filesystem::is_directory(onDisk, ec)) {
+            dir = onDisk.string();
+        } else {
+            dir = "interface\\framexml";
+        }
     }
-    if (dir.empty() || !std::filesystem::is_directory(dir, ec)) {
-        LOG_WARNING("FrameXML: no directory at ", frameXmlDir);
-        return false;
-    }
-    const std::filesystem::path tocPath = resolveChild(dir, "FrameXML.toc");
-    auto toc = tocPath.empty() ? std::nullopt : parseTocFile(tocPath.string());
+
+    std::string tocPath = resolveUiPath(dir, "FrameXML.toc");
+    std::string tocText;
+    auto toc = tocPath.empty() || !readUiFile(tocPath, tocText)
+                   ? std::nullopt
+                   : parseTocText(tocPath, tocText);
     if (!toc) {
-        LOG_WARNING("FrameXML: no manifest in ", dir.string());
+        LOG_WARNING("FrameXML: no manifest in ", dir);
         return false;
     }
     // Which convention this interface's handlers are written against, decided
@@ -665,7 +813,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
                 legacyHandlers ? "this, event and arg1..argN as globals"
                                : "their arguments only");
 
-    const std::string resolvedDir = dir.string();
+    const std::string resolvedDir = dir;
     // Kept, because an include that names a shared template by bare name is
     // resolved against this and nothing else. Blizzard_InspectUI asks for
     // PVPFrameTemplates.xml, which lives in FrameXML rather than beside it, and
@@ -681,8 +829,8 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // before the interface, so that a script asking what a command is bound to
     // during load gets an answer. Without this the file was never read at all
     // and the key bindings list had nothing to list.
-    if (const auto bindings = resolveChild(dir, "Bindings.xml"); !bindings.empty()) {
-        if (!loadXmlFile(bindings.string(), 0)) {
+    if (const auto bindings = resolveUiPath(dir, "Bindings.xml"); !bindings.empty()) {
+        if (!loadXmlFile(bindings, 0)) {
             LOG_WARNING("FrameXML: could not read the key bindings: ", lastXmlError_);
         }
     }
@@ -722,21 +870,21 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         LOG_WARNING("FrameXML: loading ", filename);
         std::string lower = filename;
         for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        const std::filesystem::path resolved = resolvePath(dir, filename);
+        const std::string resolved = resolveUiPath(dir, filename);
         if (resolved.empty()) {
-            LOG_WARNING("FrameXML: ", filename, " is listed but not on disk");
+            LOG_WARNING("FrameXML: ", filename, " is listed but not in this install");
             ++failed;
-            failures.emplace_back(filename, "listed in the manifest but not on disk");
+            failures.emplace_back(filename, "listed in the manifest but not in this install");
             continue;
         }
-        const std::string full = resolved.string();
+        const std::string& full = resolved;
 
         // The manifest's order is the load order and matters: GlobalStrings and
         // Constants before anything reads them, Fonts before the frames that
         // inherit from them. Following it is most of what makes this possible
         // at all.
         if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, ".lua") == 0) {
-            if (luaEngine_.executeFile(full)) {
+            if (runUiLuaFile(full)) {
                 ++lua;
             } else {
                 ++failed;
@@ -1358,18 +1506,16 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
         return false;
     }
 
-    std::ifstream in(path, std::ios::binary);
-    if (!in) {
-        lastXmlError_ = "not on disk";
+    std::string source;
+    if (!readUiFile(path, source)) {
+        lastXmlError_ = "not in this installation";
         LOG_WARNING("AddonManager: XML not found: ", path);
         return false;
     }
-    std::stringstream buffer;
-    buffer << in.rdbuf();
 
     ui::XmlNode root;
     std::string error;
-    if (!ui::parseXml(buffer.str(), root, error)) {
+    if (!ui::parseXml(source, root, error)) {
         lastXmlError_ = "XML parse: " + error;
         LOG_ERROR("AddonManager: ", path, ": ", error);
         return false;
@@ -1392,38 +1538,47 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
             std::error_code ec;
             fs::create_directories(dumpDir, ec);
             const fs::path out =
-                fs::path(dumpDir) / (fs::path(path).filename().string() + ".lua");
+                fs::path(dumpDir) / (pipeline::virtualBasename(path) + ".lua");
             std::ofstream f(out);
             if (f) f << emitted.lua;
         }
     }
 
-    const fs::path dir = fs::path(path).parent_path();
+    // The directory the file itself came from - a real one when the file was
+    // read off disk, an archive path when it was not.
+    std::error_code dirEc;
+    const std::string dir = fs::is_regular_file(path, dirEc)
+                                ? fs::path(path).parent_path().string()
+                                : pipeline::virtualParent(path);
+    // Where shared templates live, the same two ways. An installation nobody
+    // extracted has no FrameXML directory at all, so the archive path is what
+    // is left.
+    const std::string sharedDir =
+        !frameXmlResolvedDir_.empty()
+            ? frameXmlResolvedDir_
+            : (frameXmlDir_.empty() ? std::string("interface\\framexml") : frameXmlDir_);
     bool ok = true;
 
     // Resolved without regard to case, the same as the manifest's own files. A
     // Script element says MovieFrame.lua and the file on disk is
     // movieframe.lua, so joining the two naively fails - which took out most of
-    // FrameXML on the first attempt, one referenced script at a time.
-    auto sibling = [&](const std::string& rawName) {
-        // Windows separators, because the interface is written with them. On
-        // anything else a backslash is an ordinary character in a filename, so
-        // "..\\..\\FrameXML\\UIPanelTemplates.xml" resolved to nothing and the
-        // include silently failed - which failed the file that asked for it,
-        // and the guild bank's own XML is one of the two that do.
-        std::string name = rawName;
-        std::replace(name.begin(), name.end(), '\\', '/');
-
+    // FrameXML on the first attempt, one referenced script at a time. An
+    // archive answers case-insensitively of its own accord, a name being
+    // hashed there rather than looked up.
+    //
+    // "..\\..\\FrameXML\\UIPanelTemplates.xml" - the guild bank's own include,
+    // one of the two that do this - is walked before the read either way: a
+    // filesystem does it itself, an archive does not, and the asset manager
+    // refuses a path still holding "..".
+    auto sibling = [&](const std::string& rawName) -> std::string {
         // Relative to the file that named it first.
-        if (fs::path p = resolvePath(dir, name); !p.empty()) return p;
+        if (std::string p = resolveUiPath(dir, rawName); !p.empty()) return p;
 
         // Then FrameXML itself. An addon includes a shared template by bare
         // name - inspectpvpframe.xml asks for PVPFrameTemplates.xml - and by a
         // path back out of its own folder, and both mean the same place.
-        const fs::path base = fs::path(frameXmlResolvedDir_.empty()
-                                           ? frameXmlDir_ : frameXmlResolvedDir_);
-        if (!base.empty()) {
-            if (fs::path p = resolvePath(base, fs::path(name).filename().string());
+        if (!sharedDir.empty()) {
+            if (std::string p = resolveUiPath(sharedDir, pipeline::virtualBasename(rawName));
                 !p.empty()) {
                 return p;
             }
@@ -1437,10 +1592,10 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
         // declared in that file. Said here, where both searched places are
         // still to hand.
         LOG_WARNING("AddonManager: no file named ", rawName, " beside ",
-                    fs::path(path).filename().string(), " (looked in ", dir.string(),
-                    base.empty() ? std::string() : " and in " + base.string(),
+                    pipeline::virtualBasename(path), " (looked in ", dir,
+                    sharedDir.empty() ? std::string() : " and in " + sharedDir,
                     ") - it is missing from this install");
-        return dir / name;
+        return pipeline::joinVirtual(dir, rawName);
     };
 
     // Order matters and is not the order the emitter reports things in. Includes
@@ -1465,8 +1620,8 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
     };
     for (const auto& inc : emitted.includeFiles) {
         const bool loaded = isLua(inc)
-            ? luaEngine_.executeFile(sibling(inc).string())
-            : loadXmlFile(sibling(inc).string(), depth + 1);
+            ? runUiLuaFile(sibling(inc))
+            : loadXmlFile(sibling(inc), depth + 1);
         if (!loaded) {
             if (ok) {
                 lastXmlError_ = "include " + inc + ": " +
@@ -1486,15 +1641,15 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
         //
         // Said once, and quietly, because a file that is missing when it
         // should be there is still worth knowing.
-        if (!fs::exists(sibling(script))) {
+        if (!uiFileExists(sibling(script))) {
             LOG_WARNING("AddonManager: ", path, " names ", script,
                         ", which this addon does not ship - skipped");
             continue;
         }
         // And the other way round, for the same reason.
         const bool loaded = isLua(script)
-            ? luaEngine_.executeFile(sibling(script).string())
-            : loadXmlFile(sibling(script).string(), depth + 1);
+            ? runUiLuaFile(sibling(script))
+            : loadXmlFile(sibling(script), depth + 1);
         if (!loaded) {
             if (ok) {
                 lastXmlError_ = "script " + script + ": " +
@@ -1543,12 +1698,12 @@ bool AddonManager::loadAddon(const TocFile& addon) {
         // wrote them - Blizzard_TalentUI.xml - and this install has them in
         // lower case. Concatenating the two finds nothing on a case-sensitive
         // filesystem, which is every one of the Blizzard load-on-demand addons.
-        const fs::path resolved = resolvePath(fs::path(addon.basePath), filename);
+        const std::string resolved = resolveUiPath(addon.basePath, filename);
         const std::string fullPath =
-            resolved.empty() ? (addon.basePath + "/" + filename) : resolved.string();
+            resolved.empty() ? (addon.basePath + "/" + filename) : resolved;
 
         if (lower.size() >= 4 && lower.substr(lower.size() - 4) == ".lua") {
-            if (!luaEngine_.executeFile(fullPath)) {
+            if (!runUiLuaFile(fullPath)) {
                 LOG_ERROR("AddonManager: '", addon.addonName, "' failed on ", filename);
                 success = false;
             } else {
@@ -1665,6 +1820,10 @@ void AddonManager::saveAllSavedVariables() {
     // the way out of the process would write every one of those files from a
     // state that never loaded them.
     if (!addonsLoaded_) return;
+    // The directory is wowee's own and may not exist yet; the addon folders
+    // these used to be written into always did.
+    std::error_code ec;
+    std::filesystem::create_directories(savedVariablesDir(), ec);
     for (const auto& addon : addons_) {
         auto savedVars = addon.getSavedVariables();
         if (!savedVars.empty()) {

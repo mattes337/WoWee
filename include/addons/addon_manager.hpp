@@ -3,6 +3,7 @@
 #include "addons/lua_engine.hpp"
 #include "addons/toc_parser.hpp"
 #include <memory>
+#include <string_view>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -16,7 +17,19 @@ public:
     ~AddonManager();
 
     bool initialize(game::GameHandler* gameHandler, const LuaServices& services = {});
-    void scanAddons(const std::string& addonsPath);
+    /// Find the addons this session may load.
+    ///
+    /// @param addonsPath  wowee's own Interface/AddOns, under its data tree
+    /// @param extraRoots  further directories to scan - the Interface/AddOns of
+    ///        the installation wowee was dropped into, which is where a
+    ///        player's own addons live and which nothing derived from wowee's
+    ///        data tree reaches.
+    ///
+    /// The installation's archives are searched too, whenever the byte source
+    /// is wired: an installation nobody extracted keeps every Blizzard panel
+    /// inside them.
+    void scanAddons(const std::string& addonsPath,
+                    const std::vector<std::string>& extraRoots = {});
     void loadAllAddons();
     /// Parse an XML file, build what it declares, and follow its includes and
     /// scripts. depth guards against a file that includes itself.
@@ -105,6 +118,30 @@ private:
     [[nodiscard]] std::vector<std::string> deferredAddonGlobals() const;
 
     bool loadAddon(const TocFile& addon);
+
+    /// Read a file the interface named, from disk if it is there and from the
+    /// installation's archives otherwise.
+    ///
+    /// One seam for both, because which of the two answers is not a decision
+    /// any caller here should have to make: a development checkout has the
+    /// interface extracted beside the executable and an untouched installation
+    /// keeps it inside its archives, and the loader is the same either way.
+    /// Disk wins, so an extracted tree or a working copy still shadows the
+    /// archive it came from.
+    [[nodiscard]] bool readUiFile(const std::string& path, std::string& out) const;
+    [[nodiscard]] bool uiFileExists(const std::string& path) const;
+
+    /// @p relative resolved against @p baseDir - on disk without regard to
+    /// case, then as an archive path. Empty when neither has it.
+    [[nodiscard]] std::string resolveUiPath(const std::string& baseDir,
+                                            const std::string& relative) const;
+
+    /// Run a Lua file named by a path that may be an archive path, under that
+    /// same name so an error names the file the interface knows.
+    bool runUiLuaFile(const std::string& path);
+    /// Where saved variables are written: wowee's own config root, never the
+    /// addon's folder and never the original client's WTF.
+    static std::string savedVariablesDir();
     [[nodiscard]] std::string getSavedVariablesPath(const TocFile& addon) const;
     [[nodiscard]] std::string getSavedVariablesPerCharacterPath(const TocFile& addon) const;
     std::string characterName_;

@@ -735,6 +735,28 @@ bool Application::initialize() {
             LOG_INFO("Icon picker: ", icons.size(), " icons from the manifest");
             return icons;
         };
+        // The interface's own files, by the path the interface names them with.
+        //
+        // An installation nobody extracted keeps FrameXML, GlueXML and every
+        // Blizzard panel inside its archives, and the addon layer had no way to
+        // reach an asset manager at all - every TOC, XML and Lua file was read
+        // with an ifstream. These three are that reach; the asset manager tries
+        // loose files first either way, so a development tree still wins.
+        luaSvc.readGameFile = [am = assetManager.get()](const std::string& path,
+                                                       std::string& out) {
+            if (!am) return false;
+            const auto bytes = am->readFileOptional(path);
+            if (bytes.empty()) return false;
+            out.assign(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+            return true;
+        };
+        luaSvc.gameFileExists = [am = assetManager.get()](const std::string& path) {
+            return am && am->fileExists(path);
+        };
+        luaSvc.listGameFiles = [am = assetManager.get()](const std::string& prefix) {
+            return am ? am->listFiles(prefix) : std::vector<std::string>{};
+        };
+
         // The widget renderer needs the asset manager for Interface\ art and the
         // device to upload it; both exist by now.
         widgetRenderer_.initialize(assetManager.get(),
@@ -763,7 +785,16 @@ bool Application::initialize() {
             }
             std::string addonsDir = interfaceRoot + "/interface/AddOns";
             addonManager_->setFrameXmlDir(interfaceRoot + "/interface/FrameXML");
-            addonManager_->scanAddons(addonsDir);
+            // The player's own addons live beside the original client, not
+            // under wowee's data tree, and nothing derived from dataPath
+            // reaches them. Saved variables no longer go anywhere near an
+            // addon's folder, so scanning the original client's directory does
+            // not write into it.
+            std::vector<std::string> installAddonRoots;
+            if (install.isValid()) {
+                installAddonRoots.push_back(install.root + "/Interface/AddOns");
+            }
+            addonManager_->scanAddons(addonsDir, installAddonRoots);
             // Wire Lua errors to UI error display
             addonManager_->getLuaEngine()->setLuaErrorCallback([gh = gameHandler.get()](const std::string& err) {
                 // Not addUIError: that reports by firing an event, which runs

@@ -56,6 +56,16 @@ public:
     /// file is not there.
     [[nodiscard]] std::string sourceOf(const std::string& path) const;
 
+    /// Every normalized path under @p prefix, across all open archives, with
+    /// duplicates and patch-deleted files removed.
+    ///
+    /// Unlike a read, this does depend on each archive's (listfile): a name
+    /// that is only a hash cannot be listed, only looked up. That is why
+    /// nothing wowee needs by name goes through here - it is for the one
+    /// question a known path cannot answer, which is what addons the
+    /// installation ships.
+    [[nodiscard]] std::vector<std::string> list(const std::string& prefix) const;
+
 private:
     struct Archive {
         std::string path;

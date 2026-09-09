@@ -39,6 +39,15 @@ public:
     void shutdown();
 
     bool executeFile(const std::string& path);
+
+    /// Run @p source under the name @p chunkPath, without reading anything.
+    ///
+    /// The original interface lives inside the game's archives, so the file a
+    /// chunk came from is a path the filesystem has never heard of. The name
+    /// still has to be that path: it is what a Lua error names, what a
+    /// traceback walks, and what an addon reads back from debugstack.
+    bool executeBuffer(const std::string& chunkPath, std::string source);
+
     bool executeString(const std::string& code);
 
     /// Run a Lua expression and answer whether it came out true.

@@ -2,6 +2,9 @@
 
 #include "core/logger.hpp"
 
+#include <algorithm>
+#include <cctype>
+
 #ifdef WOWEE_HAVE_STORMLIB
 // The library is named on the link line by CMake. Left to itself StormLib.h
 // asks MSVC to link one of eight names built from the CRT and character-set
@@ -98,6 +101,40 @@ std::string MpqProvider::sourceOf(const std::string& path) const {
     return index >= 0 ? archives_[static_cast<size_t>(index)]->path : std::string{};
 }
 
+std::vector<std::string> MpqProvider::list(const std::string& prefix) const {
+    // Candidates first, from every archive's name table, then one priority
+    // lookup each: an archive can name a file a higher one deletes, and the
+    // same file is named by every archive that carries a copy.
+    std::vector<std::string> candidates;
+    const std::string mask = prefix + "*";
+    for (const auto& archive : archives_) {
+        std::lock_guard<std::mutex> lock(archive->mutex);
+        SFILE_FIND_DATA found{};
+        HANDLE search = SFileFindFirstFile(static_cast<HANDLE>(archive->handle),
+                                           mask.c_str(), &found, nullptr);
+        if (!search) continue;
+        do {
+            std::string name = found.cFileName;
+            for (char& c : name) {
+                if (c == '/') c = '\\';
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            }
+            candidates.push_back(std::move(name));
+        } while (SFileFindNextFile(search, &found));
+        SFileFindClose(search);
+    }
+
+    std::sort(candidates.begin(), candidates.end());
+    candidates.erase(std::unique(candidates.begin(), candidates.end()), candidates.end());
+
+    std::vector<std::string> result;
+    result.reserve(candidates.size());
+    for (auto& name : candidates) {
+        if (findArchive(name) >= 0) result.push_back(std::move(name));
+    }
+    return result;
+}
+
 std::vector<uint8_t> MpqProvider::read(const std::string& path) const {
     const int index = findArchive(path);
     if (index < 0) return {};
@@ -154,6 +191,8 @@ int MpqProvider::findArchive(const std::string&) const { return -1; }
 bool MpqProvider::exists(const std::string&) const { return false; }
 
 std::string MpqProvider::sourceOf(const std::string&) const { return {}; }
+
+std::vector<std::string> MpqProvider::list(const std::string&) const { return {}; }
 
 std::vector<uint8_t> MpqProvider::read(const std::string&) const { return {}; }
 

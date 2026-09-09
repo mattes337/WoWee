@@ -747,6 +747,10 @@ add_test(NAME cata_movement COMMAND test_cata_movement
          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 register_test_target(test_cata_movement)
 
+# ── test_virtual_path ──────────────────────────────────────────────────
+# Archive paths and the ".." the original interface's own includes carry.
+wowee_add_test(test_virtual_path SOURCES test_virtual_path.cpp)
+
 # ── test_game_install ──────────────────────────────────────────────────
 # The order a build loads its archives in, which is the whole of archive
 # precedence for both the client and the extractor.

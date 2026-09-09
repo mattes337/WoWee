@@ -1,5 +1,6 @@
 #include "addons/toc_parser.hpp"
 #include <fstream>
+#include <sstream>
 #include <algorithm>
 
 namespace wowee::addons {
@@ -91,9 +92,15 @@ std::vector<std::string> TocFile::getSavedVariablesPerCharacter() const {
 }
 
 std::optional<TocFile> parseTocFile(const std::string& tocPath) {
-    std::ifstream f(tocPath);
+    std::ifstream f(tocPath, std::ios::binary);
     if (!f.is_open()) return std::nullopt;
+    std::stringstream ss;
+    ss << f.rdbuf();
+    return parseTocText(tocPath, ss.str());
+}
 
+std::optional<TocFile> parseTocText(const std::string& tocPath,
+                                    const std::string& text) {
     TocFile toc;
     toc.basePath = tocPath;
     // Strip filename to get directory
@@ -107,6 +114,7 @@ std::optional<TocFile> parseTocFile(const std::string& tocPath) {
     if (dotPos != std::string::npos) toc.addonName.resize(dotPos);
     toc.addonName = canonicalAddonName(toc.addonName);
 
+    std::istringstream f(text);
     std::string line;
     while (std::getline(f, line)) {
         // Strip trailing CR (Windows line endings)

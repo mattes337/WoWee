@@ -60,6 +60,7 @@
 #include "core/app_clock.hpp"
 #include "ui/widget_renderer.hpp"
 #include "pipeline/asset_manager.hpp"
+#include "pipeline/game_install.hpp"
 #include "ui/interface_fonts.hpp"
 #include "ui/link_hit.hpp"
 #include "game/expansion_profile.hpp"
@@ -163,6 +164,78 @@ int main(int argc, char** argv) {
     settingServices.setClientSetting = [](const std::string& key, const std::string& value) {
         gameScreen.getSettingsPanel().setSettingValue(key, value);
     };
+    // The assets, before the interface rather than after it.
+    //
+    // They used to be opened at the end, for texture sizes alone. The interface
+    // itself is read through them now - an installation nobody extracted keeps
+    // FrameXML, GlueXML and every Blizzard panel inside its archives - so they
+    // have to be open before the first file is asked for.
+    // The client does not open the data path it is given. An expansion that
+    // carries its own manifest.json becomes the primary asset source, with the
+    // path given here as the fallback behind it - which is how an overlay that
+    // replaces models or a DBC for one expansion reaches the client at all.
+    // Opening the base path directly, as this used to, reads straight past
+    // every such overlay and reports the unmodified game.
+    wowee::game::ExpansionRegistry assetExpansions;
+    std::string primaryAssetPath = assetPath;
+    std::string assetFallbackPath;
+    std::string assetExpansionId;
+    if (assetExpansions.initialize(assetPath) > 0) {
+        if (const auto* active = assetExpansions.getActive()) {
+            const std::string expansionManifest = active->dataPath + "/manifest.json";
+            if (!active->dataPath.empty() &&
+                std::filesystem::exists(expansionManifest) &&
+                active->dataPath != assetPath) {
+                primaryAssetPath = active->dataPath;
+                assetFallbackPath = assetPath;
+                assetExpansionId = active->id;
+            }
+        }
+    }
+
+    // An installation, when the path names one: its own archives answer for
+    // every file the extracted tree does not have, which for an untouched
+    // installation is all of them.
+    const wowee::pipeline::GameInstall install =
+        wowee::pipeline::detectGameInstall(assetPath);
+
+    wowee::pipeline::AssetManager assets;
+    // Before initialize, exactly as application.cpp does it - the fallback
+    // manifest is loaded here and initialize does not clear it.
+    if (!assetFallbackPath.empty())
+        assets.setBaseFallbackPath(assetFallbackPath, assetExpansionId);
+    if (install.isValid()) {
+        std::printf("== install: %s (%s, locale %s, %zu archives)\n",
+                    install.root.c_str(), install.expansion.c_str(),
+                    install.locale.empty() ? "-" : install.locale.c_str(),
+                    install.archives.size());
+        assets.setGameArchives(install.archives);
+    }
+    const bool haveAssets = assets.initialize(primaryAssetPath);
+    if (!haveAssets) {
+        std::printf("== assets: none at %s; texture sizes are unavailable\n",
+                    primaryAssetPath.c_str());
+    } else if (!assetFallbackPath.empty()) {
+        std::printf("== assets: %s over %s (expansion '%s')\n",
+                    primaryAssetPath.c_str(), assetFallbackPath.c_str(),
+                    assetExpansions.getActiveId().c_str());
+    }
+
+    // The interface's own files, by the path the interface names them with -
+    // the same three services the client wires.
+    settingServices.readGameFile = [&assets](const std::string& path, std::string& out) {
+        const auto bytes = assets.readFileOptional(path);
+        if (bytes.empty()) return false;
+        out.assign(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+        return true;
+    };
+    settingServices.gameFileExists = [&assets](const std::string& path) {
+        return assets.fileExists(path);
+    };
+    settingServices.listGameFiles = [&assets](const std::string& prefix) {
+        return assets.listFiles(prefix);
+    };
+
     wowee::addons::AddonManager mgr;
     if (!mgr.initialize(nullptr, settingServices)) {
         std::fprintf(stderr, "framexml_run: Lua would not initialise\n");
@@ -182,7 +255,11 @@ int main(int argc, char** argv) {
     }
 
     mgr.setFrameXmlDir(assetPath + "/interface/FrameXML");
-    mgr.scanAddons(assetPath + "/interface/AddOns");
+    std::vector<std::string> installAddonRoots;
+    if (install.isValid()) {
+        installAddonRoots.push_back(install.root + "/Interface/AddOns");
+    }
+    mgr.scanAddons(assetPath + "/interface/AddOns", installAddonRoots);
     mgr.loadAllAddons();
 
     std::printf("== load: %zu error(s)\n", errors.size());
@@ -337,43 +414,6 @@ int main(int argc, char** argv) {
     //
     // A failure to open the assets is not fatal - every other check here works
     // without them, and this runs on machines with no game data.
-    // The client does not open the data path it is given. An expansion that
-    // carries its own manifest.json becomes the primary asset source, with the
-    // path given here as the fallback behind it - which is how an overlay that
-    // replaces models or a DBC for one expansion reaches the client at all.
-    // Opening the base path directly, as this used to, reads straight past
-    // every such overlay and reports the unmodified game.
-    wowee::game::ExpansionRegistry assetExpansions;
-    std::string primaryAssetPath = assetPath;
-    std::string assetFallbackPath;
-    std::string assetExpansionId;
-    if (assetExpansions.initialize(assetPath) > 0) {
-        if (const auto* active = assetExpansions.getActive()) {
-            const std::string expansionManifest = active->dataPath + "/manifest.json";
-            if (!active->dataPath.empty() &&
-                std::filesystem::exists(expansionManifest) &&
-                active->dataPath != assetPath) {
-                primaryAssetPath = active->dataPath;
-                assetFallbackPath = assetPath;
-                assetExpansionId = active->id;
-            }
-        }
-    }
-
-    wowee::pipeline::AssetManager assets;
-    // Before initialize, exactly as application.cpp does it - the fallback
-    // manifest is loaded here and initialize does not clear it.
-    if (!assetFallbackPath.empty())
-        assets.setBaseFallbackPath(assetFallbackPath, assetExpansionId);
-    const bool haveAssets = assets.initialize(primaryAssetPath);
-    if (!haveAssets) {
-        std::printf("== assets: none at %s; texture sizes are unavailable\n",
-                    primaryAssetPath.c_str());
-    } else if (!assetFallbackPath.empty()) {
-        std::printf("== assets: %s over %s (expansion '%s')\n",
-                    primaryAssetPath.c_str(), assetFallbackPath.c_str(),
-                    assetExpansions.getActiveId().c_str());
-    }
     wowee::ui::WidgetRenderer widgets;
     widgets.initialize(haveAssets ? &assets : nullptr, nullptr);
 

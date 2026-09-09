@@ -11582,7 +11582,6 @@ void LuaEngine::bootstrap(const char* code) {
 bool LuaEngine::executeFile(const std::string& path) {
     if (!L_) return false;
 
-    BudgetGuard guard(L_, chunkTimeoutMs_);
     // Read and run rather than luaL_dofile, so the traceback handler is in
     // place: a file that fails deep inside a handler otherwise reports only
     // the line that broke, never the OnLoad that reached it.
@@ -11598,6 +11597,14 @@ bool LuaEngine::executeFile(const std::string& path) {
         ss << in.rdbuf();
         source = ss.str();
     }
+    return executeBuffer(path, std::move(source));
+}
+
+bool LuaEngine::executeBuffer(const std::string& chunkPath, std::string source) {
+    if (!L_) return false;
+
+    BudgetGuard guard(L_, chunkTimeoutMs_);
+    const std::string& path = chunkPath;
     // A byte order mark is not Lua. Windows editors write EF BB BF at the head
     // of a UTF-8 file and a great many addons ship one - Bagnon's localisations
     // and one of its utility files all carry it - where 5.1's lexer reads it as

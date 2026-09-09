@@ -235,6 +235,30 @@ bool AssetManager::hasGameArchives() const {
     return archives_ && archives_->isOpen();
 }
 
+std::vector<std::string> AssetManager::listFiles(const std::string& prefix) const {
+    const std::string normalizedPrefix = normalizePath(prefix);
+    std::vector<std::string> result;
+
+    auto collectFrom = [&](const AssetManifest& manifest) {
+        for (const auto& [path, entry] : manifest.getEntries()) {
+            (void)entry;
+            if (path.rfind(normalizedPrefix, 0) == 0) result.push_back(path);
+        }
+    };
+    collectFrom(manifest_);
+    if (!baseFallbackDataPath_.empty()) collectFrom(baseFallbackManifest_);
+
+    if (archives_) {
+        for (auto& path : archives_->list(normalizedPrefix)) {
+            result.push_back(std::move(path));
+        }
+    }
+
+    std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()), result.end());
+    return result;
+}
+
 bool AssetManager::setBaseFallbackPath(const std::string& basePath,
                                        const std::string& expansionId) {
     if (baseFallbackHits_.load(std::memory_order_relaxed) > 0) {

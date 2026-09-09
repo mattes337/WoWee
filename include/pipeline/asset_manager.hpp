@@ -123,6 +123,15 @@ public:
 
     [[nodiscard]] bool hasGameArchives() const;
 
+    /**
+     * Every normalized path beneath @p prefix, from the extracted tree and the
+     * installation's archives together, deduplicated.
+     *
+     * Only for the question a known path cannot answer - which addons an
+     * installation ships. Everything else wowee reads it knows the name of.
+     */
+    [[nodiscard]] std::vector<std::string> listFiles(const std::string& prefix) const;
+
     /// How many reads the archives answered rather than the extracted tree.
     [[nodiscard]] uint64_t getArchiveHits() const {
         return archiveHits_.load(std::memory_order_relaxed);
