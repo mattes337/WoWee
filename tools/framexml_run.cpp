@@ -380,6 +380,10 @@ int main(int argc, char** argv) {
         // ImGui, and a harness that did not apply the same correction would
         // measure every caption 18% narrow - which is precisely the width the
         // overlap question turns on.
+        // Through the asset manager, the way the client loads them - an
+        // installation nobody extracted keeps its faces in Fonts\ inside the
+        // archives, and reading only assetPath/misc/fonts found none of them,
+        // so every measurement here was taken against ImGui's built-in face.
         int faces = 0;
         for (const char* name : {"frizqt__.ttf", "morpheus.ttf", "skurri.ttf",
                                  "arialn.ttf", "friends.ttf"}) {
@@ -387,6 +391,22 @@ int main(int argc, char** argv) {
             ImFontConfig cfg;
             cfg.ExtraSizeScale = wowee::ui::fontEmSizeScaleOfFile(file);
             if (ImFont* f = io.Fonts->AddFontFromFileTTF(file.c_str(), 16.0f, &cfg)) {
+                wowee::ui::registerInterfaceFace(name, f);
+                ++faces;
+                continue;
+            }
+            auto data = assets.readFileOptional(std::string("Fonts\\") + name);
+            if (data.empty()) continue;
+            // ImGui takes ownership of the buffer it is given and frees it
+            // with its own allocator, so the bytes are handed over rather than
+            // pointed at a vector that is about to go out of scope.
+            void* owned = IM_ALLOC(data.size());
+            std::memcpy(owned, data.data(), data.size());
+            ImFontConfig fromArchive;
+            fromArchive.ExtraSizeScale =
+                wowee::ui::fontEmSizeScale(data.data(), data.size());
+            if (ImFont* f = io.Fonts->AddFontFromMemoryTTF(
+                    owned, static_cast<int>(data.size()), 16.0f, &fromArchive)) {
                 wowee::ui::registerInterfaceFace(name, f);
                 ++faces;
             }
