@@ -21,6 +21,17 @@ make -C build -j$(nproc)
   - `perf:` performance improvement
 - Prefer `constexpr` over `static const` for compile-time data.
 - Mark functions whose return value should not be ignored with `[[nodiscard]]`.
+- Always preserve existing `this->` qualifiers, including when renaming a parameter
+  makes the qualifier optional. Use explicit `this->` for member access in new code.
+- Avoid introducing shadowing: give new parameters and local variables descriptive
+  names that do not hide class members or variables in enclosing scopes. For example,
+  use `void setEnabled(bool newEnabled) { this->enabled = newEnabled; }`.
+- Keep changes minimal and directly related to the requested task. Do not rename,
+  reformat, or refactor unrelated code, or perform broad style cleanups.
+- Do not rename existing variables solely to eliminate harmless shadowing. An
+  existing-code rename needs a concrete reason within the task, such as fixing a bug,
+  resolving a demonstrated build requirement, or an explicitly requested cleanup.
+  Preserve domain meaning when choosing a replacement name.
 
 ## Pull Request Process
 
