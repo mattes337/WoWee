@@ -1025,6 +1025,43 @@ bool Application::initialize() {
                     }
                 }
             }
+            // Loose interface files beside the original executable win over
+            // the archives, which is how the original client reads them and
+            // how every interface edit anyone has ever made is applied: drop
+            // Interface\GlueXML\AccountLogin.lua into the game folder and the
+            // client runs that instead of the copy in the MPQ.
+            //
+            // This looked only under Data, so an installation with a loose
+            // Interface directory at its root - the ordinary place for one -
+            // had it ignored and ran the archived interface instead. The
+            // difference is invisible until the two disagree, and then it is a
+            // client quietly running code the player has replaced.
+            //
+            // Only when the directory is really there. resolveUiPath already
+            // falls back to the archives file by file, so a partial override -
+            // one Lua file and nothing else - takes effect for that file alone.
+            // Kept with the spelling it actually has on disk. resolveInterfaceDir
+            // corrects the case of the last component only, so handing it
+            // <root>/interface/GlueXML against a real <root>/Interface/GlueXML
+            // failed on the parent and fell back to the archives - the loose
+            // files were found only on a filesystem that did not care about
+            // case, which is not the one this is for.
+            std::string looseInterfaceDir;
+            if (install.isValid()) {
+                std::error_code looseEc;
+                for (const char* cased : {"/Interface", "/interface"}) {
+                    if (std::filesystem::is_directory(install.root + cased, looseEc)) {
+                        looseInterfaceDir = install.root + cased;
+                        break;
+                    }
+                }
+            }
+            if (!looseInterfaceDir.empty()) {
+                LOG_WARNING("Loose interface files at ", looseInterfaceDir,
+                            " take precedence over the archives, as they do in "
+                            "the original client");
+            }
+            addonManager_->setLooseInterfaceRoot(looseInterfaceDir);
             std::string addonsDir = interfaceRoot + "/interface/AddOns";
             addonManager_->setFrameXmlDir(interfaceRoot + "/interface/FrameXML");
             // The player's own addons live beside the original client, not

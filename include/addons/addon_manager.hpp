@@ -59,6 +59,10 @@ public:
     /// accident of load order.
     bool loadGlueXml(const std::string& glueXmlDir);
     void setGlueXmlDir(const std::string& dir) { glueXmlDir_ = dir; }
+    /// The loose Interface directory beside the original executable, whose
+    /// files win over the archives exactly as they do in the original client.
+    /// Empty where there is none.
+    void setLooseInterfaceRoot(const std::string& dir) { looseInterfaceRoot_ = dir; }
     [[nodiscard]] const std::string& getGlueXmlDir() const { return glueXmlDir_; }
     /// Whether the glue screens are the ones currently built.
     [[nodiscard]] bool glueLoaded() const { return glueLoaded_; }
@@ -229,6 +233,7 @@ private:
 
     /// @p relative resolved against @p baseDir - on disk without regard to
     /// case, then as an archive path. Empty when neither has it.
+    [[nodiscard]] std::string looseInterfacePath(const std::string& virtualPath) const;
     [[nodiscard]] std::string resolveUiPath(const std::string& baseDir,
                                             const std::string& relative) const;
 
@@ -246,6 +251,7 @@ private:
     std::unordered_map<std::string, bool> addonEnabled_;
     std::string frameXmlDir_;
     std::string glueXmlDir_;
+    std::string looseInterfaceRoot_;
     bool glueLoaded_ = false;
     /// Whether the glue screens were ever built. Set by the first load that
     /// produced them and never cleared: the client decides once, at startup,

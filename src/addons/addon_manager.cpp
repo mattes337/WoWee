@@ -167,10 +167,42 @@ std::string AddonManager::resolveUiPath(const std::string& baseDir,
     }
 
     const std::string inArchive = pipeline::joinVirtual(archiveBase, relative);
+    // Loose interface files beside the original executable win over the
+    // archives. That is how the original client reads them and how every
+    // interface edit anyone has ever made takes effect: drop
+    // Interface\GlueXML\AccountLogin.lua into the game folder and the client
+    // runs it instead of the copy in the MPQ.
+    //
+    // It has to happen here rather than by pointing the manifest at the loose
+    // directory, because a manifest directory only decides where its own
+    // listed files are looked for. Everything those files then name - a
+    // <Script>, an <Include> - is resolved relative to wherever the file that
+    // named it was read from, so an XML that came out of an archive asked the
+    // archive for its Lua and never looked on disk. A single loose file, which
+    // is the ordinary case, was invisible.
+    if (auto p = looseInterfacePath(inArchive); !p.empty()) return p;
     if (luaServices_.gameFileExists && luaServices_.gameFileExists(inArchive)) {
         return inArchive;
     }
     return {};
+}
+
+/// The on-disk override for a virtual interface path, or empty for none.
+///
+/// @p virtualPath is what the archives call the file - "interface\gluexml/// accountlogin.lua". The leading "interface" component names the directory
+/// itself, so it is dropped and the rest is walked under it without regard to
+/// case, which a filesystem needs and an archive does not.
+std::string AddonManager::looseInterfacePath(const std::string& virtualPath) const {
+    if (looseInterfaceRoot_.empty() || virtualPath.empty()) return {};
+    const std::string normalized = pipeline::normalizeVirtual(virtualPath);
+    static const std::string kPrefix = "interface\\";
+    if (normalized.compare(0, kPrefix.size(), kPrefix) != 0) return {};
+    std::string rest = normalized.substr(kPrefix.size());
+    std::replace(rest.begin(), rest.end(), '\\', '/');
+    const auto found = resolvePath(std::filesystem::path(looseInterfaceRoot_), rest);
+    std::error_code ec;
+    if (found.empty() || !std::filesystem::is_regular_file(found, ec)) return {};
+    return found.string();
 }
 
 bool AddonManager::runUiLuaFile(const std::string& path) {
