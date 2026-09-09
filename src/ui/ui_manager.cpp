@@ -1,4 +1,5 @@
 #include "ui/ui_manager.hpp"
+#include "core/config_paths.hpp"
 #include <cstring>
 #include "addons/addon_manager.hpp"
 #include "pipeline/asset_manager.hpp"
@@ -96,6 +97,22 @@ bool UIManager::initialize(core::Window* win) {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+
+    // Where ImGui remembers window positions and sizes.
+    //
+    // Left alone it writes "imgui.ini" into the working directory, and a
+    // drop-in run's working directory is the player's own installation - so
+    // launching wowee beside the original executable dropped a file into it,
+    // which the plan forbids and which a read-only game directory would refuse
+    // outright. It belongs with the rest of this client's configuration.
+    //
+    // Held in a static because ImGui keeps the pointer rather than the string,
+    // and reads it again every time it saves.
+    static std::string imguiIniPath;
+    std::error_code iniEc;
+    std::filesystem::create_directories(core::getConfigRoot(), iniEc);
+    imguiIniPath = core::getConfigRoot() + "/imgui.ini";
+    io.IniFilename = imguiIniPath.c_str();
 
     // Setup ImGui style
     ImGui::StyleColorsDark();

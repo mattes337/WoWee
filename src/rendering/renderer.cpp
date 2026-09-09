@@ -53,6 +53,7 @@
 #include "core/application.hpp"
 #include "core/window.hpp"
 #include "core/logger.hpp"
+#include "core/config_paths.hpp"
 #include "game/world.hpp"
 #include "game/zone_manager.hpp"
 #include "audio/audio_coordinator.hpp"
@@ -2030,7 +2031,7 @@ uint32_t Renderer::grassProfileFor(uint32_t effectId, uint32_t areaId) {
     // parse is an authoring error worth a line.
     if (!grassBiomesLoaded_) {
         grassBiomesLoaded_ = true;
-        std::ifstream f("assets/grass_biomes.json");
+        std::ifstream f(core::resolveResourcePath("assets/grass_biomes.json"));
         if (f) {
             const std::string text((std::istreambuf_iterator<char>(f)),
                                    std::istreambuf_iterator<char>());

@@ -1,4 +1,5 @@
 #include "game/chat_handler.hpp"
+#include "core/config_paths.hpp"
 
 #include <set>
 #include "addons/lua_api_registrations.hpp"
@@ -109,7 +110,21 @@ void ChatHandler::initializeChatLog() {
 
     const char* pathRaw = std::getenv("WOWEE_CHAT_LOG_PATH");
     const bool hasPathOverride = pathRaw && *pathRaw;
-    chatLogPath_ = hasPathOverride ? pathRaw : "logs/chat.log";
+    // Beside the client's own log rather than under the working directory.
+    //
+    // A drop-in run's working directory is the player's installation, and
+    // "logs/chat.log" made a logs folder inside it - the same write the logger
+    // itself already refuses to make, and one the plan forbids outright. The
+    // main log has worked out where it may write; this follows it there.
+    // WOWEE_CHAT_LOG_PATH still names a file outright for anyone who wants one
+    // somewhere else.
+    std::string defaultChatLog = "logs/chat.log";
+    if (const std::string mainLog = core::currentLogFilePath(); !mainLog.empty()) {
+        const std::filesystem::path beside =
+            std::filesystem::path(mainLog).parent_path() / "chat.log";
+        defaultChatLog = beside.string();
+    }
+    chatLogPath_ = hasPathOverride ? pathRaw : defaultChatLog;
     if (!hasPathOverride && !isTruthyEnvValue(enabledValue) && !enabledValue.empty()) {
         chatLogPath_ = enabledValue;
     }

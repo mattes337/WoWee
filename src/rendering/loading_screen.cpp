@@ -3,6 +3,7 @@
 #include <SDL2/SDL_vulkan.h>
 #include "rendering/vk_context.hpp"
 #include "core/logger.hpp"
+#include "core/config_paths.hpp"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <imgui_impl_vulkan.h>
@@ -19,7 +20,9 @@ namespace wowee {
 namespace rendering {
 
 LoadingScreen::LoadingScreen() {
-    imagePaths.emplace_back("assets/krayonload.png");
+    // Anchored, because a drop-in run's working directory is the player's game
+    // folder and this art ships with wowee rather than with the game.
+    imagePaths.emplace_back(core::resolveResourcePath("assets/krayonload.png"));
 }
 
 LoadingScreen::~LoadingScreen() {

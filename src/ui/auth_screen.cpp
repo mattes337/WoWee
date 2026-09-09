@@ -813,9 +813,13 @@ void AuthScreen::drawBackdrop() {
     // Kick the decode off once, then upload on whichever frame it lands.
     if (!bgDecodeStarted) {
         bgDecodeStarted = true;
-        std::string imgPath = "assets/krayonsignin.png";
-        if (!std::filesystem::exists(imgPath))
-            imgPath = (std::filesystem::current_path() / imgPath).string();
+        // Working directory first, then beside the executable. The second half
+        // is what a drop-in run needs: its working directory is the player's
+        // game folder, and this art ships with wowee rather than with the game.
+        // The old fallback made the relative path absolute against the working
+        // directory, which is the same place it had already failed to find it.
+        const std::string imgPath =
+            core::resolveResourcePath("assets/krayonsignin.png");
         bgDecodeFuture = std::async(std::launch::async, [imgPath]() {
             DecodedBackground out;
             int channels = 0;

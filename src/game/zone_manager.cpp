@@ -1,4 +1,5 @@
 #include "game/zone_manager.hpp"
+#include "core/config_paths.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "core/logger.hpp"
 #include <cstdlib>
@@ -11,15 +12,20 @@ namespace wowee {
 namespace game {
 
 // Resolve "assets/Original Music/<name>" to an absolute path, or return empty.
-// fs::exists already resolves a relative path against the working directory, so
-// there is only ever one place to look; the track is found when the process runs
-// from the source tree and not otherwise.
+//
+// Two places, not one: the working directory, which is where a run from the
+// source tree finds it, and then beside the executable, which is where a
+// drop-in run does - there the working directory is the player's game folder,
+// and this music ships with wowee rather than with the game. Returning empty
+// stays the ordinary answer; these tracks are optional and most installs of
+// wowee do not carry them.
 static std::string resolveOriginalMusic(const char* filename) {
     namespace fs = std::filesystem;
     std::error_code ec;
-    fs::path rel = fs::path("assets") / "Original Music" / filename;
-    if (!fs::exists(rel, ec)) return "";
-    fs::path abs = fs::canonical(rel, ec);
+    const fs::path rel = fs::path("assets") / "Original Music" / filename;
+    const std::string found = core::resolveResourcePath(rel.string());
+    if (found.empty() || !fs::exists(found, ec)) return "";
+    fs::path abs = fs::canonical(found, ec);
     return ec ? std::string() : abs.string();
 }
 
