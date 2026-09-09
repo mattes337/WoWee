@@ -655,7 +655,12 @@ wowee_add_test(test_transport_path_repo
             ${TEST_COMMON_SOURCES}
             ${CMAKE_SOURCE_DIR}/src/game/transport_path_repository.cpp
             ${CMAKE_SOURCE_DIR}/src/math/spline.cpp
-            ${CMAKE_SOURCE_DIR}/src/pipeline/dbc_loader.cpp)
+            ${CMAKE_SOURCE_DIR}/src/pipeline/dbc_loader.cpp
+            # This test writes AssetManager's own constructor and destructor,
+            # so it destroys the archive provider AssetManager holds and needs
+            # the one function that does it. Built without StormLib here, which
+            # is the stub branch and pulls in nothing.
+            ${CMAKE_SOURCE_DIR}/src/pipeline/mpq_provider.cpp)
 
 # ── test_opcode_table ────────────────────────────────────────
 add_executable(test_opcode_table

@@ -4,6 +4,13 @@
 #include "pipeline/dbc_loader.hpp"
 #include "pipeline/asset_manifest.hpp"
 #include "pipeline/loose_file_reader.hpp"
+// For the member below rather than for anything this header calls. A
+// unique_ptr to an incomplete type is fine until something has to destroy one,
+// and a test that stubs out AssetManager's own constructor and destructor -
+// test_transport_path_repo does exactly that, to link the DBC loaders without
+// the pipeline behind them - is compiling that destructor itself. StormLib
+// stays out of this: mpq_provider.hpp does not include it either.
+#include "pipeline/mpq_provider.hpp"
 #include <atomic>
 #include <memory>
 #include <string>
@@ -15,8 +22,6 @@
 
 namespace wowee {
 namespace pipeline {
-
-class MpqProvider;
 
 /**
  * AssetManager - Unified interface for loading WoW assets
