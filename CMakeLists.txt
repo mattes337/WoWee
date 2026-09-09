@@ -555,11 +555,21 @@ function(wowee_link_stormlib target)
     if(NOT (STORMLIB_LIBRARY AND STORMLIB_INCLUDE_DIR))
         return()
     endif()
+    target_include_directories(${target} PRIVATE ${STORMLIB_INCLUDE_DIR})
+    # StormLib first, then what it leaves to whoever links it. Order is not
+    # cosmetic with a static libstorm: a linker takes the archive's undefined
+    # symbols to the libraries that follow it, so naming bzip2 first left
+    # BZ2_bzDecompress undefined and the whole client failed to link.
+    target_link_libraries(${target} PRIVATE ${STORMLIB_LIBRARY} ZLIB::ZLIB)
     # A StormLib built with its bundled libraries carries LibTomCrypt,
-    # LibTomMath and bzip2 inside it and needs none of these; one built against
-    # the system's does. They are linked when present and their absence is not
-    # a refusal, because refusing would disable archive reads for the ordinary
-    # bundled build that does not need them.
+    # LibTomMath and bzip2 inside it and needs none of the below; one built
+    # against the system's does. They are linked when present and their absence
+    # is not a refusal, because refusing would disable archive reads for the
+    # ordinary bundled build that does not need them.
+    find_library(BZ2_LIB NAMES bz2 bzip2)
+    if(BZ2_LIB)
+        target_link_libraries(${target} PRIVATE ${BZ2_LIB})
+    endif()
     if(WIN32)
         find_library(TOMCRYPT_LIB NAMES tomcrypt libtomcrypt)
         find_library(TOMMATH_LIB NAMES tommath libtommath)
@@ -571,12 +581,6 @@ function(wowee_link_stormlib target)
             target_link_libraries(${target} PRIVATE ${WININET_LIB})
         endif()
     endif()
-    find_library(BZ2_LIB NAMES bz2 bzip2)
-    if(BZ2_LIB)
-        target_link_libraries(${target} PRIVATE ${BZ2_LIB})
-    endif()
-    target_include_directories(${target} PRIVATE ${STORMLIB_INCLUDE_DIR})
-    target_link_libraries(${target} PRIVATE ${STORMLIB_LIBRARY} ZLIB::ZLIB)
     target_compile_definitions(${target} PRIVATE WOWEE_HAVE_STORMLIB)
     message(STATUS "  ${target} direct MPQ reads: ENABLED")
 endfunction()

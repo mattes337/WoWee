@@ -1,10 +1,12 @@
 # Original game UI and drop-in client plan
 
-Status: stage 1 implemented, unverified against real installations.
-The provider, installation detection and direct archive reads are in place
-(`pipeline::GameInstall`, `pipeline::MpqProvider`, AssetManager); no box below
-is ticked, because none has been exercised against a licensed Vanilla, TBC,
-WotLK or Turtle install. Stages 2-6 are untouched.
+Status: stage 1 largely done and evidenced against two real installations
+(WotLK 3.3.5a and Turtle 1.18); stage 2's first bullet - the original
+interface read out of those archives rather than off disk - implemented, with
+parts of stages 5 and 6 landed alongside it. Every box below is ticked only
+where there is evidence under it, and the unticked ones say what is missing.
+Vanilla and TBC installations were not available here, so their rows rest on
+directory fixtures rather than on a real client.
 
 Branch: `codex/native-game-ui`, created directly from `master` at
 `3f92198677e4d7c0e59560f36fcfc72da1d0fa4b`.
@@ -67,33 +69,75 @@ target. Newly supported profiles must be added to this acceptance matrix.
 
 ### 1. Establish the installation and archive contract
 
-- [ ] Inventory source assumptions about manifests, loose files, converted
+- [x] Inventory source assumptions about manifests, loose files, converted
   formats, DBC/profile data, directory enumeration, and disk-only loaders.
-- [ ] Define a game-file provider with normalized virtual paths, byte reads,
+- [x] Define a game-file provider with normalized virtual paths, byte reads,
   existence checks, source identity, and enumeration where actually needed.
   Route UI reads through it first, then every asset needed for world entry.
-- [ ] Detect the installation relative to the executable, independent of the
+  `pipeline::MpqProvider`; `AssetManager::readFile`/`fileExists`/`listFiles`
+  fall through to it after loose files, and the interface's own TOC, XML and
+  Lua go through it as of stage 2's first bullet.
+- [x] Detect the installation relative to the executable, independent of the
   working directory; identify supported build and locale without extraction.
   Keep an explicit path override for development and alternate installs.
+  `pipeline::detectGameInstall`; `WOW_INSTALL_PATH` is the override.
 - [ ] Verify automatic detection for all four profiles, including distinguishing
   Turtle installations from stock Vanilla. Bundle every supported profile in
   the same executable; switching installations must not require a rebuild.
+  **wotlk and turtle verified against real installations; classic and tbc only
+  against directory fixtures** (`tests/test_game_install.cpp`). A Turtle client
+  whose launcher is the stock WoW.exe read as Vanilla until its own realm list
+  was consulted - see the fixtures for what each signal is.
 - [ ] Implement direct MPQ reads in the client. Audit existing extractor archive
   discovery for reuse; verify base, expansion, patch, and locale precedence,
   patched/deleted files, case handling, and missing/corrupt archive diagnostics.
   Do not depend on a complete archive listfile for known-path lookups.
+  Implemented and shared with the extractor, which now calls the same
+  discovery. **Precedence, case handling and listfile-free lookup verified;
+  patch delete-markers and corrupt-archive diagnostics are implemented and not
+  yet exercised.**
 - [ ] Define loose-file precedence separately for `Interface/AddOns` and game
   resources. Test collisions against the target build's intended behavior.
+  Game resources: loose wins, then the archives. `Interface/AddOns` has its own
+  root list - wowee's own data tree, directories beside the executable, and the
+  installation's own - with one addon per name however many roots supply it.
+  **Not yet tested against a collision on a real installation.**
 - [ ] Support native game formats end to end, including UI/model/audio/DBC and
   terrain data; inventory any current conversion dependency and implement its
   runtime equivalent. Optional caches must be disposable and built on demand,
   not a hidden mandatory bulk extraction phase.
-- [ ] Keep archive access read-only and thread-safe. Store caches and logs in a
+  BLP, DBC, ADT and TTF verified read straight from archives. **Audio and the
+  open-format side-files the extractor emits (.png/.wom/.wob/.whm) are not yet
+  inventoried.**
+- [x] Keep archive access read-only and thread-safe. Store caches and logs in a
   Wowee-specific location with bounded growth and build-aware invalidation.
+  Archives are opened `MPQ_OPEN_READ_ONLY` with a mutex per archive; the log no
+  longer lands in the installation directory, and saved variables no longer
+  land in an addon's own folder.
 
 Acceptance: launch and resolve representative assets from an untouched game
 installation with no extracted tree or manifest, including a patched resource
 and locale-specific UI file. Existing loose-file development mode still works.
+
+Evidence (2026-09-09), two installations, both read with no extracted tree and
+no `manifest.json`:
+
+| | WotLK 3.3.5a, enUS | Turtle 1.18, no locale directory |
+| --- | --- | --- |
+| archives found, in load order | 18 | 16 |
+| `Interface\FrameXML\FrameXML.toc` | patch-enUS-3 | patch-4 |
+| `Interface\GlueXML\GlueXML.toc` | patch-enUS-2 | patch |
+| `Fonts\FRIZQT__.TTF` | locale-enUS | fonts.MPQ |
+| `DBFilesClient\Map.dbc` | 135 records | 57 records |
+| `World\Maps\Azeroth\Azeroth_32_48.adt` | common-2 | patch-3 |
+| BLP decoded (`Glue-Panel-Button-Up`) | 256x64 | 256x64 |
+| addons enumerated under `Interface\AddOns\` | 23 | 23 |
+| 640 reads across 8 threads | no failure | no failure |
+
+The patched resource is FrameXML.toc, served from the highest patch archive
+rather than from the base it replaces; the locale-specific file is
+FRIZQT__.TTF, served from `locale-enUS` on the installation that has a locale
+directory.
 
 ### 2. Make the original UI runtime work across application states
 
