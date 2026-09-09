@@ -84,8 +84,11 @@ end)
     text_changed = "text dispatched (4 UTF-8 bytes)" in log and log.count("key dispatched: BACKSPACE") == 2
     drawn = "GameMenuButtonContinueText: DRAWN" in log
     expected_failure_marker_count = log.count("STOCK_MENU_DID_NOT_OPEN")
+    expected_failure_error_count = sum(
+        "[ERROR] LuaEngine: script error:" in line and "STOCK_MENU_DID_NOT_OPEN" in line
+        for line in log.splitlines())
     expected_failure_matched = (disable_handler and code == 2
-                                and expected_failure_marker_count == 1
+                                and expected_failure_error_count == 1
                                 and hit)
     passed = code == 0 and hit and edit_hit and text_changed and drawn
     report = dict(result="pass" if passed else "fail", exit_code=code,
@@ -97,6 +100,7 @@ end)
                   text_change_event_count=3 if (passed or expected_failure_matched) else None,
                   final_editbox_text="h" if (passed or expected_failure_matched) else None,
                   expected_failure_marker_count=expected_failure_marker_count,
+                  expected_failure_error_count=expected_failure_error_count,
                   expected_failure_matched=expected_failure_matched,
                   handler_disabled=disable_handler, input=identity, command=command,
                   scope="Offline stock panel and focused EditBox through LuaEngine dispatch; test widget positions; no SDL, GPU capture or gameplay claim")
