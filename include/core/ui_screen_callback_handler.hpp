@@ -86,6 +86,18 @@ public:
     /// original character list is never filled in.
     void updateGlueScreens();
 
+    /// Forget what the glue screens have been told, because they are not the
+    /// same screens any more.
+    ///
+    /// Everything updateGlueScreens announces is deduplicated against the last
+    /// thing it said, which is right while one set of screens stands and wrong
+    /// the moment they are rebuilt: a logout or a /reload builds a fresh glue
+    /// interface that has heard none of it, and the records left over say it
+    /// has. The screen is the visible half - freshly built glue would sit on
+    /// GlueParent's default one, because the screen it belongs on is the one
+    /// already written down as announced.
+    void forgetAnnouncedGlueState();
+
     /// Say which screen the client is on, in GlueParent's own vocabulary.
     ///
     /// The other half of SetCurrentScreen. The client changes screens for

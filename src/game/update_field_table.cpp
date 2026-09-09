@@ -1,4 +1,5 @@
 #include "game/update_field_table.hpp"
+#include "core/json_source.hpp"
 #include "game/json_table_scan.hpp"
 #include "core/logger.hpp"
 #include <fstream>
@@ -105,19 +106,8 @@ static const UFNameEntry kUFNames[] = {
 
 
 bool UpdateFieldTable::loadFromJson(const std::string& path, const JsonResolver& resolver) {
-    // Disk first, embedded second. A profile edited under Data/ is what a
-    // developer means by editing it; the resolver is what a wowee.exe dropped
-    // beside the original game executable, with no Data/ anywhere, runs on.
     std::string json;
-    std::ifstream f(path);
-    if (f.is_open()) {
-        json.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
-    } else if (!resolver || !resolver(path, json)) {
-        LOG_WARNING("UpdateFieldTable: cannot open ", path,
-                    resolver ? " and no embedded copy of it either" : "");
-        return false;
-    }
-
+    if (!core::readJsonDiskThenResolver(path, resolver, "UpdateFieldTable", json)) return false;
     return loadFromMemory(json, path);
 }
 

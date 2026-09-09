@@ -2482,6 +2482,22 @@ void Application::unloadInterface() {
         addonManager_->setCharacterName("");
     }
     addonsLoaded_ = false;
+    // The login screen this session started on went down with the Lua state
+    // the world interface was living in - one state holds one interface, which
+    // is what unloadGlue and this pair are for. Built again here so the way
+    // back is to a live screen rather than to the memory of one.
+    //
+    // Outside the guard above, so the backstop on the way to character select
+    // gets it too, and it costs nothing when glue is already up or when this
+    // session never had it: restoreGlue answers immediately in both cases, so
+    // no WOWEE_LOAD_GLUEXML test belongs here.
+    if (addonManager_ && addonManager_->restoreGlue()) {
+        // The announcements are deduplicated against what the last glue
+        // screens were told, and those screens are gone. Without this a
+        // freshly built glue sits on GlueParent's default screen, because the
+        // screen it should be on is the one already recorded as announced.
+        if (uiScreenCallbacks_) uiScreenCallbacks_->forgetAnnouncedGlueState();
+    }
 }
 
 void Application::performLogoutToLogin() {

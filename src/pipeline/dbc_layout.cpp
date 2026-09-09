@@ -1,4 +1,5 @@
 #include "pipeline/dbc_layout.hpp"
+#include "core/json_source.hpp"
 #include "pipeline/dbc_loader.hpp"
 #include "core/logger.hpp"
 #include <fstream>
@@ -35,19 +36,8 @@ void setActiveDBCLayout(const DBCLayout* layout) { g_activeDBCLayout = layout; }
 const DBCLayout* getActiveDBCLayout() { return g_activeDBCLayout; }
 
 bool DBCLayout::loadFromJson(const std::string& path, const JsonResolver& resolver) {
-    // Disk first, embedded second. A profile edited under Data/ is what a
-    // developer means by editing it; the resolver is what a wowee.exe dropped
-    // beside the original game executable, with no Data/ anywhere, runs on.
     std::string json;
-    std::ifstream f(path);
-    if (f.is_open()) {
-        json.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
-    } else if (!resolver || !resolver(path, json)) {
-        LOG_WARNING("DBCLayout: cannot open ", path,
-                    resolver ? " and no embedded copy of it either" : "");
-        return false;
-    }
-
+    if (!core::readJsonDiskThenResolver(path, resolver, "DBCLayout", json)) return false;
     return loadFromMemory(json, path);
 }
 

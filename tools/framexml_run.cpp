@@ -258,12 +258,25 @@ int main(int argc, char** argv) {
     // interface. They are separate manifests with separate lifetimes - the
     // real client never has both built at once - so this is a mode rather than
     // an extra pass, and the two are reported on their own terms.
+    // --glue-then-world is the state the client must never be in: both
+    // manifests built into one Lua state. They define 649 frame globals in
+    // common - UIParent among them - and 18 templates, and the second load
+    // takes the names while the first load's frames stay in the draw order
+    // under them. It exists to prove that, and to be the regression test for
+    // the teardown that stops it: --glue-then-world --unload-glue tears the
+    // glue screens down first, and the same assertions must flip.
     bool glueOnly = false;
+    bool glueThenWorld = false;
+    bool unloadGlueFirst = false;
     for (int i = 2; i < argc; ++i) {
         if (std::strcmp(argv[i], "--glue") == 0) glueOnly = true;
+        if (std::strcmp(argv[i], "--glue-then-world") == 0) glueThenWorld = true;
+        if (std::strcmp(argv[i], "--unload-glue") == 0) unloadGlueFirst = true;
     }
+    const bool loadGlue = glueOnly || glueThenWorld;
+    const bool loadWorld = !glueOnly;
 
-    if (glueOnly) {
+    if (loadGlue) {
         mgr.setGlueXmlDir(assetPath + "/interface/GlueXML");
         mgr.loadGlueXml(mgr.getGlueXmlDir());
         std::printf("== glue load: %zu error(s)\n", errors.size());
@@ -272,9 +285,15 @@ int main(int argc, char** argv) {
         // screens are event-driven - a dialog appears because the client fired
         // something, not because a file loaded - so a mode that could only load
         // them could not answer the one question worth asking of them.
-    } else {
-        // Everything from here to the end of the login events is FrameXML's,
-        // and the glue screens are loaded instead of it, never beside it.
+    }
+    if (loadWorld) {
+        // What world entry does, when asked for: the glue screens go down
+        // before the world's are built. Without it this is the collision.
+        if (unloadGlueFirst) {
+            const bool wentDown = mgr.unloadGlue();
+            std::printf("== unload glue: %s\n", wentDown ? "ok" : "FAILED");
+        }
+        // Everything from here to the end of the login events is FrameXML's.
 
     mgr.setFrameXmlDir(assetPath + "/interface/FrameXML");
     std::vector<std::string> installAddonRoots;
@@ -354,7 +373,7 @@ int main(int argc, char** argv) {
     for (size_t k = beforeEvents; k < errors.size(); ++k) {
         std::printf("   %s\n", errors[k].c_str());
     }
-    }  // if (glueOnly) ... else - the FrameXML half
+    }  // if (loadWorld) - the FrameXML half
 
     // Resolve the anchors, so a question about where something ended up has an
     // answer. Nothing drives a render loop here, and without this every frame

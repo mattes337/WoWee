@@ -366,6 +366,20 @@ bool UIScreenCallbackHandler::beginGlueLogin(const std::string& account,
     return true;
 }
 
+void UIScreenCallbackHandler::forgetAnnouncedGlueState() {
+    // Every one of them, not only the screen. A rebuilt glue interface has
+    // been told nothing, so a realm list, a character list, a selected
+    // character, a status dialog and a disconnect all have to be sayable
+    // again - and each is held back by its own record of what was last said.
+    announcedRealmCount_ = 0;
+    announcedCharacterCount_ = kNoCharacterListYet;
+    announcedCharacterGuid_ = 0;
+    announcedGlueScreen_.clear();
+    announcedStatusDialog_.clear();
+    announcedStatusText_.clear();
+    announcedDisconnectSerial_ = 0;
+}
+
 void UIScreenCallbackHandler::updateGlueScreens() {
     if (!glueEvent_) return;
 
