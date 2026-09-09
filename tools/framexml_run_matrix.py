@@ -179,7 +179,7 @@ def run(binary: Path, assets: Path, output: Path, timeout: float) -> dict:
             command = [str(binary)]
         elif name == "missing_assets":
             command = [str(binary), str(case_root / "absent-assets")]
-        env = os.environ.copy()
+        env = {k: v for k, v in os.environ.items() if not k.upper().startswith("WOWEE_")}
         env.update(WOWEE_CONFIG_ROOT=str(config), WOWEE_LOG_FILE=str(case_root / "engine.log"),
                    WOWEE_LUA_API_FALLBACK="0", WOWEE_LOAD_FRAMEXML="1")
         # DLL discovery remains relative to the executable; CWD is isolated so
