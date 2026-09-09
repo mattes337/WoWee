@@ -7,7 +7,7 @@
     "result": "not runtime verified",
     "interface_path": "Data/extracted/interface/FrameXML",
     "stock_provenance": "unverified",
-    "input_sha256": "9d37433ec4d798f31ef06719798ec3f0ce268e663784677d33bdd5e92e8eefc2",
+    "input_sha256": "572986be4108400a0d0c6b63356006da39dab21eed197265590df2088a0ab48f",
     "limitations": "Regex detections overlap and include defaults, comments and unreachable code. No coverage percentage or functional completion is implied."
   },
   "wotlk_opcode_warnings": [
@@ -161,7 +161,7 @@
     {
       "name": "SMSG_LFG_PENDING_INVITE",
       "evidence": [
-        "src/game/game_handler_packets.cpp:3349"
+        "src/game/game_handler_packets.cpp:3350"
       ],
       "mapped_profiles": [
         "tbc"
@@ -174,7 +174,7 @@
     {
       "name": "SMSG_LFG_PENDING_MATCH",
       "evidence": [
-        "src/game/game_handler_packets.cpp:3350"
+        "src/game/game_handler_packets.cpp:3351"
       ],
       "mapped_profiles": [
         "tbc"
@@ -187,7 +187,7 @@
     {
       "name": "SMSG_LFG_PENDING_MATCH_DONE",
       "evidence": [
-        "src/game/game_handler_packets.cpp:3351"
+        "src/game/game_handler_packets.cpp:3352"
       ],
       "mapped_profiles": [
         "tbc"
@@ -213,7 +213,7 @@
     {
       "name": "SMSG_LFG_UPDATE",
       "evidence": [
-        "src/game/game_handler_packets.cpp:3352"
+        "src/game/game_handler_packets.cpp:3353"
       ],
       "mapped_profiles": [
         "tbc"
@@ -226,7 +226,7 @@
     {
       "name": "SMSG_LFG_UPDATE_LFG",
       "evidence": [
-        "src/game/game_handler_packets.cpp:3353"
+        "src/game/game_handler_packets.cpp:3354"
       ],
       "mapped_profiles": [
         "tbc"
@@ -239,7 +239,7 @@
     {
       "name": "SMSG_LFG_UPDATE_LFM",
       "evidence": [
-        "src/game/game_handler_packets.cpp:3354"
+        "src/game/game_handler_packets.cpp:3355"
       ],
       "mapped_profiles": [
         "tbc"
@@ -252,7 +252,7 @@
     {
       "name": "SMSG_LFG_UPDATE_QUEUED",
       "evidence": [
-        "src/game/game_handler_packets.cpp:3355"
+        "src/game/game_handler_packets.cpp:3356"
       ],
       "mapped_profiles": [
         "tbc"
@@ -394,7 +394,7 @@
     {
       "name": "SMSG_SET_EXTRA_AURA_INFO_NEED_UPDATE",
       "evidence": [
-        "src/game/game_handler_packets.cpp:3369",
+        "src/game/game_handler_packets.cpp:3370",
         "src/game/spell_handler.cpp:627"
       ],
       "mapped_profiles": [
@@ -504,9 +504,9 @@
         "addons/Blizzard_Calendar/Blizzard_Calendar.lua:3493",
         "addons/Blizzard_Calendar/Blizzard_Calendar.lua:3533"
       ],
-      "disposition": "implemented subset; integration pending",
+      "disposition": "implemented subset; empty-state runtime verified",
       "owner": "BOTH-04",
-      "reason": "Creator-only query implemented from open event state in 073afd80c, sharing the existing context ownership predicate. Pure/parsed-event tests pass 859 assertions in 11 cases. Full Lua binding build, populated-event close/open runtime, and broader guild/ownership-transfer permissions remain unverified; no complete API parity claim.",
+      "reason": "Creator-only query from open event state shares the context ownership predicate. Focused permission/packet tests pass; final client and runner compile at 415a9daa9. Fallback-off runner verifies registration, false no-open permission before/show/after-hide, and natural Calendar shown/hidden state. Populated-event close/open and broader guild/ownership-transfer permissions remain unverified; no complete API parity claim.",
       "validation": "docs/evidence/api-01-calendar-event-can-edit.md"
     },
     {
@@ -561,25 +561,27 @@
     },
     {
       "name": "CalendarEventGetInviteSortCriterion",
-      "candidate_calls": 2,
+      "candidate_calls": 0,
       "evidence": [
         "addons/Blizzard_Calendar/Blizzard_Calendar.lua:2915",
         "addons/Blizzard_Calendar/Blizzard_Calendar.lua:2939"
       ],
-      "disposition": "unresolved static candidate",
+      "disposition": "implemented subset; populated runtime pending",
       "owner": "BOTH-04",
-      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+      "reason": "Implemented in b1883bc67 with GameHandler-owned state, stable displayed-order projection, unique (inviteId, guid) selection, lifecycle reset, and shared resolution for existing indexed invite reads and mutations; event dispatch fix 415a9daa9. Focused Calendar tests pass 885 assertions in 13 cases. Final client/runner build at 3b516d92b; fallback-off runner confirms registrations and empty selected value. Populated-event stock interaction and server reconciliation remain unverified; no complete Calendar parity claim.",
+      "validation": "docs/evidence/api-01-calendar-invite-selection-sort.md"
     },
     {
       "name": "CalendarEventGetSelectedInvite",
-      "candidate_calls": 2,
+      "candidate_calls": 0,
       "evidence": [
         "addons/Blizzard_Calendar/Blizzard_Calendar.lua:3313",
         "addons/Blizzard_Calendar/Blizzard_Calendar.lua:4064"
       ],
-      "disposition": "unresolved static candidate",
+      "disposition": "implemented subset; populated runtime pending",
       "owner": "BOTH-04",
-      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+      "reason": "Implemented in b1883bc67 with GameHandler-owned state, stable displayed-order projection, unique (inviteId, guid) selection, lifecycle reset, and shared resolution for existing indexed invite reads and mutations; event dispatch fix 415a9daa9. Focused Calendar tests pass 885 assertions in 13 cases. Final client/runner build at 3b516d92b; fallback-off runner confirms registrations and empty selected value. Populated-event stock interaction and server reconciliation remain unverified; no complete Calendar parity claim.",
+      "validation": "docs/evidence/api-01-calendar-invite-selection-sort.md"
     },
     {
       "name": "CalendarEventGetTextures",
@@ -613,14 +615,15 @@
     },
     {
       "name": "CalendarEventSelectInvite",
-      "candidate_calls": 2,
+      "candidate_calls": 0,
       "evidence": [
         "addons/Blizzard_Calendar/Blizzard_Calendar.lua:3429",
         "addons/Blizzard_Calendar/Blizzard_Calendar.lua:4197"
       ],
-      "disposition": "unresolved static candidate",
+      "disposition": "implemented subset; populated runtime pending",
       "owner": "BOTH-04",
-      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+      "reason": "Implemented in b1883bc67 with GameHandler-owned state, stable displayed-order projection, unique (inviteId, guid) selection, lifecycle reset, and shared resolution for existing indexed invite reads and mutations; event dispatch fix 415a9daa9. Focused Calendar tests pass 885 assertions in 13 cases. Final client/runner build at 3b516d92b; fallback-off runner confirms registrations and empty selected value. Populated-event stock interaction and server reconciliation remain unverified; no complete Calendar parity claim.",
+      "validation": "docs/evidence/api-01-calendar-invite-selection-sort.md"
     },
     {
       "name": "CalendarEventSetAutoApprove",
@@ -654,13 +657,14 @@
     },
     {
       "name": "CalendarEventSortInvites",
-      "candidate_calls": 1,
+      "candidate_calls": 0,
       "evidence": [
         "addons/Blizzard_Calendar/Blizzard_Calendar.lua:2939"
       ],
-      "disposition": "unresolved static candidate",
+      "disposition": "implemented subset; populated runtime pending",
       "owner": "BOTH-04",
-      "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
+      "reason": "Implemented in b1883bc67 with GameHandler-owned state, stable displayed-order projection, unique (inviteId, guid) selection, lifecycle reset, and shared resolution for existing indexed invite reads and mutations; event dispatch fix 415a9daa9. Focused Calendar tests pass 885 assertions in 13 cases. Final client/runner build at 3b516d92b; fallback-off runner confirms registrations and empty selected value. Populated-event stock interaction and server reconciliation remain unverified; no complete Calendar parity claim.",
+      "validation": "docs/evidence/api-01-calendar-invite-selection-sort.md"
     },
     {
       "name": "CalendarEventTentative",
@@ -1112,12 +1116,15 @@
       "CalendarEventCanEdit",
       "CalendarEventClearModerator",
       "CalendarEventGetInvite",
+      "CalendarEventGetInviteSortCriterion",
       "CalendarEventGetNumInvites",
       "CalendarEventGetRepeatOptions",
+      "CalendarEventGetSelectedInvite",
       "CalendarEventGetStatusOptions",
       "CalendarEventGetTypes",
       "CalendarEventHaveSettingsChanged",
       "CalendarEventInvite",
+      "CalendarEventSelectInvite",
       "CalendarEventSetDate",
       "CalendarEventSetDescription",
       "CalendarEventSetModerator",
@@ -1127,6 +1134,7 @@
       "CalendarEventSetTime",
       "CalendarEventSetTitle",
       "CalendarEventSetType",
+      "CalendarEventSortInvites",
       "CalendarGetDate",
       "CalendarGetDayEvent",
       "CalendarGetEventIndex",
@@ -10031,182 +10039,182 @@
           "name": "farclip",
           "setting": "viewdistance",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1180",
+          "evidence": "src/addons/lua_system_api.cpp:1203",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "mousespeed",
           "setting": "mousespeed",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1189",
+          "evidence": "src/addons/lua_system_api.cpp:1212",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "showclock",
           "setting": "minimapclock",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1190",
+          "evidence": "src/addons/lua_system_api.cpp:1213",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "nameplateshowfriends",
           "setting": "friendlyplates",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1191",
+          "evidence": "src/addons/lua_system_api.cpp:1214",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "groundeffectdensity",
           "setting": "groundclutter",
           "scale_expression": "150.0 / 64.0",
-          "evidence": "src/addons/lua_system_api.cpp:1198",
+          "evidence": "src/addons/lua_system_api.cpp:1221",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "groundeffectdist",
           "setting": "groundclutterdistance",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1208",
+          "evidence": "src/addons/lua_system_api.cpp:1231",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "particledensity",
           "setting": "particledensity",
           "scale_expression": "100.0",
-          "evidence": "src/addons/lua_system_api.cpp:1209",
+          "evidence": "src/addons/lua_system_api.cpp:1232",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "weatherdensity",
           "setting": "weatherdetail",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1210",
+          "evidence": "src/addons/lua_system_api.cpp:1233",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "environmentdetail",
           "setting": "environmentdetail",
           "scale_expression": "100.0",
-          "evidence": "src/addons/lua_system_api.cpp:1211",
+          "evidence": "src/addons/lua_system_api.cpp:1234",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "texturefilteringmode",
           "setting": "texturefiltering",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1214",
+          "evidence": "src/addons/lua_system_api.cpp:1237",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "sound_sfxvolume",
           "setting": "effectsvolume",
           "scale_expression": "100.0",
-          "evidence": "src/addons/lua_system_api.cpp:1216",
+          "evidence": "src/addons/lua_system_api.cpp:1239",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "sound_enablesoundwhengameisinbg",
           "setting": "soundinbackground",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1224",
+          "evidence": "src/addons/lua_system_api.cpp:1247",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "sound_enablemusic",
           "setting": "enablemusic",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1225",
+          "evidence": "src/addons/lua_system_api.cpp:1248",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "sound_zonemusicnodelay",
           "setting": "loopmusic",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1226",
+          "evidence": "src/addons/lua_system_api.cpp:1249",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "sound_enableambience",
           "setting": "enableambience",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1227",
+          "evidence": "src/addons/lua_system_api.cpp:1250",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "sound_enableerrorspeech",
           "setting": "errorspeech",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1228",
+          "evidence": "src/addons/lua_system_api.cpp:1251",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "sound_enablesfx",
           "setting": "enablesoundeffects",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1229",
+          "evidence": "src/addons/lua_system_api.cpp:1252",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "gxvsync",
           "setting": "vsync",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1234",
+          "evidence": "src/addons/lua_system_api.cpp:1257",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "mouseinvertpitch",
           "setting": "invertmouse",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1235",
+          "evidence": "src/addons/lua_system_api.cpp:1258",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "autolootdefault",
           "setting": "autoloot",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1240",
+          "evidence": "src/addons/lua_system_api.cpp:1263",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "cameradistancemaxfactor",
           "setting": "cameramaxdistance",
           "scale_expression": "22.0",
-          "evidence": "src/addons/lua_system_api.cpp:1244",
+          "evidence": "src/addons/lua_system_api.cpp:1267",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "secureabilitytoggle",
           "setting": "secureabilitytoggle",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1246",
+          "evidence": "src/addons/lua_system_api.cpp:1269",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "chatbubbles",
           "setting": "chatbubbles",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1248",
+          "evidence": "src/addons/lua_system_api.cpp:1271",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "chatbubblesparty",
           "setting": "chatbubblesparty",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1249",
+          "evidence": "src/addons/lua_system_api.cpp:1272",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "nameplateshowenemies",
           "setting": "enemyplates",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1253",
+          "evidence": "src/addons/lua_system_api.cpp:1276",
           "result": "static binding; runtime behavior unverified"
         },
         {
           "name": "rotateminimap",
           "setting": "minimaprotate",
           "scale_expression": "1.0",
-          "evidence": "src/addons/lua_system_api.cpp:1254",
+          "evidence": "src/addons/lua_system_api.cpp:1277",
           "result": "static binding; runtime behavior unverified"
         }
       ],
@@ -10215,835 +10223,835 @@
           "name": "sound_enablesoundwhengameisinbg",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:747"
+          "evidence": "src/addons/lua_system_api.cpp:770"
         },
         {
           "name": "sound_mastervolume",
           "literal_default": null,
           "result": "dynamic or unmatched default branch",
-          "evidence": "src/addons/lua_system_api.cpp:749"
+          "evidence": "src/addons/lua_system_api.cpp:772"
         },
         {
           "name": "sound_musicvolume",
           "literal_default": null,
           "result": "dynamic or unmatched default branch",
-          "evidence": "src/addons/lua_system_api.cpp:749"
+          "evidence": "src/addons/lua_system_api.cpp:772"
         },
         {
           "name": "sound_ambiencevolume",
           "literal_default": null,
           "result": "dynamic or unmatched default branch",
-          "evidence": "src/addons/lua_system_api.cpp:750"
+          "evidence": "src/addons/lua_system_api.cpp:773"
         },
         {
           "name": "sound_numchannels",
           "literal_default": "64",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:761"
+          "evidence": "src/addons/lua_system_api.cpp:784"
         },
         {
           "name": "sound_outputquality",
           "literal_default": "2",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:762"
+          "evidence": "src/addons/lua_system_api.cpp:785"
         },
         {
           "name": "uiscale",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:763"
+          "evidence": "src/addons/lua_system_api.cpp:786"
         },
         {
           "name": "useuiscale",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:764"
+          "evidence": "src/addons/lua_system_api.cpp:787"
         },
         {
           "name": "screenwidth",
           "literal_default": null,
           "result": "dynamic or unmatched default branch",
-          "evidence": "src/addons/lua_system_api.cpp:765"
+          "evidence": "src/addons/lua_system_api.cpp:788"
         },
         {
           "name": "gxresolution",
           "literal_default": null,
           "result": "dynamic or unmatched default branch",
-          "evidence": "src/addons/lua_system_api.cpp:765"
+          "evidence": "src/addons/lua_system_api.cpp:788"
         },
         {
           "name": "screenheight",
           "literal_default": null,
           "result": "dynamic or unmatched default branch",
-          "evidence": "src/addons/lua_system_api.cpp:769"
+          "evidence": "src/addons/lua_system_api.cpp:792"
         },
         {
           "name": "gxfullscreenresolution",
           "literal_default": null,
           "result": "dynamic or unmatched default branch",
-          "evidence": "src/addons/lua_system_api.cpp:769"
+          "evidence": "src/addons/lua_system_api.cpp:792"
         },
         {
           "name": "nameplateshowfriends",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:773"
+          "evidence": "src/addons/lua_system_api.cpp:796"
         },
         {
           "name": "nameplateshowenemies",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:774"
+          "evidence": "src/addons/lua_system_api.cpp:797"
         },
         {
           "name": "sound_enablesfx",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:775"
+          "evidence": "src/addons/lua_system_api.cpp:798"
         },
         {
           "name": "sound_enableerrorspeech",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:776"
+          "evidence": "src/addons/lua_system_api.cpp:799"
         },
         {
           "name": "cameradistancemaxfactor",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:779"
+          "evidence": "src/addons/lua_system_api.cpp:802"
         },
         {
           "name": "weatherdensity",
           "literal_default": "3",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:780"
+          "evidence": "src/addons/lua_system_api.cpp:803"
         },
         {
           "name": "particledensity",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:781"
+          "evidence": "src/addons/lua_system_api.cpp:804"
         },
         {
           "name": "environmentdetail",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:782"
+          "evidence": "src/addons/lua_system_api.cpp:805"
         },
         {
           "name": "texturefilteringmode",
           "literal_default": "5",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:785"
+          "evidence": "src/addons/lua_system_api.cpp:808"
         },
         {
           "name": "groundeffectdist",
           "literal_default": "140",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:786"
+          "evidence": "src/addons/lua_system_api.cpp:809"
         },
         {
           "name": "extshadowquality",
           "literal_default": "3",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:790"
+          "evidence": "src/addons/lua_system_api.cpp:813"
         },
         {
           "name": "deselectonclick",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:796"
+          "evidence": "src/addons/lua_system_api.cpp:819"
         },
         {
           "name": "enablecombattext",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:800"
+          "evidence": "src/addons/lua_system_api.cpp:823"
         },
         {
           "name": "fctdamage",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:804"
+          "evidence": "src/addons/lua_system_api.cpp:827"
         },
         {
           "name": "fcthealing",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:804"
+          "evidence": "src/addons/lua_system_api.cpp:827"
         },
         {
           "name": "fctdodgeparrymiss",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:805"
+          "evidence": "src/addons/lua_system_api.cpp:828"
         },
         {
           "name": "unitnameenemyplayername",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:808"
+          "evidence": "src/addons/lua_system_api.cpp:831"
         },
         {
           "name": "unitnamefriendlyplayername",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:808"
+          "evidence": "src/addons/lua_system_api.cpp:831"
         },
         {
           "name": "unitnamenpc",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:809"
+          "evidence": "src/addons/lua_system_api.cpp:832"
         },
         {
           "name": "unitnamenoncombatcreaturename",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:809"
+          "evidence": "src/addons/lua_system_api.cpp:832"
         },
         {
           "name": "lockactionbars",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:813"
+          "evidence": "src/addons/lua_system_api.cpp:836"
         },
         {
           "name": "showitemlevel",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:816"
+          "evidence": "src/addons/lua_system_api.cpp:839"
         },
         {
           "name": "blocktrades",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:818"
+          "evidence": "src/addons/lua_system_api.cpp:841"
         },
         {
           "name": "buffdurations",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:820"
+          "evidence": "src/addons/lua_system_api.cpp:843"
         },
         {
           "name": "stopautoattackontargetchange",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:823"
+          "evidence": "src/addons/lua_system_api.cpp:846"
         },
         {
           "name": "showlootspam",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:825"
+          "evidence": "src/addons/lua_system_api.cpp:848"
         },
         {
           "name": "autoclearafk",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:828"
+          "evidence": "src/addons/lua_system_api.cpp:851"
         },
         {
           "name": "guildmembernotify",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:830"
+          "evidence": "src/addons/lua_system_api.cpp:853"
         },
         {
           "name": "assistattack",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:833"
+          "evidence": "src/addons/lua_system_api.cpp:856"
         },
         {
           "name": "threatplaysounds",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:836"
+          "evidence": "src/addons/lua_system_api.cpp:859"
         },
         {
           "name": "autodismountflying",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:841"
+          "evidence": "src/addons/lua_system_api.cpp:864"
         },
         {
           "name": "colorblindmode",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:842"
+          "evidence": "src/addons/lua_system_api.cpp:865"
         },
         {
           "name": "secureabilitytoggle",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:845"
+          "evidence": "src/addons/lua_system_api.cpp:868"
         },
         {
           "name": "mapquestdifficulty",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:849"
+          "evidence": "src/addons/lua_system_api.cpp:872"
         },
         {
           "name": "autoquestprogress",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:850"
+          "evidence": "src/addons/lua_system_api.cpp:873"
         },
         {
           "name": "consolidatebuffs",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:851"
+          "evidence": "src/addons/lua_system_api.cpp:874"
         },
         {
           "name": "watchframewidth",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:852"
+          "evidence": "src/addons/lua_system_api.cpp:875"
         },
         {
           "name": "nameplateshowenemytotems",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:855"
+          "evidence": "src/addons/lua_system_api.cpp:878"
         },
         {
           "name": "nameplateshowfriendlytotems",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:856"
+          "evidence": "src/addons/lua_system_api.cpp:879"
         },
         {
           "name": "unitnameenemytotemname",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:857"
+          "evidence": "src/addons/lua_system_api.cpp:880"
         },
         {
           "name": "unitnamefriendlytotemname",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:858"
+          "evidence": "src/addons/lua_system_api.cpp:881"
         },
         {
           "name": "showclasscolorinnameplate",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:861"
+          "evidence": "src/addons/lua_system_api.cpp:884"
         },
         {
           "name": "combatdamage",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:864"
+          "evidence": "src/addons/lua_system_api.cpp:887"
         },
         {
           "name": "combathealing",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:865"
+          "evidence": "src/addons/lua_system_api.cpp:888"
         },
         {
           "name": "combatlogperiodicspells",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:866"
+          "evidence": "src/addons/lua_system_api.cpp:889"
         },
         {
           "name": "petmeleedamage",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:867"
+          "evidence": "src/addons/lua_system_api.cpp:890"
         },
         {
           "name": "fctspellmechanics",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:868"
+          "evidence": "src/addons/lua_system_api.cpp:891"
         },
         {
           "name": "fctspellmechanicsother",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:869"
+          "evidence": "src/addons/lua_system_api.cpp:892"
         },
         {
           "name": "camerasmoothstyle",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:872"
+          "evidence": "src/addons/lua_system_api.cpp:895"
         },
         {
           "name": "camerayawsmoothspeed",
           "literal_default": "30",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:873"
+          "evidence": "src/addons/lua_system_api.cpp:896"
         },
         {
           "name": "unitnameplayerpvptitle",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:875"
+          "evidence": "src/addons/lua_system_api.cpp:898"
         },
         {
           "name": "showvkeycastbar",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:877"
+          "evidence": "src/addons/lua_system_api.cpp:900"
         },
         {
           "name": "chatbubblesparty",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:878"
+          "evidence": "src/addons/lua_system_api.cpp:901"
         },
         {
           "name": "nameplateshowenemypets",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:880"
+          "evidence": "src/addons/lua_system_api.cpp:903"
         },
         {
           "name": "nameplateshowfriendlypets",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:881"
+          "evidence": "src/addons/lua_system_api.cpp:904"
         },
         {
           "name": "nameplateshowenemyguardians",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:882"
+          "evidence": "src/addons/lua_system_api.cpp:905"
         },
         {
           "name": "nameplateshowfriendlyguardians",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:883"
+          "evidence": "src/addons/lua_system_api.cpp:906"
         },
         {
           "name": "unitnameenemypetname",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:884"
+          "evidence": "src/addons/lua_system_api.cpp:907"
         },
         {
           "name": "unitnamefriendlypetname",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:885"
+          "evidence": "src/addons/lua_system_api.cpp:908"
         },
         {
           "name": "unitnameenemyguardianname",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:886"
+          "evidence": "src/addons/lua_system_api.cpp:909"
         },
         {
           "name": "unitnamefriendlyguardianname",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:887"
+          "evidence": "src/addons/lua_system_api.cpp:910"
         },
         {
           "name": "unitnameplayerguild",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:890"
+          "evidence": "src/addons/lua_system_api.cpp:913"
         },
         {
           "name": "unitnameown",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:891"
+          "evidence": "src/addons/lua_system_api.cpp:914"
         },
         {
           "name": "nameplateallowoverlap",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:893"
+          "evidence": "src/addons/lua_system_api.cpp:916"
         },
         {
           "name": "spamfilter",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:896"
+          "evidence": "src/addons/lua_system_api.cpp:919"
         },
         {
           "name": "profanityfilter",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:897"
+          "evidence": "src/addons/lua_system_api.cpp:920"
         },
         {
           "name": "sound_zonemusicnodelay",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:900"
+          "evidence": "src/addons/lua_system_api.cpp:923"
         },
         {
           "name": "camerayawmovespeed",
           "literal_default": "0.2",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:902"
+          "evidence": "src/addons/lua_system_api.cpp:925"
         },
         {
           "name": "guildrecruitmentchannel",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:904"
+          "evidence": "src/addons/lua_system_api.cpp:927"
         },
         {
           "name": "alwaysshowactionbars",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:917"
+          "evidence": "src/addons/lua_system_api.cpp:940"
         },
         {
           "name": "autoquestwatch",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:918"
+          "evidence": "src/addons/lua_system_api.cpp:941"
         },
         {
           "name": "combattextfloatmode",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:919"
+          "evidence": "src/addons/lua_system_api.cpp:942"
         },
         {
           "name": "displayworldpvpobjectives",
           "literal_default": "2",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:920"
+          "evidence": "src/addons/lua_system_api.cpp:943"
         },
         {
           "name": "fctauras",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:921"
+          "evidence": "src/addons/lua_system_api.cpp:944"
         },
         {
           "name": "fctcombatstate",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:922"
+          "evidence": "src/addons/lua_system_api.cpp:945"
         },
         {
           "name": "fctcombopoints",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:923"
+          "evidence": "src/addons/lua_system_api.cpp:946"
         },
         {
           "name": "fctdamagereduction",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:924"
+          "evidence": "src/addons/lua_system_api.cpp:947"
         },
         {
           "name": "fctenergygains",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:925"
+          "evidence": "src/addons/lua_system_api.cpp:948"
         },
         {
           "name": "fctfriendlyhealers",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:926"
+          "evidence": "src/addons/lua_system_api.cpp:949"
         },
         {
           "name": "fcthonorgains",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:927"
+          "evidence": "src/addons/lua_system_api.cpp:950"
         },
         {
           "name": "fctlowmanahealth",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:928"
+          "evidence": "src/addons/lua_system_api.cpp:951"
         },
         {
           "name": "fctperiodicenergygains",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:929"
+          "evidence": "src/addons/lua_system_api.cpp:952"
         },
         {
           "name": "fctreactives",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:930"
+          "evidence": "src/addons/lua_system_api.cpp:953"
         },
         {
           "name": "fctrepchanges",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:931"
+          "evidence": "src/addons/lua_system_api.cpp:954"
         },
         {
           "name": "hidepartyinraid",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:932"
+          "evidence": "src/addons/lua_system_api.cpp:955"
         },
         {
           "name": "lootundermouse",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:933"
+          "evidence": "src/addons/lua_system_api.cpp:956"
         },
         {
           "name": "questfadingdisable",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:934"
+          "evidence": "src/addons/lua_system_api.cpp:957"
         },
         {
           "name": "removechatdelay",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:935"
+          "evidence": "src/addons/lua_system_api.cpp:958"
         },
         {
           "name": "showarenaenemycastbar",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:936"
+          "evidence": "src/addons/lua_system_api.cpp:959"
         },
         {
           "name": "showarenaenemypets",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:937"
+          "evidence": "src/addons/lua_system_api.cpp:960"
         },
         {
           "name": "showpartybackground",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:938"
+          "evidence": "src/addons/lua_system_api.cpp:961"
         },
         {
           "name": "showpartypets",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:939"
+          "evidence": "src/addons/lua_system_api.cpp:962"
         },
         {
           "name": "showtargetoftarget",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:940"
+          "evidence": "src/addons/lua_system_api.cpp:963"
         },
         {
           "name": "targetoftargetmode",
           "literal_default": "5",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:941"
+          "evidence": "src/addons/lua_system_api.cpp:964"
         },
         {
           "name": "sound_enablemusic",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:942"
+          "evidence": "src/addons/lua_system_api.cpp:965"
         },
         {
           "name": "chatbubbles",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:943"
+          "evidence": "src/addons/lua_system_api.cpp:966"
         },
         {
           "name": "autolootdefault",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:947"
+          "evidence": "src/addons/lua_system_api.cpp:970"
         },
         {
           "name": "shownewbietips",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:952"
+          "evidence": "src/addons/lua_system_api.cpp:975"
         },
         {
           "name": "equipmentmanager",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:969"
+          "evidence": "src/addons/lua_system_api.cpp:992"
         },
         {
           "name": "showdispeldebuffs",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:979"
+          "evidence": "src/addons/lua_system_api.cpp:1002"
         },
         {
           "name": "showcastablebuffs",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:984"
+          "evidence": "src/addons/lua_system_api.cpp:1007"
         },
         {
           "name": "statustext",
           "literal_default": null,
           "result": "dynamic or unmatched default branch",
-          "evidence": "src/addons/lua_system_api.cpp:991"
+          "evidence": "src/addons/lua_system_api.cpp:1014"
         },
         {
           "name": "playerstatustext",
           "literal_default": null,
           "result": "dynamic or unmatched default branch",
-          "evidence": "src/addons/lua_system_api.cpp:991"
+          "evidence": "src/addons/lua_system_api.cpp:1014"
         },
         {
           "name": "targetstatustext",
           "literal_default": null,
           "result": "dynamic or unmatched default branch",
-          "evidence": "src/addons/lua_system_api.cpp:992"
+          "evidence": "src/addons/lua_system_api.cpp:1015"
         },
         {
           "name": "petstatustext",
           "literal_default": null,
           "result": "dynamic or unmatched default branch",
-          "evidence": "src/addons/lua_system_api.cpp:992"
+          "evidence": "src/addons/lua_system_api.cpp:1015"
         },
         {
           "name": "partystatustext",
           "literal_default": null,
           "result": "dynamic or unmatched default branch",
-          "evidence": "src/addons/lua_system_api.cpp:993"
+          "evidence": "src/addons/lua_system_api.cpp:1016"
         },
         {
           "name": "statustextpercentage",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:996"
+          "evidence": "src/addons/lua_system_api.cpp:1019"
         },
         {
           "name": "playerstatleftdropdown",
           "literal_default": "PLAYERSTAT_BASE_STATS",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1006"
+          "evidence": "src/addons/lua_system_api.cpp:1029"
         },
         {
           "name": "playerstatrightdropdown",
           "literal_default": "PLAYERSTAT_MELEE_COMBAT",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1007"
+          "evidence": "src/addons/lua_system_api.cpp:1030"
         },
         {
           "name": "conversationmode",
           "literal_default": "inline",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1013"
+          "evidence": "src/addons/lua_system_api.cpp:1036"
         },
         {
           "name": "lasttalkedtogm",
           "literal_default": "",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1023"
+          "evidence": "src/addons/lua_system_api.cpp:1046"
         },
         {
           "name": "previewtalents",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1048"
+          "evidence": "src/addons/lua_system_api.cpp:1071"
         },
         {
           "name": "chatmousescroll",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1049"
+          "evidence": "src/addons/lua_system_api.cpp:1072"
         },
         {
           "name": "showkeyring",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1050"
+          "evidence": "src/addons/lua_system_api.cpp:1073"
         },
         {
           "name": "trackerfilter",
           "literal_default": "3",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1072"
+          "evidence": "src/addons/lua_system_api.cpp:1095"
         },
         {
           "name": "trackersorting",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1076"
+          "evidence": "src/addons/lua_system_api.cpp:1099"
         },
         {
           "name": "watchframewidth",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1080"
+          "evidence": "src/addons/lua_system_api.cpp:1103"
         },
         {
           "name": "worldmapopacity",
           "literal_default": "0",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1085"
+          "evidence": "src/addons/lua_system_api.cpp:1108"
         },
         {
           "name": "partybackgroundopacity",
           "literal_default": "0.5",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1089"
+          "evidence": "src/addons/lua_system_api.cpp:1112"
         },
         {
           "name": "sound_mastervolume",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1093"
+          "evidence": "src/addons/lua_system_api.cpp:1116"
         },
         {
           "name": "sound_enableallsound",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1094"
+          "evidence": "src/addons/lua_system_api.cpp:1117"
         },
         {
           "name": "ubertooltips",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1100"
+          "evidence": "src/addons/lua_system_api.cpp:1123"
         },
         {
           "name": "showtargetcastbar",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1107"
+          "evidence": "src/addons/lua_system_api.cpp:1130"
         },
         {
           "name": "questpoi",
           "literal_default": "1",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1111"
+          "evidence": "src/addons/lua_system_api.cpp:1134"
         },
         {
           "name": "threatwarning",
           "literal_default": "3",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1117"
+          "evidence": "src/addons/lua_system_api.cpp:1140"
         },
         {
           "name": "chatstyle",
           "literal_default": "im",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1128"
+          "evidence": "src/addons/lua_system_api.cpp:1151"
         },
         {
           "name": "showtimestamps",
           "literal_default": "none",
           "result": "literal default candidate",
-          "evidence": "src/addons/lua_system_api.cpp:1142"
+          "evidence": "src/addons/lua_system_api.cpp:1165"
         }
       ],
       "default_dispatch_rules": [
@@ -11051,12 +11059,12 @@
           "match_kind": "prefix",
           "prefix": "sound_enable",
           "literal_default": "1",
-          "evidence": "src/addons/lua_system_api.cpp:748"
+          "evidence": "src/addons/lua_system_api.cpp:771"
         },
         {
           "match_kind": "unmatched-name fallback candidate",
           "literal_default": "0",
-          "evidence": "src/addons/lua_system_api.cpp:1143"
+          "evidence": "src/addons/lua_system_api.cpp:1166"
         }
       ],
       "stored_value_reads": [
@@ -11564,10 +11572,10 @@
         "src/core/application.cpp:2573",
         "src/core/world_entry_callback_handler.cpp:71",
         "src/core/world_entry_callback_handler.cpp:100",
-        "src/game/game_handler.cpp:430",
-        "src/game/game_handler.cpp:464",
-        "src/game/game_handler.cpp:595",
-        "src/game/game_handler.cpp:804",
+        "src/game/game_handler.cpp:433",
+        "src/game/game_handler.cpp:467",
+        "src/game/game_handler.cpp:598",
+        "src/game/game_handler.cpp:807",
         "src/game/game_handler_callbacks.cpp:835",
         "src/game/game_handler_callbacks.cpp:2960",
         "src/game/inventory_handler.cpp:67",
@@ -11604,7 +11612,7 @@
       "MSG_MOVE_STOP": [
         "src/core/world_entry_callback_handler.cpp:67",
         "src/core/world_entry_callback_handler.cpp:97",
-        "src/game/game_handler.cpp:429",
+        "src/game/game_handler.cpp:432",
         "src/game/game_handler_callbacks.cpp:834",
         "src/game/game_handler_callbacks.cpp:2955",
         "src/game/inventory_handler.cpp:64",
@@ -11870,31 +11878,31 @@
         "src/game/quest_handler.cpp:2180"
       ],
       "CMSG_SET_WATCHED_FACTION": [
-        "src/game/game_handler.cpp:2754"
+        "src/game/game_handler.cpp:2757"
       ],
       "CMSG_SET_FACTION_ATWAR": [
-        "src/game/game_handler.cpp:2769"
+        "src/game/game_handler.cpp:2772"
       ],
       "CMSG_SET_FACTION_INACTIVE": [
-        "src/game/game_handler.cpp:2783"
+        "src/game/game_handler.cpp:2786"
       ],
       "CMSG_OPT_OUT_OF_LOOT": [
-        "src/game/game_handler.cpp:2907"
+        "src/game/game_handler.cpp:2910"
       ],
       "CMSG_ITEM_REFUND_INFO": [
-        "src/game/game_handler.cpp:3528"
+        "src/game/game_handler.cpp:3531"
       ],
       "CMSG_ITEM_REFUND": [
-        "src/game/game_handler.cpp:3536"
+        "src/game/game_handler.cpp:3539"
       ],
       "CMSG_GMRESPONSE_RESOLVE": [
-        "src/game/game_handler.cpp:3543"
+        "src/game/game_handler.cpp:3546"
       ],
       "MSG_PETITION_RENAME": [
-        "src/game/game_handler.cpp:3552"
+        "src/game/game_handler.cpp:3555"
       ],
       "CMSG_REMOVE_GLYPH": [
-        "src/game/game_handler.cpp:3561"
+        "src/game/game_handler.cpp:3564"
       ],
       "CMSG_CHAR_DELETE": [
         "src/game/game_handler_callbacks.cpp:491"
@@ -11937,12 +11945,12 @@
       "SMSG_AUTH_CHALLENGE": [
         "src/game/game_handler_packets.cpp:73",
         "src/game/game_handler_packets.cpp:139",
-        "src/game/game_handler_packets.cpp:3509"
+        "src/game/game_handler_packets.cpp:3510"
       ],
       "SMSG_AUTH_RESPONSE": [
         "src/game/game_handler_packets.cpp:74",
         "src/game/game_handler_packets.cpp:145",
-        "src/game/game_handler_packets.cpp:3510"
+        "src/game/game_handler_packets.cpp:3511"
       ],
       "SMSG_CLIENTCACHE_VERSION": [
         "src/game/game_handler_packets.cpp:75",
@@ -11954,23 +11962,23 @@
       ],
       "SMSG_WARDEN_DATA": [
         "src/game/game_handler_packets.cpp:77",
-        "src/game/game_handler_packets.cpp:3514",
+        "src/game/game_handler_packets.cpp:3515",
         "src/game/warden_handler.cpp:155"
       ],
       "SMSG_CHAR_ENUM": [
         "src/game/game_handler_packets.cpp:78",
         "src/game/game_handler_packets.cpp:175",
-        "src/game/game_handler_packets.cpp:3511"
+        "src/game/game_handler_packets.cpp:3512"
       ],
       "SMSG_CHAR_CREATE": [
         "src/game/game_handler_packets.cpp:79",
         "src/game/game_handler_packets.cpp:151",
-        "src/game/game_handler_packets.cpp:3512"
+        "src/game/game_handler_packets.cpp:3513"
       ],
       "SMSG_CHAR_DELETE": [
         "src/game/game_handler_packets.cpp:80",
         "src/game/game_handler_packets.cpp:154",
-        "src/game/game_handler_packets.cpp:3513"
+        "src/game/game_handler_packets.cpp:3514"
       ],
       "SMSG_CHARACTER_LOGIN_FAILED": [
         "src/game/game_handler_packets.cpp:181"
@@ -12494,321 +12502,321 @@
         "src/game/game_handler_packets.cpp:2896"
       ],
       "SMSG_CALENDAR_SEND_CALENDAR": [
-        "src/game/game_handler_packets.cpp:2918"
+        "src/game/game_handler_packets.cpp:2919"
       ],
       "SMSG_CALENDAR_SEND_NUM_PENDING": [
-        "src/game/game_handler_packets.cpp:2937"
+        "src/game/game_handler_packets.cpp:2938"
       ],
       "SMSG_CALENDAR_COMMAND_RESULT": [
-        "src/game/game_handler_packets.cpp:2964"
+        "src/game/game_handler_packets.cpp:2965"
       ],
       "SMSG_CALENDAR_EVENT_INVITE_ALERT": [
-        "src/game/game_handler_packets.cpp:3005"
+        "src/game/game_handler_packets.cpp:3006"
       ],
       "SMSG_CALENDAR_EVENT_STATUS": [
-        "src/game/game_handler_packets.cpp:3036"
+        "src/game/game_handler_packets.cpp:3037"
       ],
       "SMSG_CALENDAR_RAID_LOCKOUT_ADDED": [
-        "src/game/game_handler_packets.cpp:3072"
+        "src/game/game_handler_packets.cpp:3073"
       ],
       "SMSG_CALENDAR_RAID_LOCKOUT_REMOVED": [
-        "src/game/game_handler_packets.cpp:3092"
+        "src/game/game_handler_packets.cpp:3093"
       ],
       "SMSG_SERVERTIME": [
-        "src/game/game_handler_packets.cpp:3112"
+        "src/game/game_handler_packets.cpp:3113"
       ],
       "SMSG_KICK_REASON": [
-        "src/game/game_handler_packets.cpp:3126"
+        "src/game/game_handler_packets.cpp:3127"
       ],
       "SMSG_GROUPACTION_THROTTLED": [
-        "src/game/game_handler_packets.cpp:3152"
+        "src/game/game_handler_packets.cpp:3153"
       ],
       "SMSG_GMRESPONSE_RECEIVED": [
-        "src/game/game_handler_packets.cpp:3170"
+        "src/game/game_handler_packets.cpp:3171"
       ],
       "SMSG_GMRESPONSE_STATUS_UPDATE": [
-        "src/game/game_handler_packets.cpp:3217"
+        "src/game/game_handler_packets.cpp:3218"
       ],
       "SMSG_GM_TICKET_STATUS_UPDATE": [
-        "src/game/game_handler_packets.cpp:3238"
+        "src/game/game_handler_packets.cpp:3239"
       ],
       "MSG_MOVE_SET_COLLISION_HGT": [
-        "src/game/game_handler_packets.cpp:3240"
+        "src/game/game_handler_packets.cpp:3241"
       ],
       "MSG_MOVE_WORLDPORT_ACK": [
-        "src/game/game_handler_packets.cpp:3242",
+        "src/game/game_handler_packets.cpp:3243",
         "src/game/movement_handler.cpp:2099",
         "src/game/movement_handler.cpp:2169"
       ],
       "MSG_MOVE_TIME_SKIPPED": [
-        "src/game/game_handler_packets.cpp:3244"
+        "src/game/game_handler_packets.cpp:3245"
       ],
       "SMSG_LOGOUT_CANCEL_ACK": [
-        "src/game/game_handler_packets.cpp:3250"
+        "src/game/game_handler_packets.cpp:3251"
       ],
       "SMSG_PLAYER_SKINNED": [
-        "src/game/game_handler_packets.cpp:3258"
+        "src/game/game_handler_packets.cpp:3259"
       ],
       "SMSG_AURACASTLOG": [
-        "src/game/game_handler_packets.cpp:3265"
+        "src/game/game_handler_packets.cpp:3266"
       ],
       "SMSG_SPELLBREAKLOG": [
-        "src/game/game_handler_packets.cpp:3268"
+        "src/game/game_handler_packets.cpp:3269"
       ],
       "SMSG_ITEM_REFUND_INFO_RESPONSE": [
-        "src/game/game_handler_packets.cpp:3275"
+        "src/game/game_handler_packets.cpp:3276"
       ],
       "SMSG_LOOT_LIST": [
-        "src/game/game_handler_packets.cpp:3298"
+        "src/game/game_handler_packets.cpp:3299"
       ],
       "SMSG_CALENDAR_RAID_LOCKOUT_UPDATED": [
-        "src/game/game_handler_packets.cpp:3300"
+        "src/game/game_handler_packets.cpp:3301"
       ],
       "SMSG_ARENA_UNIT_DESTROYED": [
-        "src/game/game_handler_packets.cpp:3307"
+        "src/game/game_handler_packets.cpp:3308"
       ],
       "SMSG_AFK_MONITOR_INFO_RESPONSE": [
-        "src/game/game_handler_packets.cpp:3310"
-      ],
-      "SMSG_AUCTION_LIST_PENDING_SALES": [
         "src/game/game_handler_packets.cpp:3311"
       ],
-      "SMSG_AVAILABLE_VOICE_CHANNEL": [
+      "SMSG_AUCTION_LIST_PENDING_SALES": [
         "src/game/game_handler_packets.cpp:3312"
       ],
-      "SMSG_CALENDAR_ARENA_TEAM": [
+      "SMSG_AVAILABLE_VOICE_CHANNEL": [
         "src/game/game_handler_packets.cpp:3313"
       ],
-      "SMSG_CALENDAR_CLEAR_PENDING_ACTION": [
+      "SMSG_CALENDAR_ARENA_TEAM": [
         "src/game/game_handler_packets.cpp:3314"
       ],
-      "SMSG_CALENDAR_EVENT_INVITE": [
+      "SMSG_CALENDAR_CLEAR_PENDING_ACTION": [
         "src/game/game_handler_packets.cpp:3315"
       ],
-      "SMSG_CALENDAR_EVENT_INVITE_NOTES": [
+      "SMSG_CALENDAR_EVENT_INVITE": [
         "src/game/game_handler_packets.cpp:3316"
       ],
-      "SMSG_CALENDAR_EVENT_INVITE_NOTES_ALERT": [
+      "SMSG_CALENDAR_EVENT_INVITE_NOTES": [
         "src/game/game_handler_packets.cpp:3317"
       ],
-      "SMSG_CALENDAR_EVENT_INVITE_REMOVED": [
+      "SMSG_CALENDAR_EVENT_INVITE_NOTES_ALERT": [
         "src/game/game_handler_packets.cpp:3318"
       ],
-      "SMSG_CALENDAR_EVENT_INVITE_REMOVED_ALERT": [
+      "SMSG_CALENDAR_EVENT_INVITE_REMOVED": [
         "src/game/game_handler_packets.cpp:3319"
       ],
-      "SMSG_CALENDAR_EVENT_INVITE_STATUS_ALERT": [
+      "SMSG_CALENDAR_EVENT_INVITE_REMOVED_ALERT": [
         "src/game/game_handler_packets.cpp:3320"
       ],
-      "SMSG_CALENDAR_EVENT_MODERATOR_STATUS_ALERT": [
+      "SMSG_CALENDAR_EVENT_INVITE_STATUS_ALERT": [
         "src/game/game_handler_packets.cpp:3321"
       ],
-      "SMSG_CALENDAR_EVENT_REMOVED_ALERT": [
+      "SMSG_CALENDAR_EVENT_MODERATOR_STATUS_ALERT": [
         "src/game/game_handler_packets.cpp:3322"
       ],
-      "SMSG_CALENDAR_EVENT_UPDATED_ALERT": [
+      "SMSG_CALENDAR_EVENT_REMOVED_ALERT": [
         "src/game/game_handler_packets.cpp:3323"
       ],
-      "SMSG_CALENDAR_FILTER_GUILD": [
+      "SMSG_CALENDAR_EVENT_UPDATED_ALERT": [
         "src/game/game_handler_packets.cpp:3324"
       ],
-      "SMSG_CHEAT_DUMP_ITEMS_DEBUG_ONLY_RESPONSE": [
+      "SMSG_CALENDAR_FILTER_GUILD": [
         "src/game/game_handler_packets.cpp:3325"
       ],
-      "SMSG_CHEAT_DUMP_ITEMS_DEBUG_ONLY_RESPONSE_WRITE_FILE": [
+      "SMSG_CHEAT_DUMP_ITEMS_DEBUG_ONLY_RESPONSE": [
         "src/game/game_handler_packets.cpp:3326"
       ],
-      "SMSG_CHEAT_PLAYER_LOOKUP": [
+      "SMSG_CHEAT_DUMP_ITEMS_DEBUG_ONLY_RESPONSE_WRITE_FILE": [
         "src/game/game_handler_packets.cpp:3327"
       ],
-      "SMSG_CHECK_FOR_BOTS": [
+      "SMSG_CHEAT_PLAYER_LOOKUP": [
         "src/game/game_handler_packets.cpp:3328"
       ],
-      "SMSG_COMMENTATOR_GET_PLAYER_INFO": [
+      "SMSG_CHECK_FOR_BOTS": [
         "src/game/game_handler_packets.cpp:3329"
       ],
-      "SMSG_COMMENTATOR_MAP_INFO": [
+      "SMSG_COMMENTATOR_GET_PLAYER_INFO": [
         "src/game/game_handler_packets.cpp:3330"
       ],
-      "SMSG_COMMENTATOR_PLAYER_INFO": [
+      "SMSG_COMMENTATOR_MAP_INFO": [
         "src/game/game_handler_packets.cpp:3331"
       ],
-      "SMSG_COMMENTATOR_SKIRMISH_QUEUE_RESULT1": [
+      "SMSG_COMMENTATOR_PLAYER_INFO": [
         "src/game/game_handler_packets.cpp:3332"
       ],
-      "SMSG_COMMENTATOR_SKIRMISH_QUEUE_RESULT2": [
+      "SMSG_COMMENTATOR_SKIRMISH_QUEUE_RESULT1": [
         "src/game/game_handler_packets.cpp:3333"
       ],
-      "SMSG_COMMENTATOR_STATE_CHANGED": [
+      "SMSG_COMMENTATOR_SKIRMISH_QUEUE_RESULT2": [
         "src/game/game_handler_packets.cpp:3334"
       ],
-      "SMSG_COOLDOWN_CHEAT": [
+      "SMSG_COMMENTATOR_STATE_CHANGED": [
         "src/game/game_handler_packets.cpp:3335"
       ],
-      "SMSG_DANCE_QUERY_RESPONSE": [
+      "SMSG_COOLDOWN_CHEAT": [
         "src/game/game_handler_packets.cpp:3336"
       ],
-      "SMSG_DBLOOKUP": [
+      "SMSG_DANCE_QUERY_RESPONSE": [
         "src/game/game_handler_packets.cpp:3337"
       ],
-      "SMSG_DEBUGAURAPROC": [
+      "SMSG_DBLOOKUP": [
         "src/game/game_handler_packets.cpp:3338"
       ],
-      "SMSG_DEBUG_AISTATE": [
+      "SMSG_DEBUGAURAPROC": [
         "src/game/game_handler_packets.cpp:3339"
       ],
-      "SMSG_DEBUG_LIST_TARGETS": [
+      "SMSG_DEBUG_AISTATE": [
         "src/game/game_handler_packets.cpp:3340"
       ],
-      "SMSG_DEBUG_SERVER_GEO": [
+      "SMSG_DEBUG_LIST_TARGETS": [
         "src/game/game_handler_packets.cpp:3341"
       ],
-      "SMSG_DUMP_OBJECTS_DATA": [
+      "SMSG_DEBUG_SERVER_GEO": [
         "src/game/game_handler_packets.cpp:3342"
       ],
-      "SMSG_FORCEACTIONSHOW": [
+      "SMSG_DUMP_OBJECTS_DATA": [
         "src/game/game_handler_packets.cpp:3343"
       ],
-      "SMSG_GM_PLAYER_INFO": [
+      "SMSG_FORCEACTIONSHOW": [
         "src/game/game_handler_packets.cpp:3344"
       ],
-      "SMSG_GODMODE": [
+      "SMSG_GM_PLAYER_INFO": [
         "src/game/game_handler_packets.cpp:3345"
       ],
-      "SMSG_IGNORE_DIMINISHING_RETURNS_CHEAT": [
+      "SMSG_GODMODE": [
         "src/game/game_handler_packets.cpp:3346"
       ],
-      "SMSG_IGNORE_REQUIREMENTS_CHEAT": [
+      "SMSG_IGNORE_DIMINISHING_RETURNS_CHEAT": [
         "src/game/game_handler_packets.cpp:3347"
       ],
-      "SMSG_INVALIDATE_DANCE": [
+      "SMSG_IGNORE_REQUIREMENTS_CHEAT": [
         "src/game/game_handler_packets.cpp:3348"
       ],
-      "SMSG_LFG_PENDING_INVITE": [
+      "SMSG_INVALIDATE_DANCE": [
         "src/game/game_handler_packets.cpp:3349"
       ],
-      "SMSG_LFG_PENDING_MATCH": [
+      "SMSG_LFG_PENDING_INVITE": [
         "src/game/game_handler_packets.cpp:3350"
       ],
-      "SMSG_LFG_PENDING_MATCH_DONE": [
+      "SMSG_LFG_PENDING_MATCH": [
         "src/game/game_handler_packets.cpp:3351"
       ],
-      "SMSG_LFG_UPDATE": [
+      "SMSG_LFG_PENDING_MATCH_DONE": [
         "src/game/game_handler_packets.cpp:3352"
       ],
-      "SMSG_LFG_UPDATE_LFG": [
+      "SMSG_LFG_UPDATE": [
         "src/game/game_handler_packets.cpp:3353"
       ],
-      "SMSG_LFG_UPDATE_LFM": [
+      "SMSG_LFG_UPDATE_LFG": [
         "src/game/game_handler_packets.cpp:3354"
       ],
-      "SMSG_LFG_UPDATE_QUEUED": [
+      "SMSG_LFG_UPDATE_LFM": [
         "src/game/game_handler_packets.cpp:3355"
       ],
-      "SMSG_MOVE_CHARACTER_CHEAT": [
+      "SMSG_LFG_UPDATE_QUEUED": [
         "src/game/game_handler_packets.cpp:3356"
       ],
-      "SMSG_NOTIFY_DANCE": [
+      "SMSG_MOVE_CHARACTER_CHEAT": [
         "src/game/game_handler_packets.cpp:3357"
       ],
-      "SMSG_NOTIFY_DEST_LOC_SPELL_CAST": [
+      "SMSG_NOTIFY_DANCE": [
         "src/game/game_handler_packets.cpp:3358"
       ],
-      "SMSG_PETGODMODE": [
+      "SMSG_NOTIFY_DEST_LOC_SPELL_CAST": [
         "src/game/game_handler_packets.cpp:3359"
       ],
-      "SMSG_PET_UPDATE_COMBO_POINTS": [
+      "SMSG_PETGODMODE": [
         "src/game/game_handler_packets.cpp:3360"
       ],
-      "SMSG_PLAY_DANCE": [
+      "SMSG_PET_UPDATE_COMBO_POINTS": [
         "src/game/game_handler_packets.cpp:3361"
       ],
-      "SMSG_PROFILEDATA_RESPONSE": [
+      "SMSG_PLAY_DANCE": [
         "src/game/game_handler_packets.cpp:3362"
       ],
-      "SMSG_PVP_QUEUE_STATS": [
+      "SMSG_PROFILEDATA_RESPONSE": [
         "src/game/game_handler_packets.cpp:3363"
       ],
-      "SMSG_QUERY_OBJECT_POSITION": [
+      "SMSG_PVP_QUEUE_STATS": [
         "src/game/game_handler_packets.cpp:3364"
       ],
-      "SMSG_QUERY_OBJECT_ROTATION": [
+      "SMSG_QUERY_OBJECT_POSITION": [
         "src/game/game_handler_packets.cpp:3365"
       ],
-      "SMSG_REDIRECT_CLIENT": [
+      "SMSG_QUERY_OBJECT_ROTATION": [
         "src/game/game_handler_packets.cpp:3366"
       ],
-      "SMSG_RESET_RANGED_COMBAT_TIMER": [
+      "SMSG_REDIRECT_CLIENT": [
         "src/game/game_handler_packets.cpp:3367"
       ],
-      "SMSG_SEND_ALL_COMBAT_LOG": [
+      "SMSG_RESET_RANGED_COMBAT_TIMER": [
         "src/game/game_handler_packets.cpp:3368"
       ],
+      "SMSG_SEND_ALL_COMBAT_LOG": [
+        "src/game/game_handler_packets.cpp:3369"
+      ],
       "SMSG_SET_EXTRA_AURA_INFO_NEED_UPDATE": [
-        "src/game/game_handler_packets.cpp:3369",
+        "src/game/game_handler_packets.cpp:3370",
         "src/game/spell_handler.cpp:627"
       ],
       "SMSG_SET_PLAYER_DECLINED_NAMES_RESULT": [
-        "src/game/game_handler_packets.cpp:3370"
-      ],
-      "SMSG_SET_PROJECTILE_POSITION": [
         "src/game/game_handler_packets.cpp:3371"
       ],
-      "SMSG_SPELL_CHANCE_RESIST_PUSHBACK": [
+      "SMSG_SET_PROJECTILE_POSITION": [
         "src/game/game_handler_packets.cpp:3372"
       ],
-      "SMSG_SPELL_UPDATE_CHAIN_TARGETS": [
+      "SMSG_SPELL_CHANCE_RESIST_PUSHBACK": [
         "src/game/game_handler_packets.cpp:3373"
       ],
-      "SMSG_STOP_DANCE": [
+      "SMSG_SPELL_UPDATE_CHAIN_TARGETS": [
         "src/game/game_handler_packets.cpp:3374"
       ],
-      "SMSG_TEST_DROP_RATE_RESULT": [
+      "SMSG_STOP_DANCE": [
         "src/game/game_handler_packets.cpp:3375"
       ],
-      "SMSG_UPDATE_ACCOUNT_DATA": [
+      "SMSG_TEST_DROP_RATE_RESULT": [
         "src/game/game_handler_packets.cpp:3376"
       ],
-      "SMSG_UPDATE_ACCOUNT_DATA_COMPLETE": [
+      "SMSG_UPDATE_ACCOUNT_DATA": [
         "src/game/game_handler_packets.cpp:3377"
       ],
-      "SMSG_UPDATE_INSTANCE_OWNERSHIP": [
+      "SMSG_UPDATE_ACCOUNT_DATA_COMPLETE": [
         "src/game/game_handler_packets.cpp:3378"
       ],
-      "SMSG_UPDATE_LAST_INSTANCE": [
+      "SMSG_UPDATE_INSTANCE_OWNERSHIP": [
         "src/game/game_handler_packets.cpp:3379"
       ],
-      "SMSG_VOICESESSION_FULL": [
+      "SMSG_UPDATE_LAST_INSTANCE": [
         "src/game/game_handler_packets.cpp:3380"
       ],
-      "SMSG_VOICE_CHAT_STATUS": [
+      "SMSG_VOICESESSION_FULL": [
         "src/game/game_handler_packets.cpp:3381"
       ],
-      "SMSG_VOICE_PARENTAL_CONTROLS": [
+      "SMSG_VOICE_CHAT_STATUS": [
         "src/game/game_handler_packets.cpp:3382"
       ],
-      "SMSG_VOICE_SESSION_ADJUST_PRIORITY": [
+      "SMSG_VOICE_PARENTAL_CONTROLS": [
         "src/game/game_handler_packets.cpp:3383"
       ],
-      "SMSG_VOICE_SESSION_ENABLE": [
+      "SMSG_VOICE_SESSION_ADJUST_PRIORITY": [
         "src/game/game_handler_packets.cpp:3384"
       ],
-      "SMSG_VOICE_SESSION_LEAVE": [
+      "SMSG_VOICE_SESSION_ENABLE": [
         "src/game/game_handler_packets.cpp:3385"
       ],
-      "SMSG_VOICE_SESSION_ROSTER_UPDATE": [
+      "SMSG_VOICE_SESSION_LEAVE": [
         "src/game/game_handler_packets.cpp:3386"
       ],
-      "SMSG_VOICE_SET_TALKER_MUTED": [
+      "SMSG_VOICE_SESSION_ROSTER_UPDATE": [
         "src/game/game_handler_packets.cpp:3387"
       ],
+      "SMSG_VOICE_SET_TALKER_MUTED": [
+        "src/game/game_handler_packets.cpp:3388"
+      ],
       "SMSG_MONSTER_MOVE": [
-        "src/game/game_handler_packets.cpp:3444",
+        "src/game/game_handler_packets.cpp:3445",
         "src/game/movement_handler.cpp:97",
         "src/game/movement_handler.cpp:1289"
       ],
       "SMSG_MONSTER_MOVE_TRANSPORT": [
-        "src/game/game_handler_packets.cpp:3445",
+        "src/game/game_handler_packets.cpp:3446",
         "src/game/movement_handler.cpp:99",
         "src/game/movement_handler.cpp:1290"
       ],

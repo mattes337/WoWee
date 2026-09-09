@@ -10,6 +10,10 @@ The recovered Windows host built client SHA-256 `11c57ac6a829970fdcab3bc949b554e
 
 This local comparison implicates the combined multisample target/depth/resolve and pipeline sample state. It does not establish a specific Vulkan violation or driver cause. Production previews now use one sample as a stability mitigation. The historical single-sample diagnostic switch remains accepted and marked for reproducible older commands, but is redundant with the new default.
 
-Host nonpaged pool stayed about 0.73–0.77 GiB after these runs, including the failing control, with roughly 11 GiB available RAM. The dedicated existing DB/auth/world containers were restarted without the importer or volume changes. This supersedes the earlier host-capacity blocker; its original cause remains unknown.
+Host nonpaged pool stayed about 0.73â€“0.77 GiB after these runs, including the failing control, with roughly 11 GiB available RAM. The dedicated existing DB/auth/world containers were restarted without the importer or volume changes. This supersedes the earlier host-capacity blocker; its original cause remains unknown.
 
 No world entry, gameplay, multiplayer, or cross-GPU certification is claimed. The underlying 4x path remains unresolved. Final default-mode build and acceptance are recorded in the orchestration completion evidence.
+
+## Final default-mode acceptance
+
+[Run 26](live-login-26-default-preview-20260909.json) passes on the clean rebuilt client with no preview isolation, single-sample diagnostic, shader override or rasterizer-discard switches. The screenshot visibly shows Woweetrial and the production character/backdrop; authentication, 1,800 updates, capture and normal shutdown complete with no validation errors. The earlier run 24 failure was retained and investigated as a stale client class-layout build, not hidden by the sampling mitigation.

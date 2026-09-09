@@ -108,6 +108,11 @@ Current full-build evaluation: Vulkan SDK 1.4.357.0 installed locally; fresh MSV
 
 - [x] **API-01c / BOTH-04a:** Implement Calendar invite selection and name/class/status sorting as GameHandler-owned open-event view state, with stable displayed-order projections, unique identity selection, lifecycle reset and shared index resolution for existing reads/status/moderator actions. Class display names and tokens are distinct. Commits `b1883bc67` and `415a9daa9`; the client builds and focused Calendar tests pass 885 assertions in 13 cases. [Evidence](evidence/api-01-calendar-invite-selection-sort.md). Populated-event stock interaction and server reconciliation remain unverified; BOTH-04 stays open.
 
+- [x] **API-01d:** Implement the creator-only `CalendarEventCanEdit` query using the existing shared permission predicate, and verify its registration/no-open false value before/show/after-hide in the actual fallback-off runner. The final runner also repeats stock animation timer/smoothing checks. [Final results](evidence/runner-animation-calendar-final-20260909.json), [permission scope](evidence/api-01-calendar-event-can-edit.md). Populated-event permissions and lifecycle reconciliation remain open.
+- [x] **EVAL-04c:** Cleanly rebuild the client after detecting stale GameHandler allocation layout in old MSVC objects. The default production preview then passes authentication, 1,800 updates, screenshot and normal shutdown without preview diagnostic switches or validation errors. [Acceptance](evidence/live-login-26-default-preview-20260909.json), [failed incremental build and repair](evidence/stale-client-abi-20260909.md). World entry and the underlying 4x preview fault remain open.
+
+- [x] **TEST-05b:** Add real runner text/key dispatch and Windows UTF-8 argument handling; repair byte-based caret movement found by the actual stock EditBox scenario. Three fresh combined menu/EditBox runs pass, the isolated disabled-handler negative fails exactly as intended, all 27 CLI matrix cases pass, and focused caret tests pass 136 assertions in 15 cases. [Evidence and preserved failure](evidence/test-05-text-key-validation-20260909.md). SDL stock-panel routing and a stable GPU crop remain open under TEST-05.
+
 ## 1. Baselines and working agreement
 
 | Item | Recorded state |

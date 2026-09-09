@@ -189,21 +189,21 @@
       "validation": "docs/evidence/api-01-calendar-event-can-edit.md"
     },
     "CalendarEventGetInviteSortCriterion": {
-      "disposition": "implemented subset; runtime validation pending",
+      "disposition": "implemented subset; populated runtime pending",
       "owner": "BOTH-04",
-      "reason": "Implemented in b1883bc67 with GameHandler-owned state, stable displayed-order projection, unique (inviteId, guid) selection, lifecycle reset, and shared resolution for existing indexed invite reads and mutations; event dispatch compile fix 415a9daa9. Isolated serial test_calendar_packet passes 885 assertions in 13 cases and the full client builds. Populated-event stock interaction and server reconciliation remain runtime-unverified; no complete Calendar parity claim.",
+      "reason": "Implemented in b1883bc67 with GameHandler-owned state, stable displayed-order projection, unique (inviteId, guid) selection, lifecycle reset, and shared resolution for existing indexed invite reads and mutations; event dispatch fix 415a9daa9. Focused Calendar tests pass 885 assertions in 13 cases. Final client/runner build at 3b516d92b; fallback-off runner confirms registrations and empty selected value. Populated-event stock interaction and server reconciliation remain unverified; no complete Calendar parity claim.",
       "validation": "docs/evidence/api-01-calendar-invite-selection-sort.md"
     },
     "CalendarEventGetSelectedInvite": {
-      "disposition": "implemented subset; runtime validation pending",
+      "disposition": "implemented subset; populated runtime pending",
       "owner": "BOTH-04",
-      "reason": "Implemented in b1883bc67 with GameHandler-owned state, stable displayed-order projection, unique (inviteId, guid) selection, lifecycle reset, and shared resolution for existing indexed invite reads and mutations; event dispatch compile fix 415a9daa9. Isolated serial test_calendar_packet passes 885 assertions in 13 cases and the full client builds. Populated-event stock interaction and server reconciliation remain runtime-unverified; no complete Calendar parity claim.",
+      "reason": "Implemented in b1883bc67 with GameHandler-owned state, stable displayed-order projection, unique (inviteId, guid) selection, lifecycle reset, and shared resolution for existing indexed invite reads and mutations; event dispatch fix 415a9daa9. Focused Calendar tests pass 885 assertions in 13 cases. Final client/runner build at 3b516d92b; fallback-off runner confirms registrations and empty selected value. Populated-event stock interaction and server reconciliation remain unverified; no complete Calendar parity claim.",
       "validation": "docs/evidence/api-01-calendar-invite-selection-sort.md"
     },
     "CalendarEventSelectInvite": {
-      "disposition": "implemented subset; runtime validation pending",
+      "disposition": "implemented subset; populated runtime pending",
       "owner": "BOTH-04",
-      "reason": "Implemented in b1883bc67 with GameHandler-owned state, stable displayed-order projection, unique (inviteId, guid) selection, lifecycle reset, and shared resolution for existing indexed invite reads and mutations; event dispatch compile fix 415a9daa9. Isolated serial test_calendar_packet passes 885 assertions in 13 cases and the full client builds. Populated-event stock interaction and server reconciliation remain runtime-unverified; no complete Calendar parity claim.",
+      "reason": "Implemented in b1883bc67 with GameHandler-owned state, stable displayed-order projection, unique (inviteId, guid) selection, lifecycle reset, and shared resolution for existing indexed invite reads and mutations; event dispatch fix 415a9daa9. Focused Calendar tests pass 885 assertions in 13 cases. Final client/runner build at 3b516d92b; fallback-off runner confirms registrations and empty selected value. Populated-event stock interaction and server reconciliation remain unverified; no complete Calendar parity claim.",
       "validation": "docs/evidence/api-01-calendar-invite-selection-sort.md"
     },
     "CalendarEventGetTextures": {
@@ -242,9 +242,9 @@
       "reason": "No registration detected by the baseline scanner; service/state/return-shape and stock versus custom provenance require fallback-off runtime validation. Do not add a default stub to clear this warning."
     },
     "CalendarEventSortInvites": {
-      "disposition": "implemented subset; runtime validation pending",
+      "disposition": "implemented subset; populated runtime pending",
       "owner": "BOTH-04",
-      "reason": "Implemented in b1883bc67 with GameHandler-owned state, stable displayed-order projection, unique (inviteId, guid) selection, lifecycle reset, and shared resolution for existing indexed invite reads and mutations; event dispatch compile fix 415a9daa9. Isolated serial test_calendar_packet passes 885 assertions in 13 cases and the full client builds. Populated-event stock interaction and server reconciliation remain runtime-unverified; no complete Calendar parity claim.",
+      "reason": "Implemented in b1883bc67 with GameHandler-owned state, stable displayed-order projection, unique (inviteId, guid) selection, lifecycle reset, and shared resolution for existing indexed invite reads and mutations; event dispatch fix 415a9daa9. Focused Calendar tests pass 885 assertions in 13 cases. Final client/runner build at 3b516d92b; fallback-off runner confirms registrations and empty selected value. Populated-event stock interaction and server reconciliation remain unverified; no complete Calendar parity claim.",
       "validation": "docs/evidence/api-01-calendar-invite-selection-sort.md"
     },
     "CalendarEventGetInviteResponseTime": {

@@ -1,0 +1,224 @@
+{
+  "result": "pass",
+  "source_revision": "3b516d92b90dc42ab5d50d64b60e24a7e9e4297b",
+  "positives": [
+    {
+      "result": "pass",
+      "exit_code": 0,
+      "binary_sha256": "6eddda77a7b6297131d3ad95ff687acee40a2aa2e78ed0b8dafc8e8c91d9880b",
+      "stdout_sha256": "f32ebb1e76aea1559d1128f43e64aed2cb131a6d26957f053ff6699484c72334",
+      "source": "== source: 3b516d92b90dc42ab5d50d64b60e24a7e9e4297b; built 2026-09-09",
+      "stock_button_hit_count": 2,
+      "stock_editbox_hit": true,
+      "text_change_event_count": 3,
+      "final_editbox_text": "h",
+      "panel_button_in_draw_order": true
+    },
+    {
+      "result": "pass",
+      "exit_code": 0,
+      "binary_sha256": "6eddda77a7b6297131d3ad95ff687acee40a2aa2e78ed0b8dafc8e8c91d9880b",
+      "stdout_sha256": "ef74b4b1f6a337f37899d7e5dde7b104486a0fb49046aa8980813f2fa583b06c",
+      "source": "== source: 3b516d92b90dc42ab5d50d64b60e24a7e9e4297b; built 2026-09-09",
+      "stock_button_hit_count": 2,
+      "stock_editbox_hit": true,
+      "text_change_event_count": 3,
+      "final_editbox_text": "h",
+      "panel_button_in_draw_order": true
+    },
+    {
+      "result": "pass",
+      "exit_code": 0,
+      "binary_sha256": "6eddda77a7b6297131d3ad95ff687acee40a2aa2e78ed0b8dafc8e8c91d9880b",
+      "stdout_sha256": "fd7df4c61d9bb8dd8193761981835d4d8721c119d8f40858717e5f9ae539a36c",
+      "source": "== source: 3b516d92b90dc42ab5d50d64b60e24a7e9e4297b; built 2026-09-09",
+      "stock_button_hit_count": 2,
+      "stock_editbox_hit": true,
+      "text_change_event_count": 3,
+      "final_editbox_text": "h",
+      "panel_button_in_draw_order": true
+    }
+  ],
+  "isolated_negative": {
+    "exit_code": 2,
+    "binary_sha256": "6eddda77a7b6297131d3ad95ff687acee40a2aa2e78ed0b8dafc8e8c91d9880b",
+    "stdout_sha256": "68d79bc33429e214360820019b279f55fef9011391c650512d673a011c20e592",
+    "expected_failure_matched": true,
+    "expected_failure_error_count": 1,
+    "stock_button_hit_count": 1,
+    "stock_editbox_hit": false,
+    "text_change_event_count": null,
+    "final_editbox_text": null
+  },
+  "matrix": [
+    {
+      "name": "baseline",
+      "result": "pass",
+      "exit_code": 0,
+      "stdout_sha256": "16b965061fc03064e8076b8163947fa746eaf169338aebc8b389c6184342c0d9"
+    },
+    {
+      "name": "viewport_1024",
+      "result": "pass",
+      "exit_code": 0,
+      "stdout_sha256": "a09d37a41e4e3e5ad62c8fedd951afa82c942264595847d3d0821d6f3424da9a"
+    },
+    {
+      "name": "viewport_invalid",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "1d11dac52499e377eff14e2952cddb7fb76b705836a94a7406b52594a7b76a8a"
+    },
+    {
+      "name": "viewport_duplicate",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "1d11dac52499e377eff14e2952cddb7fb76b705836a94a7406b52594a7b76a8a"
+    },
+    {
+      "name": "hit_negative",
+      "result": "pass",
+      "exit_code": 0,
+      "stdout_sha256": "73ecda877b19b2e9afa41ba6f4916e1e8328df0679bf3216d869ddd78fd33d0b"
+    },
+    {
+      "name": "mouse_negative",
+      "result": "pass",
+      "exit_code": 0,
+      "stdout_sha256": "29bcc619ffff077a04593481e39ba752e6b2726f58e454fc4e839d9e488290af"
+    },
+    {
+      "name": "hit_trailing_garbage",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "8e0ef56d3b3c59fc8cd83c6362001c6b1d95f5aeadb4512a47a3d65d403c2218"
+    },
+    {
+      "name": "hit_nonfinite",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "8e0ef56d3b3c59fc8cd83c6362001c6b1d95f5aeadb4512a47a3d65d403c2218"
+    },
+    {
+      "name": "mouse_unknown_button",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "d292620f954b9dabdd246c8730de0f9c052f770e1c68c64164c9b9bd4d2ac6fa"
+    },
+    {
+      "name": "text_empty",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "0e2d2c6754da0013abbfa1887e314129d933047c7d06365466c28304e364f1a7"
+    },
+    {
+      "name": "key_unknown",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "fbd00361953a73bdfae56877b47c63c98053a20d516e631626cf9a1d2b457248"
+    },
+    {
+      "name": "text_key_stock_editbox",
+      "result": "pass",
+      "exit_code": 0,
+      "stdout_sha256": "85837ff4a527ba9a4441caf753b34bc7478c087dde97d17c23ab3058fa40e0ff"
+    },
+    {
+      "name": "missing_arguments",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "3426c8d1753e7cba95cf3fd3c4e9cdbdebb0fed52ac07c7607a3b796b6ce6206"
+    },
+    {
+      "name": "missing_assets",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "6aafc96fb869fb9c15fa4b63fc8e04f785a39e71a31542237d480ea7db885705"
+    },
+    {
+      "name": "empty_expression",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "1110d1c30698e2793b02e117f4e3bbeaf3c97d5b93f09a45b2b14a83235b99bb"
+    },
+    {
+      "name": "empty_lua",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "1110d1c30698e2793b02e117f4e3bbeaf3c97d5b93f09a45b2b14a83235b99bb"
+    },
+    {
+      "name": "missing_script",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "f90db9e8215cebd51d6308bb3eefc6557b132b69215147a98570c1748ee72ae1"
+    },
+    {
+      "name": "empty_script",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "a58de5b77749151a3f50198b3d2b6a56d7d5253ab8344a8f2fdbddd9740b8086"
+    },
+    {
+      "name": "syntax_error",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "ca22547e3ec5bee07b75d7af19bbde2c5bf6d342dca114face1319465b010c4e"
+    },
+    {
+      "name": "assertion",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "6cc6892f4b6d5e60ef6877ac57f63d380c473cb288fed6d06aa9c1828d50223b"
+    },
+    {
+      "name": "throw",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "32a72b3148e019c8d859f5be7f1ea676db1b55acefc5a4adfd21faf43b950054"
+    },
+    {
+      "name": "protected_throw",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "3089d99fdea429d6151cf346bd37c622aadc288fbe12a11570235a629ff5c259"
+    },
+    {
+      "name": "lua_timeout",
+      "result": "pass",
+      "exit_code": 2,
+      "stdout_sha256": "619f8999b2e684ce5c31acd4dedce5c0c350d4515602c3acc049d1c2302b2dc2"
+    },
+    {
+      "name": "unknown_option",
+      "result": "pass",
+      "exit_code": 1,
+      "stdout_sha256": "80bf65a455974baaae1d57ad78e6d0e3da56a45cdc912f4f1d1dd5e651997b8a"
+    },
+    {
+      "name": "invalid_ticks",
+      "result": "pass",
+      "exit_code": 1,
+      "stdout_sha256": "48904fb6f7492bf09ee2f679c13f2a7d95f5a54fda1dddcc6d4c5e805663d096"
+    },
+    {
+      "name": "missing_manifest",
+      "result": "pass",
+      "exit_code": 1,
+      "stdout_sha256": "e405732def19538562217679c8fbe878712c9012576fcb2abe5090ccffae27b8"
+    },
+    {
+      "name": "missing_framexml",
+      "result": "pass",
+      "exit_code": 51,
+      "stdout_sha256": "73262b5ffcac8fd33341604f7a5d4a908da0316a52fd2ec13dc83bb1538411ad"
+    }
+  ],
+  "focused_caret_tests": {
+    "assertions": 136,
+    "cases": 15,
+    "binary_sha256": "5b5999549e4226b4e6bf04fdfc336a6773db0c1f4ada3b40dbefb490cfc42b10"
+  },
+  "earlier_failure": "All three positives and the stock EditBox matrix case failed TEXT_BACKSPACE before3b516d92b; retained at D:/wowee-input-accept-20260909-001. The other26 matrix cases passed.",
+  "scope": "Actual fallback-off runner dispatch and draw-order checks, with fixture-positioned stock widgets. No SDL stock-panel routing, GPU crop, populated Calendar, or gameplay certification."
+}

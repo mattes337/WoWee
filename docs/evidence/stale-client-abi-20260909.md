@@ -61,3 +61,9 @@ compiler/linker tlogs, rebuild the client from a single consistent source state,
 and repeat the production single-sample fixture. After compiler tracking records
 have been lost or truncated, ABI-changing header updates require a clean rebuild
 rather than another incremental link.
+
+## Recovery result
+
+All 428 client object files and 15 client tracking files were discarded after preserving the failed executable/PDB and tracking records. A consistent client rebuild at `3b516d92b90dc42ab5d50d64b60e24a7e9e4297b` completed with two compiler workers and healthy host memory. The new `application.obj` was rebuilt on September 9 at 09:28 local time; the regenerated client CL.read includes its `game_handler.hpp` dependency.
+
+Client SHA-256 `c00cc21183d341d6f837ef512122ebae4e843bc9106a2388f4cc0900cba55e7d` passes the same default production preview journey, including 1,800 updates, capture and normal shutdown: [run 26](live-login-26-default-preview-20260909.json). The successful clean rebuild supports the stale-layout diagnosis. The source also includes the separately tested UTF-8 caret correction; this was not a single-object binary experiment. No Calendar lifecycle corruption fix was needed.

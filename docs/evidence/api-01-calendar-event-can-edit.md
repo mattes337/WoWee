@@ -70,3 +70,5 @@ packet fixture.
 ## September 9 integration acceptance
 
 The final client and runner build at `415a9daa9ea8831224017f4c02f0fd65501730d1` succeeds. The actual new runner reports that identity and passes the fallback-off `--player` fixture: `CalendarEventCanEdit` exists and returns false before opening; `Calendar_Show` visibly sets CalendarFrame shown and the query remains false; `Calendar_Hide` clears shown state and the query remains false. Invite sort/selection API registrations exist and empty selection is zero. [Exact executable identity and results](runner-animation-calendar-20260909.json). These checks supersede the pending compilation/empty-state binding checks above; populated-event ownership/lifecycle and broader permissions remain unverified.
+
+The final rebuilt runner at `3b516d92b90dc42ab5d50d64b60e24a7e9e4297b` repeats all these checks successfully: [final binary results](runner-animation-calendar-final-20260909.json).

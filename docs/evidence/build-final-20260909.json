@@ -1,0 +1,39 @@
+{
+  "source_revision": "3b516d92b90dc42ab5d50d64b60e24a7e9e4297b",
+  "build_date": "2026-09-09",
+  "configuration": "MSVC Debug; existing dependencies; warnings not treated as errors",
+  "result": "pass",
+  "build_command": "cmake --build build-fork-windows --config Debug --target wowee framexml_run --parallel 1",
+  "compiler_workers": 2,
+  "client_object_files_discarded_before_build": 428,
+  "client_tracking_files_discarded_before_build": 15,
+  "client_application_tracks_game_handler_header": true,
+  "artifacts": {
+    "client": {
+      "path": "build-fork-windows/bin/Debug/wowee.exe",
+      "sha256": "c00cc21183d341d6f837ef512122ebae4e843bc9106a2388f4cc0900cba55e7d",
+      "bytes": 35765248
+    },
+    "runner": {
+      "path": "build-fork-windows/bin/Debug/framexml_run.exe",
+      "sha256": "6eddda77a7b6297131d3ad95ff687acee40a2aa2e78ed0b8dafc8e8c91d9880b",
+      "bytes": 33110016
+    },
+    "build_log": {
+      "path": "logs/fork-baseline/build-clean-client-utf8-20260909.log",
+      "sha256": "7eeccbb48afa7757959a8e9ef26ddce03d7bdcc702a4a8b814f36d1d00c094c0",
+      "bytes": 48648
+    },
+    "client_application_object": {
+      "path": "build-fork-windows/wowee.dir/Debug/application.obj",
+      "sha256": "ff07eb07ce3e3d050e6da18f58db43dc99d576896aab1d83331bb28d5e898640",
+      "bytes": 17069796
+    },
+    "client_read_tlog": {
+      "path": "build-fork-windows/wowee.dir/Debug/wowee.tlog/CL.read.1.tlog",
+      "sha256": "61f892956dfd6151e48073de114fc27ae1f3b3bdb99e390455e03134494bd7ba",
+      "bytes": 5460608
+    }
+  },
+  "limits": "Not a clean-machine dependency build, release package, full headless-suite rerun, or gameplay certification."
+}
