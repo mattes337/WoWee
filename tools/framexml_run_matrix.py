@@ -110,11 +110,15 @@ def run(binary: Path, assets: Path, output: Path, timeout: float) -> dict:
         ("key_unknown", ["--key:CTRL+C"],
             "--key: requires a supported uppercase key name", False, False),
         ("text_key_stock_editbox", ["--viewport:1024x768",
-            "--lua:ChatFrame1EditBox:ClearFocus(); ChatFrame1EditBox:Show(); "
+            "--lua:ChatFrame1EditBox:ClearFocus(); ChatFrame1EditBox:ClearAllPoints(); "
+            "ChatFrame1EditBox:SetPoint('BOTTOMLEFT', UIParent, 'BOTTOMLEFT', 300, 80); "
+            "ChatFrame1EditBox:SetSize(220, 30); "
+            "ChatFrame1EditBox:SetFrameStrata('TOOLTIP'); ChatFrame1EditBox:SetText(''); "
+            "ChatFrame1EditBox:Show(); "
             "__woweeTextChanges=0; local old=ChatFrame1EditBox:GetScript('OnTextChanged'); "
             "ChatFrame1EditBox:SetScript('OnTextChanged', function(self, ...) "
             "__woweeTextChanges=__woweeTextChanges+1; if old then old(self, ...) end end)",
-            "--mouse:96,672,L", "--mouse:96,672,",
+            "--hit:320,672", "--mouse:320,672,L", "--mouse:320,672,",
             "--lua:assert(ChatFrame1EditBox:HasFocus(), 'TEXT_FOCUS')",
             "--text:h\u00e9 ",
             "--lua:assert(ChatFrame1EditBox:GetText()=='h\u00e9 ' and "
