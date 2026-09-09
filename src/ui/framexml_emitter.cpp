@@ -476,12 +476,33 @@ struct Emitter {
             {.element = "ColorValueTexture",      .setter = "SetColorValueTexture",      .layer = "ARTWORK",   .isTexture = true},
             {.element = "ColorValueThumbTexture", .setter = "SetColorValueThumbTexture", .layer = "OVERLAY",   .isTexture = true},
         };
-        for (const Slot& slot : kSlots) {
-            const XmlNode* child = node.child(slot.element);
+        // In the order the markup declares them, not the order of the table
+        // above. The table is what each element *is* - which setter takes it
+        // and which layer it belongs on - and reading it as an order as well
+        // put regions on screen in an order Blizzard did not write.
+        //
+        // RealmSortButtonTemplate is where that showed: it declares
+        // <ButtonText name="$parentText"> and then a $parentArrow whose anchor
+        // names it, and the table emits every texture before any button text.
+        // So the arrow was anchored to a font string that did not exist yet,
+        // and the sort arrows on the realm list were placed against nothing.
+        //
+        // The order is taken first and the elements looked up again by name,
+        // rather than held as references across the emit. emitRegion can add
+        // to the tree, and a reference into node.children does not survive
+        // that - iterating them directly segfaulted on the first file.
+        std::vector<const Slot*> order;
+        for (const XmlNode& child : node.children) {
+            for (const Slot& candidate : kSlots) {
+                if (child.name == candidate.element) { order.push_back(&candidate); break; }
+            }
+        }
+        for (const Slot* slot : order) {
+            const XmlNode* child = node.child(slot->element);
             if (!child) continue;
             const std::string regionVar =
-                emitRegion(*child, var, name, slot.layer, slot.isTexture);
-            line(var + ":" + slot.setter + "(" + regionVar + ")");
+                emitRegion(*child, var, name, slot->layer, slot->isTexture);
+            line(var + ":" + slot->setter + "(" + regionVar + ")");
         }
     }
 
