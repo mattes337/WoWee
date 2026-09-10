@@ -87,6 +87,28 @@ extern "C" {
 #include <set>
 #include <vector>
 
+/// Loose interface files beside the original executable, which the client
+/// prefers over the archives and this harness did not see at all.
+///
+/// Without it an interface edit could not be tested here: the glue directory
+/// resolves to <install>/interface/GlueXML, a path that does not exist on a
+/// filesystem that cares about case, so the lookup fell through to the
+/// archives and the loose copy was silently ignored. A harness that quietly
+/// reads a different interface than the client is worse than no harness.
+static void installLooseInterface(wowee::addons::AddonManager& mgr,
+                                  const wowee::pipeline::GameInstall& install) {
+    if (!install.isValid()) return;
+    std::error_code ec;
+    for (const char* cased : {"/Interface", "/interface"}) {
+        const std::string at = install.root + cased;
+        if (std::filesystem::is_directory(at, ec)) {
+            mgr.setLooseInterfaceRoot(at);
+            std::printf("== loose interface: %s\n", at.c_str());
+            return;
+        }
+    }
+}
+
 int main(int argc, char** argv) {
     // Its own log file, before anything can open one.
     //
@@ -285,6 +307,7 @@ int main(int argc, char** argv) {
 
     if (loadGlue) {
         mgr.setGlueXmlDir(assetPath + "/interface/GlueXML");
+        installLooseInterface(mgr, install);
         // The same fourteen model methods the client installs before it loads
         // GlueXML - SetCamera, SetSequence, the fog range, SetLighting and the
         // rest. They live on the frame metatable, which does not exist until
@@ -326,6 +349,7 @@ int main(int argc, char** argv) {
         // Everything from here to the end of the login events is FrameXML's.
 
     mgr.setFrameXmlDir(assetPath + "/interface/FrameXML");
+    installLooseInterface(mgr, install);
     std::vector<std::string> installAddonRoots;
     if (install.isValid()) {
         installAddonRoots.push_back(install.root + "/Interface/AddOns");
