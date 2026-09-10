@@ -93,6 +93,9 @@ public:
     /// PlayGlueAmbience(track, fadeSeconds): the loop under the screen.
     bool playGlueAmbience(const std::string& soundEntryName, float fadeSeconds);
     void stopGlueAmbience();
+    /// StopGlueMusic(): the glue screens' music, stopped. GlueParent calls it
+    /// on the way into the world, where the zone's own music takes over.
+    void stopGlueMusic();
 
     /// Pump the glue screens' own audio. The music and the ambience are
     /// driven by updateZoneAudio() in the world, and the world is not running

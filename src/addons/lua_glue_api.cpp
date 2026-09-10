@@ -56,6 +56,7 @@
 #include "audio/audio_coordinator.hpp"
 #include "auth/auth_handler.hpp"
 #include "core/config_paths.hpp"
+#include "core/open_url.hpp"
 #include "game/character.hpp"
 #include "game/expansion_profile.hpp"
 #include "game/world_packets.hpp"
@@ -1323,6 +1324,32 @@ int lua_StopGlueAmbience(lua_State* L) {
     return 0;
 }
 
+/// StopGlueMusic() - the glue screens' music, stopped.
+///
+/// GlueParent calls it on the way into the world, where the zone's own music
+/// takes over. Missing, the login theme carried on playing under the world.
+int lua_StopGlueMusic(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    if (svc && svc->audioCoordinator) svc->audioCoordinator->stopGlueMusic();
+    return 0;
+}
+
+/// LaunchURL(url) - the player's browser, on the address the interface names.
+///
+/// Manage Account and Community Site on the login screen are this and nothing
+/// else, and so is Technical Support on character select; without it those
+/// three buttons were dead. The address comes from GlueStrings, but it reaches
+/// here as a Lua string like any other, so it goes through the same check a
+/// chat link does - http(s) only, plain ASCII, and never through a shell.
+int lua_LaunchURL(lua_State* L) {
+    const char* url = luaL_optstring(L, 1, "");
+    if (!url || !*url) return 0;
+    if (!core::openExternalUrl(url)) {
+        LOG_WARNING("LaunchURL refused '", url, "'");
+    }
+    return 0;
+}
+
 /// Where the camera sits around the model, in degrees.
 ///
 /// Read back as it was set. Nothing turns yet, and this does not claim
@@ -1441,6 +1468,8 @@ void registerGlueLuaAPI(lua_State* L) {
         {"PlayGlueMusic",               lua_PlayGlueMusic},
         {"PlayGlueAmbience",            lua_PlayGlueAmbience},
         {"StopGlueAmbience",            lua_StopGlueAmbience},
+        {"StopGlueMusic",               lua_StopGlueMusic},
+        {"LaunchURL",                   lua_LaunchURL},
 
         // The model frames. Which frame holds the scene, which scene it holds
         // and everything the screen says about it are recorded here and drawn

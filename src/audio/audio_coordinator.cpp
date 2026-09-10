@@ -149,6 +149,12 @@ bool AudioCoordinator::playGlueAmbience(const std::string& soundEntryName, float
     return true;
 }
 
+void AudioCoordinator::stopGlueMusic() {
+    // The same fade this client's own login music stops with, so leaving the
+    // glue screens does not cut the track off mid-bar.
+    if (musicManager_) musicManager_->stopMusic(500.0f);
+}
+
 void AudioCoordinator::stopGlueAmbience() {
     if (ambientSoundManager_) ambientSoundManager_->stopGlueAmbience();
 }
