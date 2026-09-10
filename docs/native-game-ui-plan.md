@@ -239,7 +239,7 @@ realm selection, Enter World - is stage 3's work and is not there yet.
   authenticates, the realm list arrives and opens itself, and the connection
   progress dialogs are the game's own. Most of the vocabulary exists: `DefaultServerLogin`, `CancelLogin`, `SetCurrentScreen`, `QuitGame`,
   `StatusDialogClick`, the account-name and account-list pairs, `PlayGlueMusic`
-  and `PlayGlueAmbience`. `StopGlueMusic` and `LaunchURL` are still absent -
+  and `PlayGlueAmbience`, with `StopGlueMusic` and `LaunchURL` beside them -
   the second is what Manage Account and Community Site call. The native
   `AuthScreen` still polls `AuthHandler` state directly and would have to
   become an event pump before a login started from these screens could report
@@ -444,13 +444,41 @@ regression.
   is case-insensitive, so a lookup through different casing reaches the
   underlying file rather than the mount. Mount the directory instead.
 
+### The glue screens' glow
+
+`SetGlow` is applied. `AccountLogin.xml` asks for `glow="0.08"` and there was
+no bloom anywhere in this renderer, so it is a pass of its own beside the
+backdrop: a bright-pass and a thirteen-tap blur into a half-size target, laid
+back over the scene by the interface. `WOWEE_NO_GLUE_GLOW` turns it off, the
+way `WOWEE_NO_GLUE_BACKDROP` turns off the scene - a glow of 0.08 is subtle
+enough that the only way to know it is doing anything is to take the same
+frame without it.
+
+Three things about it were wrong first and each was caught by measuring rather
+than by looking, which is worth repeating because the effect is quiet enough
+to make a broken one look like a working one:
+
+- **The threshold was picked by intuition and was above the whole picture.**
+  Measured over the Northrend backdrop, its luminance is 0.26 at the median,
+  0.53 at the ninetieth percentile and 0.79 at the ninety-ninth. Three quarters
+  passed almost nothing, and the pass ran every frame to produce a texture that
+  was very nearly empty. It is 0.55, from that measurement.
+- **The overlay dimmed the scene instead of brightening it.** The interface
+  lays it on with an ordinary alpha blend, which replaces rather than adds -
+  `bloom*a + scene*(1-a)` - and the bloom colour was a dimmed copy of the
+  scene, so raising the glow made the picture darker. At twelve times the glow
+  the sky's mean fell from 69 to 65. What is written now is the bloom's hue at
+  full luminance with the amount in the alpha.
+- **A null result nearly passed for "it is just subtle".** Forcing the glow to
+  forty times and *still* measuring nothing is what showed the path was broken
+  rather than quiet.
+
+With it right, the same frame with and without: the sky's mean moves 0.6 and
+its ninety-ninth percentile moves 8. Brightening the bright parts and leaving
+the rest alone is the shape a bloom has; a tint would have moved the mean.
+
 ### Recorded and deliberately not applied
 
-- **`SetGlow`.** `AccountLogin.xml` asks for `glow="0.08"` and there is no
-  bloom in this renderer at all - no bright-pass, no blur, nothing in
-  `post_process_pipeline`. Folding it into the ambient colour would brighten
-  lit surfaces rather than bloom the scene, and a wrong effect wearing the
-  right name is worse than a missing one. It needs a real post-process stage.
 - **`SetSequenceTime`.** Nothing here can seek an animation. Its only caller in
   the whole interface is SecurityMatrix's sparkle, which this client does not
   draw.
@@ -638,9 +666,9 @@ remains open until it is run against real installations and recorded here.
 What is left, in the order it unblocks the rest:
 
 1. The glue vocabulary (stage 3). Login, the realm list, the character list
-   and Enter World all work against a real server. What is left is character
-   creation and customization, `LaunchURL` behind Manage Account and Community
-   Site, and `StopGlueMusic`.
+   and Enter World all work against a real server, and `LaunchURL` and
+   `StopGlueMusic` are bound. What is left is character creation and
+   customization, which is a feature rather than a binding.
 2. The glue and world lifecycle (stage 2). World entry has to tear glue down
    and logout has to build it again, and the native screens have to stop
    drawing underneath.
