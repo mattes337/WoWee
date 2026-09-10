@@ -1,6 +1,6 @@
-# Phase 13 — Local light shadows and contact shadows
+# Phase 14 — Local light shadows and contact shadows
 
-**One session, one commit.** Depends on: 11 (light list), 03 (depth). Player sees: the orc
+**One session, one commit.** Depends on: 12 (light list), 03 (depth). Player sees: the orc
 by the brazier casts a shadow from it; feet, props and door frames stop floating on their
 shadow-map bias.
 
@@ -20,7 +20,7 @@ shadow-map bias.
    (`VK_KHR_multiview`, optional, if present) draws six faces in one pass, else six passes.
 2. `cluster_lighting.glsl`: sample the atlas for shadowed lights.
 3. `contact_shadow.comp.glsl` after the pre-pass; the lit shaders multiply the mask into
-   direct sun (`lit_common.glsl` from 12).
+   direct sun (`lit_common.glsl` from 13).
 4. Settings.
 
 ## Settings
@@ -38,7 +38,7 @@ None.
 
 - Compare mode: `goldshire-inn-interior-night`, `orgrimmar-valley-of-strength-night`,
   `deadmines-foundry` (local); `goldshire-inn-morning`, `northshire-abbey` (contact).
-  Before == phase-12 golden.
+  Before == phase-13 golden.
 - Frame time Orgrimmar night at each `locallightshadows` level on T0 and T2; the round-robin
   keeps the cost flat regardless of light count.
 
@@ -50,5 +50,5 @@ Let lamps cast shadows, and close the gap under everything
 A round-robin cube-shadow atlas for the brightest nearby lights, read
 from the clustered light loop, and a short screen-space ray toward
 the sun that darkens the contact the shadow map's bias always lost.
-Both off are the phase-12 frame.
+Both off are the phase-13 frame.
 ```

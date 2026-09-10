@@ -1,12 +1,12 @@
-# Phase 21 — XeSS 2.1, AMD Anti-Lag 2, SGSR / Arm ASR on Android
+# Phase 22 — XeSS 2.1, AMD Anti-Lag 2, SGSR / Arm ASR on Android
 
-**One session, one commit.** Depends on: 20. Player sees: an ML upscaler on Intel Arc and
+**One session, one commit.** Depends on: 21. Player sees: an ML upscaler on Intel Arc and
 on any DP4a-capable GPU (Pascal, RDNA1+), Anti-Lag on Radeon, and a mobile-tuned upscaler
 on Android.
 
 ## Ships
 
-- `UpscalerXeSS` — XeSS 2.1 SR through its Vulkan API, runtime-loaded like phase 20
+- `UpscalerXeSS` — XeSS 2.1 SR through its Vulkan API, runtime-loaded like phase 21
   (Intel's redistribution terms are permissive; still not committed; recorded in
   `docs/vendor-licences.md`).
 - `LatencyModeAntiLag` — `VK_AMD_anti_lag` (`vkAntiLagUpdateAMD` around input and present),
@@ -16,8 +16,8 @@ on Android.
 
 ## Steps
 
-1. XeSS loader + adapter over the phase-16 interface.
-2. Anti-Lag adapter; the phase-16 hooks already exist.
+1. XeSS loader + adapter over the phase-17 interface.
+2. Anti-Lag adapter; the phase-17 hooks already exist.
 3. SGSR2 / ASR shaders under `assets/shaders/`, one adapter, quality enum shared with FSR.
 4. Enum appends, `unavailable` reasons, panel version lines, CI binary check extended.
 
@@ -34,9 +34,9 @@ None.
 
 ## Verify
 
-- Compare `--sequence` set from phase 20 on an Arc, a Pascal/RDNA card (DP4a path) and the
+- Compare `--sequence` set from phase 21 on an Arc, a Pascal/RDNA card (DP4a path) and the
   Android device; SSIM recorded per backend.
-- Absent runtimes: bit-identical to phase 20.
+- Absent runtimes: bit-identical to phase 21.
 
 ## Commit
 

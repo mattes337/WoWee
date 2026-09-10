@@ -368,6 +368,14 @@ not camera-only.
 screenshots. Each is a bool in the schema. Listed for completeness; do after everything above.
 **Effort.** 1 session for the set.
 
+#### S6. Reaction-coloured unit outlines
+**What.** A thin silhouette around the target and the mouseover unit, coloured by the
+client's reaction logic, from a per-pixel instance-ID target written by the depth pre-pass
+(F3) and an edge pass at output resolution after upscaling. Weapons and capes included by
+owner; blended effects never write an ID. Depth-tested by default, through-wall as a choice.
+**Why.** The one player-facing selection aid the renderer lacks; nearly free once F3 exists.
+**Tier.** T0. **Effort.** 1 session (phase 09).
+
 ### 4.4 Atmosphere
 
 #### A1. Height fog + aerial perspective
@@ -675,7 +683,7 @@ Column meanings:
 | P4 | HDR output | none | n/a | plumbing, shader | — | ✓ |
 | P5 | Colour LUT | optional pack (per-zone LUTs) | manual for art LUTs; neutral default is code | shader | — | ✓ (neutral LUT) |
 | M1 | KTX2/BC7 override loader + pack compiler | **required** for M2–M5 to be usable, none for the loader itself | script (batch convert) | loader, tool | — | ✓ |
-| M2 | AI-upscaled diffuse packs | required (that is the pack) | **AI, once**: Real-ESRGAN-class model on the project's build machine over the hash-union of all four extractions; alpha upscaled separately and re-thresholded; path-pattern allow-list; `curate` improves it later | tool, loader (hash-keyed pack reader) | Nothing engine-side beyond M1 | ✗ (phase 24: once-built on a build machine, last of the generated) |
+| M2 | AI-upscaled diffuse packs | required (that is the pack) | **AI, once**: Real-ESRGAN-class model on the project's build machine over the hash-union of all four extractions; alpha upscaled separately and re-thresholded; path-pattern allow-list; `curate` improves it later | tool, loader (hash-keyed pack reader) | Nothing engine-side beyond M1 | ✗ (phase 25: once-built on a build machine, last of the generated) |
 | M3 | PBR sidecars | required (the pack) | **script** locally for Sobel normals and class-based roughness/AO (first pass); **AI, once** for estimated normal/height (DeepBump/Marigold-class), shipped in the same hash-keyed pack as M2 | tool, loader (sidecar lookup in L7) | — | ✓ (script mode) |
 | M4 | Higher-poly models | required | **manual** (community HD packs or modelling). Automated subdivision produces blobs on hand-modelled low-poly | none (override dir already resolves `.m2`/`.skin`) | — | ✗ |
 | M5 | HD skybox / cloud textures | optional pack | AI, once (part of the M2 pack) for textures; manual for HDR equirect | none beyond M2 | — | ✓ (upscale part) |
@@ -699,7 +707,7 @@ Column meanings:
 **Excluded from the first pass, and why:** M4 (needs an artist), the vendor runtimes (need a
 licence read and a binary the repo cannot carry), DLSS 5 (art direction, hardware, API), NTC
 (no problem to solve until M2 packs overflow VRAM). Everything else is code plus unattended
-scripts, and that is the whole of phases 01–23 (§7.4). The AI pack (phase 24) is the one
+scripts, and that is the whole of phases 01–24 (§7.4). The AI pack (phase 25) is the one
 generated item that waits, and authored assets are after it.
 
 ### 4.11 Where generated assets are made: deterministic locally, AI once
@@ -858,9 +866,9 @@ Requirements that come straight from "must work with every supported game versio
 
 Phases 1 and 2 ship the deterministic generators — Sobel normal/height and tangents at
 load (phase 01), then the BC7/ASTC cache (phase 07), `textures.pbr` class roughness/AO
-(phase 12), `terrain.height`
-from splat alpha (phase 17) and `sky.probe` (phase 10) on loading screens — plus the manifest and the
-settings wiring. The hash-keyed pack reader and the `--build-pack` builder are phase 24, the
+(phase 13), `terrain.height`
+from splat alpha (phase 18) and `sky.probe` (phase 11) on loading screens — plus the manifest and the
+settings wiring. The hash-keyed pack reader and the `--build-pack` builder are phase 25, the
 last of the generated-asset work; whether a pack is published is the licence decision above.
 The client behaves identically either way, differing only in which `unavailable` string a
 setting shows.
@@ -1005,15 +1013,15 @@ phase; the phase still ships without it. A phase is a release, not a promise.
 A phase may build plumbing beyond what its own techniques need, when doing it now is cheaper
 than doing it twice and it does not change the frame with everything off. Examples: phase 01's
 per-frame UBO gets the appended slots for cascade matrices *and* the SH9 coefficients that
-phase 10 fills; phase 03's pre-pass writes the normal target GTAO needs *and* the velocity
+phase 11 fills; phase 03's pre-pass writes the normal target GTAO needs *and* the velocity
 target phase 08 fills; phase 07's texture cache stores a `pack` field per entry that only
-the phase 24 AI-pack reader fills. Phase numbers in markers are the session numbers from
+the phase 25 AI-pack reader fills. Phase numbers in markers are the session numbers from
 `modern-rendering/README.md`.
 
 Every such piece of code is marked where it lives:
 
 ```cpp
-// RESERVED(phase-10, L5-sky-probes): SH9 slots appended so the UBO layout does not change
+// RESERVED(phase-11, L5-sky-probes): SH9 slots appended so the UBO layout does not change
 // again when probes land. Zero-filled until then; shaders ignore them.
 glm::vec4 skySH[7];
 ```
@@ -1036,7 +1044,7 @@ Rules for the marker:
 
 ### 7.4 The phases
 
-**Executed as 24 single-commit phases in
+**Executed as 25 single-commit phases in
 [`modern-rendering/README.md`](modern-rendering/README.md).** Each file there is the
 authoritative scope for its session: what ships, what was cut and where it went, the steps
 in order, every settings row, every `RESERVED` marker, the verify list, and the commit
@@ -1044,7 +1052,7 @@ message. This section keeps only the shape.
 
 Generated assets are not one thing. What the client can make for itself at load or on a
 loading screen — normals, tangents, roughness classes, a compressed-texture cache — comes
-early (01, 07, 12, 17) because it is cheap and makes every later technique better. What has
+early (01, 07, 13, 18) because it is cheap and makes every later technique better. What has
 to be made once on a build machine (AI upscales) is the last phase (28). What has to be made
 by a person (HD models, HDR skies, art LUTs) is not a phase; the client already reads it.
 Phase 01 is deliberately one multi-day phase: its five techniques edit the same shaders,
@@ -1055,18 +1063,18 @@ UBO block and settings table, and refactoring those once beats doing it five tim
 | 01 | Shadows, fog, distance, surfaces | Cascaded and soft shadows (and a working off switch), height fog and sun shafts, terrain LOD, normal maps on everything — all T0, no download; the lit shaders consolidated once |
 | 02 | Instrument | `--compare` on the executable, 25 verified scenes, evidence pages |
 | 03–06 | Light and depth | Reverse-Z pre-pass, HDR and tone mapping, bloom, GTAO |
-| 07 | Cache | Background BC7/ASTC texture cache with the generated-asset manifest and `requires` gating |
-| 08–09 | Temporal | Real motion vectors (FSR2 stops ghosting), native TAA, dynamic resolution |
-| 10–15 | Lights, materials, atmosphere | Sky probes, clustered lights from the game's own light data, GGX with class roughness, local and contact shadows, volumetric fog, SSR replacing planar water |
-| 16–17 | Upscaler interfaces, tessellation | FSR 3.1 behind one `Upscaler` interface; tessellated near terrain |
-| 18–19 | GPU-driven | Bindless indirect M2, VRS |
-| 20–21 | Vendor | Licence review; DLSS + Reflex; XeSS, Anti-Lag, mobile upscalers — runtime-loaded, never committed |
-| 22–23 | Ray tracing | BLAS/TLAS, RT shadows, RT AO and reflections on RT hardware only |
-| 24 | AI pack | Hash-keyed once-built texture pack reader and builder |
+| 07 | Cache | Background BC7/ASTC texture cache with the generated-asset manifest and `requires` gating; texture quality mip cap; structured load diagnostics; DDS ingestion |
+| 08–10 | Temporal, outlines | Real motion vectors (FSR2 stops ghosting), reaction-coloured unit outlines, native TAA, dynamic resolution and supersampling |
+| 11–16 | Lights, materials, atmosphere | Sky probes, clustered lights from the game's own light data, GGX with class roughness, local and contact shadows, volumetric fog, SSR replacing planar water |
+| 17–18 | Upscaler interfaces, tessellation | FSR 3.1 behind one `Upscaler` interface; tessellated near terrain with height-based layer blending |
+| 19–20 | GPU-driven | Bindless indirect M2, VRS |
+| 21–22 | Vendor | Licence review; DLSS + Reflex; XeSS, Anti-Lag, mobile upscalers — runtime-loaded, never committed |
+| 23–24 | Ray tracing | BLAS/TLAS, RT shadows, RT AO and reflections on RT hardware only |
+| 25 | AI pack | Hash-keyed once-built texture pack reader and builder |
 
-Twenty-four commits. The client is a different game after 01, on every GPU it runs on today.
+Twenty-five commits. The client is a different game after 01, on every GPU it runs on today.
 
-**Deferred** (no phase): DLSS-G/MFG and Ray Reconstruction (after 20/23 with a licence
+**Deferred** (no phase): DLSS-G/MFG and Ray Reconstruction (after 21/24 with a licence
 outcome), G3 mesh shaders, R4 RT local shadows, S5 cinematic post, A3 physical sky, DLSS 5
 neural rendering (art direction, RTX 50 only, no Vulkan path yet), FSR 4/Redstone (no
 Vulkan backend), NTC (only if BC7 packs overflow VRAM), MetalFX (needs a Metal path),

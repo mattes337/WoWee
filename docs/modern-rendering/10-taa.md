@@ -1,4 +1,4 @@
-# Phase 09 — Native TAA and dynamic resolution
+# Phase 10 — Native TAA and dynamic resolution
 
 **One session, one commit.** Depends on: 08. Player sees: foliage, fences and alpha-tested
 edges stop shimmering, at native resolution, on every GPU — the AA choice that costs less
@@ -35,11 +35,16 @@ than 2× MSAA and looks better than 8× on leaves.
 | `taasharpness` | Float | 0–1 | 0.3 | — | `antialiasing=4` |
 | `dynamicresolution` | Bool | | 0 | 0/0/0/0 | `antialiasing=4` or `fsr2` |
 | `fpstarget` | Enum | `30|60|90|120` | 1 | — | `dynamicresolution` |
+| `renderscale` | Float | 0.5–2.0 | 1.0 | 1/1/1/1 | `antialiasing=4` |
+
+`renderscale` above 1.0 is supersampling: the same scene-target-with-viewport mechanism
+dynamic resolution uses, run upward, resolved by TAA's Catmull-Rom fetch. The allocation
+follows the maximum of the two settings.
 
 ## Reserved
 
 ```cpp
-// RESERVED(phase-16, P1-upscaler-interfaces): JitterSource and the history images are
+// RESERVED(phase-17, P1-upscaler-interfaces): JitterSource and the history images are
 // what the Upscaler interface will hand to FSR 3.1 / DLSS / XeSS.
 ```
 

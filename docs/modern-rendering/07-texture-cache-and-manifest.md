@@ -19,10 +19,30 @@ silently doing nothing. Nothing to download.
 - `tools/generate_assets` CLI: the same worker run to completion from the command line
   (pre-warm), `--expansion`, `--target`, budget print. Enumerates through `manifest.json`.
 - Phase-01's normal cache directory is adopted into the manifest.
+- **Texture quality by stored mips.** A `texturequality` policy applied before upload and
+  before CPU allocation: for compressed BLP chains, select the first stored mip whose edge
+  fits the limit and keep the rest of the chain (validate offsets, block sizes and chain
+  continuity first; if the chain cannot reach the limit, keep the original and count it —
+  never relabel a larger payload as smaller). Decoded, paletted and PNG-override sources
+  are downsampled by the cache worker when it encodes them. World textures only: interface
+  art, fonts, minimap tiles and character-compositor inputs are exempt by usage, not by
+  path alone.
+- **Structured load diagnostics.** Reason counters at the decision sites in
+  `AssetManager::loadTexture`: missing, malformed, override hit, cache hit, cache miss,
+  mip-capped, uncompressed-GPU fallback, DDS, pack hit (phase 25). Attempts, not unique
+  assets. Snapshot returned by value (atomics; bounded list of representative paths),
+  shown on the perf HUD and dumped by `--compare`'s JSON. The existing base-fallback hit
+  counter and the bounded warning logs are folded into it.
+- **DDS ingestion.** A small reader beside `BLPLoader` for plain 2D DXT1/3/5 DDS with
+  valid mip chains, dispatched by file magic after path resolution (the callers that today
+  rewrite `.dds` to `.blp` in `terrain_manager.cpp` and `wmo_renderer.cpp` keep BLP
+  precedence and fall through to a real DDS). Arrays, cubemaps, volumes and DX10 headers
+  are rejected cleanly. Feeds the same compressed upload and mip policy; alpha semantics
+  stay with the material.
 
 ## Not in this session
 
-- Roughness/AO class generator → 12. Splat height → 17. AI pack reader → 24.
+- Roughness/AO class generator → 13. Splat height → 18. AI pack reader → 25.
 
 ## Steps
 
@@ -41,7 +61,14 @@ silently doing nothing. Nothing to download.
    item 6 describes — the sample extractions must be added to the CI fixtures this session
    (small, hashed, no Blizzard bytes committed: generated from the harness's own test
    textures under `tests/`).
-6. Settings.
+6. Mip policy: `TexturePolicy::selectBaseMip(BLPImage&, limit)` in `blp_loader.cpp`
+   (compressed chains) and a downsample step in the cache worker (everything else); usage
+   classification by caller (the loaders know whether they are loading UI, minimap or a
+   world texture — pass it, do not guess from the path).
+7. Diagnostics: `AssetLoadStats` + `snapshot()`; HUD panel; compare-mode JSON field.
+8. DDS reader (`pipeline/dds_loader.{hpp,cpp}`), magic dispatch in `resolveFile`'s caller,
+   fixtures with matching BLP/DDS pairs.
+9. Settings.
 
 ## Settings
 
@@ -49,13 +76,14 @@ silently doing nothing. Nothing to download.
 |---|---|---|---|---|---|
 | `texturecache` | Bool | 1 | 1/1/1/1 | | Off = never read or write the cache |
 | `texturecachebudget` | Int | 0–20 ms/frame | 4 | 2/4/4/8 | | idle-frame encode budget |
+| `texturequality` | Enum `Full|2048|1024|512` | 0 | 2/1/0/0 | | world textures only; restart applies (live switch must invalidate renderer caches and in-flight streaming — later) |
 
 ## Reserved
 
 ```cpp
-// RESERVED(phase-24, M2-ai-pack): manifest entries carry a `pack` field and the loader's
+// RESERVED(phase-25, M2-ai-pack): manifest entries carry a `pack` field and the loader's
 // lookup order has an "AI pack by hash" slot between override and generated. Empty.
-// RESERVED(phase-12, L7-pbr): entry fields `n` and `orm` for sidecars; only `n` is written.
+// RESERVED(phase-13, L7-pbr): entry fields `n` and `orm` for sidecars; only `n` is written.
 ```
 
 ## Verify
@@ -67,6 +95,13 @@ silently doing nothing. Nothing to download.
 - `generate_assets --expansion wotlk` on the T0 machine: completes, manifest `complete: true`.
 - Compare mode all scenes: bit-identical to phase 06 (BC7 at RDO 0 is visually lossless on
   these sources; assert SSIM ≥ 0.995, and inspect the diff on `character-portrait`).
+- `texturequality` at 1024 on `stormwind-gate`: retained bytes and selected mip per
+  texture in the diagnostics snapshot; UI, fonts and minimap unchanged; the phase-01
+  normal maps derive from the capped level, not the original.
+- Diagnostics: deterministic counts on a fixture set with missing, malformed, override and
+  DDS entries; bounded memory under 10 000 distinct failures; snapshot valid after unload.
+- DDS: matching BLP and DDS fixtures render identically; unsupported variants fail with a
+  counted reason and the BLP substitute still wins.
 
 ## Commit
 
@@ -78,5 +113,7 @@ ASTC on loading screens and idle frames, under a per-expansion
 manifest that records source hashes and completeness. Settings that
 need generated data say how far along it is instead of doing nothing.
 generate_assets runs the same worker from the shell for anyone who
-wants it done at once.
+wants it done at once. A texture-quality setting drops oversized top
+mips of world textures before they are allocated, every load outcome
+is counted and shown, and plain DXT DDS files load beside BLP.
 ```

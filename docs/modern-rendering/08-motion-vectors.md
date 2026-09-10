@@ -14,6 +14,14 @@ volumetrics, DLSS, XeSS) inherits correct motion.
   the vertex shader (same result, no extra state).
 - Foliage wind (`m2.vert.glsl:104-126`) and player brush displacement are evaluated for
   both frames' times so grass and trees have velocity too.
+- **Instance bounds, while the instance record is open.** Each M2/WMO instance record
+  gains its model's local AABB (from the loaded model, `model_bounds.hpp`), and
+  `M2Renderer` answers an exact local-box query beside today's sphere. The editor's
+  `ObjectPlacer::selectAt` (`tools/editor/object_placer.cpp`), which picks every object with
+  a `5 * scale` sphere, intersects the cursor ray with that box under the live transform in
+  local space, ranks hits by world distance, and draws the selection box from the same
+  bounds; a small fixed marker stands in while a model is not loaded. Pure ray/AABB code
+  with unit tests; no Vulkan in the picking path.
 
 ## Steps
 
@@ -48,6 +56,9 @@ Consumes `RESERVED(phase-08, …)` from 07. None new.
 - Debug velocity view: static scene under a still camera is black; the character's
   silhouette carries velocity; foliage does under wind.
 - Frame time: +0.05 ms (one extra attachment); recorded.
+- Editor: a small prop beside a large WMO — each picks only itself; rotated and scaled
+  objects, an object behind the camera, a missing model. Ray/AABB unit tests cover the
+  transforms.
 
 ## Commit
 

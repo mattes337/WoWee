@@ -27,8 +27,8 @@ stay green after every step below so a half-done state is never the state.
 
 ## Not in this phase
 
-Contact shadows → 13. RT shadows → 22. Froxel volumetrics → 14. Tessellation → 17.
-Roughness/AO sidecars and PBR → 12. The manifest for the normal-map cache → 07.
+Contact shadows → 14. RT shadows → 23. Froxel volumetrics → 15. Tessellation → 18.
+Roughness/AO sidecars and PBR → 13. The manifest for the normal-map cache → 07.
 
 ## Steps — in this order, green after each
 
@@ -120,20 +120,20 @@ everything in scope.
 ## Reserved
 
 ```cpp
-// RESERVED(phase-10, L5-sky-probes): SH9 ambient slots appended now so PerFrame moves
+// RESERVED(phase-11, L5-sky-probes): SH9 ambient slots appended now so PerFrame moves
 // once. Zero-filled; no shader reads them.
 glm::vec4 skySH[7];
 ```
 ```glsl
-// RESERVED(phase-14, A2-volumetric-fog): fogHeight.w and fogSunColor are the froxel
+// RESERVED(phase-15, A2-volumetric-fog): fogHeight.w and fogSunColor are the froxel
 // volume's inputs; declared with the fog params so PerFrame moves once.
 ```
 ```cpp
-// RESERVED(phase-17, G4-tessellation): buildLodIndices takes a `patchMode` flag emitting
+// RESERVED(phase-18, G4-tessellation): buildLodIndices takes a `patchMode` flag emitting
 // quad patches. False everywhere.
 // RESERVED(phase-07, M1-texture-cache): NormalMapCache's directory and hash naming are
 // what the generated-asset manifest will index; manifest-free until then.
-// RESERVED(phase-12, L7-pbr): the tangent attribute and a sidecar slot on the material
+// RESERVED(phase-13, L7-pbr): the tangent attribute and a sidecar slot on the material
 // UBOs are what GGX reads roughness through.
 ```
 

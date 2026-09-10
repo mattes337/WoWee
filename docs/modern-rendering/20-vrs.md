@@ -1,6 +1,6 @@
-# Phase 19 — Variable rate shading
+# Phase 20 — Variable rate shading
 
-**One session, one commit.** Depends on: 09 (TAA hides the rate change). Player sees:
+**One session, one commit.** Depends on: 10 (TAA hides the rate change). Player sees:
 nothing, at 20–40 % less fragment cost at high resolutions on T2 hardware.
 
 ## Ships
@@ -34,7 +34,7 @@ None.
 
 - Compare mode `westfall-sentinel-hill`, `crossroads-plains`, `stormwind-gate` at 4K on
   T2: SSIM ≥ 0.98 vs Off at Conservative; frame time −15 % or better recorded.
-- Off == phase-18 frame bit-exact.
+- Off == phase-19 frame bit-exact.
 
 ## Commit
 

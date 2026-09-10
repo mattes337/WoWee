@@ -1,8 +1,8 @@
-# Phase 24 — The AI pack: hash-keyed reader and once-built builder
+# Phase 25 — The AI pack: hash-keyed reader and once-built builder
 
-**One session, one commit.** Depends on: 07. Last of the generated-asset work (plan §4.11).
+**One session, one commit.** Depends on: 07. Last of the generated-asset work (plan §4.12).
 Player sees, with a pack installed: upscaled textures across whichever game version they
-run. Without one: the phase-23 frame exactly. Whether a pack is ever published is the
+run. Without one: the phase-24 frame exactly. Whether a pack is ever published is the
 licence decision recorded in plan §4.11, taken before this session starts.
 
 ## Ships
@@ -47,7 +47,7 @@ None. Consumes phase-07's.
 
 - With a locally built 200-texture test pack: compare mode `goldshire-inn-morning`,
   `stormwind-gate`, `northshire-abbey`, `character-portrait`, `hdtextures` off → on; off ==
-  phase-23 golden bit-exact.
+  phase-24 golden bit-exact.
 - Same pack against a Vanilla root: matched count equals the number of byte-identical
   sources; no entry applied to a differing file.
 - VRAM with the pack: within the BC7 budget from phase 07 (no RGBA8 fallback path taken —

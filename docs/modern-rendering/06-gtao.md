@@ -10,7 +10,7 @@ largest visible change on flat-ambient hand-painted art.
   scales both), 4×4 spatial denoise, temporal accumulation against the velocity target
   (camera-only until 12; good enough for static scenes), bilateral upsample. Multiplied into
   the ambient term (and the SH ambient once 14 lands) — never into direct light.
-- Bent normal output kept in the AO target's `.gba` for phase 10.
+- Bent normal output kept in the AO target's `.gba` for phase 11.
 
 ## Steps
 
@@ -35,7 +35,7 @@ largest visible change on flat-ambient hand-painted art.
 ## Reserved
 
 ```glsl
-// RESERVED(phase-10, L5-sky-probes): bent normals in the AO target's gba channels; the SH
+// RESERVED(phase-11, L5-sky-probes): bent normals in the AO target's gba channels; the SH
 // ambient will sample along them instead of the geometric normal.
 ```
 

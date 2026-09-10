@@ -1,4 +1,4 @@
-# Phase 10 — Sky probes: directional ambient and specular from the skybox
+# Phase 11 — Sky probes: directional ambient and specular from the skybox
 
 **One session, one commit.** Depends on: 04. Player sees: the top of every object lit by the
 sky and the underside by the ground, changing with the time of day — low-poly models read
@@ -11,11 +11,11 @@ as volumes, dusk stops being a flat colour wash.
   reserved in phase 01, and prefilter 5 mips of a 64² specular cube (GGX importance
   sampling, 32 samples). Lit shaders: `ambient = max(SH(N or bentN), 0) * ao`;
   specular `textureLod(uSkySpecular, R, roughness * 4)` with the Blinn exponent mapped to
-  roughness until phase 12 provides real roughness.
+  roughness until phase 13 provides real roughness.
 - WMO interiors: per-group probe = MOHD ambient (`wmo_loader.hpp:192`) as flat SH plus the
   group's `MOCV` average for the ground term; no cubemap render for interiors this session.
 - Reads a pack-supplied probe (`Data/override/sky/<lightId>.ktx2`, equirect) if present —
-  ten lines, authored assets come after 24.
+  ten lines, authored assets come after 25.
 
 ## Steps
 
@@ -38,14 +38,14 @@ as volumes, dusk stops being a flat colour wash.
 ## Reserved
 
 ```glsl
-// RESERVED(phase-12, L7-pbr): the specular cube's mip selection takes a roughness that is
+// RESERVED(phase-13, L7-pbr): the specular cube's mip selection takes a roughness that is
 // derived from the Blinn exponent until real roughness exists.
 ```
 
 ## Verify
 
 - Compare mode: `thunder-bluff-dawn`, `tanaris-dunes`, `character-portrait` 18:00,
-  `goldshire-inn-morning`, `crossroads-plains`. Before == phase-09 golden.
+  `goldshire-inn-morning`, `crossroads-plains`. Before == phase-10 golden.
 - Time-lapse `--sequence` 04:00→22:00 on `stormwind-gate`: ambient hue follows the sky,
   no popping at probe updates (blend over 1 s).
 - Frame time: probe update ≤ 0.3 ms when it fires; zero otherwise.
@@ -59,5 +59,5 @@ A small cubemap of the skybox, sun and horizon is projected to
 spherical harmonics and a prefiltered specular cube whenever the
 lighting changes, and the lit shaders take ambient from it instead of
 one flat colour. Calibrated so noon matches Light.dbc; off is the
-phase-09 frame.
+phase-10 frame.
 ```

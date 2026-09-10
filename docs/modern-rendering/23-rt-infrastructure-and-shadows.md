@@ -1,8 +1,8 @@
-# Phase 22 — Ray-tracing infrastructure and ray-traced sun shadows
+# Phase 23 — Ray-tracing infrastructure and ray-traced sun shadows
 
 **One session, one commit.** Depends on: 01 (fallback), 08 (motion for denoise).
 Player sees, on RT hardware: pixel-exact sun shadows from every leaf and railing within
-100 yards, cascades beyond. Everyone else: the phase-21 frame.
+100 yards, cascades beyond. Everyone else: the phase-22 frame.
 
 ## Ships
 
@@ -34,16 +34,16 @@ Player sees, on RT hardware: pixel-exact sun shadows from every leaf and railing
 ## Reserved
 
 ```cpp
-// RESERVED(phase-23, R2-R3): the TLAS and the skinned-refit pass are shared by RT AO and
+// RESERVED(phase-24, R2-R3): the TLAS and the skinned-refit pass are shared by RT AO and
 // reflections; the ray-query include takes a `RAY_KIND` constant that only has SHADOW.
 ```
 
 ## Verify
 
 - Compare mode on RT hardware: `goldshire-inn-morning`, `stranglethorn-canopy`
-  (`--sequence`), `stormwind-gate`, `orgrimmar-drag`; before (Off) == phase-21 golden.
+  (`--sequence`), `stormwind-gate`, `orgrimmar-drag`; before (Off) == phase-22 golden.
 - Frame time on the T2-RT machine at 1440p: ≤ 2.5 ms for the pass; BLAS memory recorded.
-- Non-RT machines: bit-identical to phase 21, row greyed.
+- Non-RT machines: bit-identical to phase 22, row greyed.
 
 ## Commit
 

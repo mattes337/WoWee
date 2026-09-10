@@ -9,7 +9,7 @@ a threshold — and a neutral grading LUT slot for later art.
 - **S2** — progressive 6-mip downsample (13-tap) / upsample (tent) bloom on the HDR
   target, in compute, blended in `tonemap.glsl` at 3–8 % (setting). No threshold.
 - **P5** — 32³ colour LUT applied after tone mapping; ships with an identity LUT and reads
-  `Data/override/luts/<zone>.png` if present (hand-authored, after phase 24 in the plan —
+  `Data/override/luts/<zone>.png` if present (hand-authored, after phase 25 in the plan —
   the slot exists now because it is ten lines).
 
 ## Steps

@@ -1,6 +1,6 @@
-# Phase 15 — Screen-space reflections; planar water becomes optional
+# Phase 16 — Screen-space reflections; planar water becomes optional
 
-**One session, one commit.** Depends on: 03 (depth/normals/HiZ), 10 (probe fallback).
+**One session, one commit.** Depends on: 03 (depth/normals/HiZ), 11 (probe fallback).
 Player sees: lakes and harbours reflect what is on screen, wet stone and ice reflect a
 little, and the frame gets cheaper because the water no longer re-renders the world.
 
@@ -8,7 +8,7 @@ little, and the frame gets cheaper because the water no longer re-renders the wo
 
 - **S3** — Hi-Z ray march (`hiz_system.hpp`'s pyramid, now from the current frame's
   pre-pass depth) at half res for pixels with roughness < 0.6, confidence from hit
-  distance and screen-edge fade, probe fallback (10) where the ray leaves the screen,
+  distance and screen-edge fade, probe fallback (11) where the ray leaves the screen,
   temporal accumulation with the velocity target. Output `RGBA16F` reflection + confidence.
 - Water (`water_renderer.cpp`) samples SSR instead of the planar texture when
   `waterreflection=SSR`; the planar pass (`beginReflectionPass`) stays as the other choice
@@ -36,7 +36,7 @@ little, and the frame gets cheaper because the water no longer re-renders the wo
 ## Reserved
 
 ```glsl
-// RESERVED(phase-23, R3-rt-reflections): the resolve pass takes an optional RT hit image
+// RESERVED(phase-24, R3-rt-reflections): the resolve pass takes an optional RT hit image
 // with the same layout as the SSR trace output; bound to black.
 ```
 
@@ -44,7 +44,7 @@ little, and the frame gets cheaper because the water no longer re-renders the wo
 
 - Compare mode: `lakeshire-lake`, `booty-bay-harbour`, `stormwind-harbour` (WotLK),
   `howling-fjord-cliffs` (WotLK), `deadmines-foundry` (wet floor), `duskwood-road` in rain.
-  Before (`Planar`) == phase-14 golden.
+  Before (`Planar`) == phase-15 golden.
 - Frame time `stormwind-harbour`: SSR must be cheaper than Planar on T0 and T2 — record
   both; this is the phase's justification as much as the look.
 

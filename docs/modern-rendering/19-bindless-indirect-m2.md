@@ -1,4 +1,4 @@
-# Phase 18 — Bindless materials and indirect draws for M2
+# Phase 19 — Bindless materials and indirect draws for M2
 
 **One session, one commit.** Depends on: 01 (caps). Player sees: nothing different; a
 lower CPU frame time in doodad-dense zones on T1 hardware, and the GPU cull stops stalling
@@ -36,13 +36,13 @@ on a readback. Terrain and WMO follow in later sessions on the same rails.
 ## Reserved
 
 ```cpp
-// RESERVED(phase-19, G5-vrs): the indirect path's pipeline layout carries the shading-rate
+// RESERVED(phase-20, G5-vrs): the indirect path's pipeline layout carries the shading-rate
 // attachment slot so VRS needs no second layout.
 ```
 
 ## Verify
 
-- Compare mode all scenes: bit-identical to phase 17 with `gpudriven` on and off — this
+- Compare mode all scenes: bit-identical to phase 18 with `gpudriven` on and off — this
   phase must not change a pixel.
 - CPU frame time and draw-call count in Stormwind and `orgrimmar-drag` on T1: recorded
   before/after; the cull readback stall disappears from the Tracy trace

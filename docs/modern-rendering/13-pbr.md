@@ -1,6 +1,6 @@
-# Phase 12 — GGX shading with class-based roughness
+# Phase 13 — GGX shading with class-based roughness
 
-**One session, one commit.** Depends on: 10 (probes), 07 (manifest for sidecars). Player
+**One session, one commit.** Depends on: 11 (probes), 07 (manifest for sidecars). Player
 sees: metal reads as metal and cloth as cloth under the sky probe; energy-conserving
 highlights instead of the `pow(·, 32)` disc. Opt-in — the hand-painted specular baked into
 some diffuse textures can fight it.
@@ -19,7 +19,7 @@ some diffuse textures can fight it.
 
 ## Steps
 
-1. `brdf.glsl`; `lit_common.glsl` gathering shadow (01), ambient (10), clusters (11), fog
+1. `brdf.glsl`; `lit_common.glsl` gathering shadow (01), ambient (11), clusters (12), fog
    (01) and the BRDF into one `shade()` the four lit shaders call — this is the session's
    main refactor and pays off in every later phase.
 2. Class table `include/rendering/material_roughness.hpp`: stone 0.85, wood 0.7, cloth
@@ -30,7 +30,7 @@ some diffuse textures can fight it.
 4. Generator job in the phase-07 worker; CLI `generate_assets --pbr`.
 5. Calibration on `goldshire-inn-morning` (plate + cloth character), `ironforge-great-forge`
    (metal), `kharanos-snow`: with `shadingmodel=1` the mid-tone luminance must match
-   phase 11 within 5 % (adjust the class table's F0, not the lights).
+   phase 12 within 5 % (adjust the class table's F0, not the lights).
 6. Settings; the Ultra preset turns it on, others leave Blinn-Phong.
 
 ## Settings
@@ -47,7 +47,7 @@ None. Consumes phase-01, 11, 14 reservations.
 ## Verify
 
 - Compare mode: `character-portrait` (each race, plate and cloth), `ironforge-great-forge`,
-  `goldshire-inn-morning`, `kharanos-snow`, `stormwind-gate`. Before == phase-11 golden.
+  `goldshire-inn-morning`, `kharanos-snow`, `stormwind-gate`. Before == phase-12 golden.
 - `pbrsidecars` off vs on: sidecars must only sharpen the class guess, never change the
   overall brightness (SSIM ≥ 0.98).
 - Frame time: GGX vs Blinn ≤ +0.1 ms on T0.

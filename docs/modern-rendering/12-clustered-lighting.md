@@ -1,4 +1,4 @@
-# Phase 11 — Clustered forward lighting from the game's own light data
+# Phase 12 — Clustered forward lighting from the game's own light data
 
 **One session, one commit.** Depends on: 04. Player sees: every brazier, torch, lamp and
 glowing mushroom is a light — Orgrimmar at night, Ironforge, Undercity, Zangarmarsh — at
@@ -43,9 +43,9 @@ constant cost instead of a 64-light budget looped per fragment.
 ## Reserved
 
 ```cpp
-// RESERVED(phase-13, L6-local-shadows): Light entries carry a `shadowSlot` (-1) so the
+// RESERVED(phase-14, L6-local-shadows): Light entries carry a `shadowSlot` (-1) so the
 // atlas can claim the brightest N without a layout change.
-// RESERVED(phase-14, A2-volumetric-fog): the cluster list is bound to set 0 where the
+// RESERVED(phase-15, A2-volumetric-fog): the cluster list is bound to set 0 where the
 // froxel pass will read it.
 ```
 
@@ -53,7 +53,7 @@ constant cost instead of a 64-light budget looped per fragment.
 
 - Compare mode: `orgrimmar-valley-of-strength-night`, `ironforge-great-forge`,
   `deadmines-foundry`, `ashenvale-astranaar`, `duskwood-road` 21:00, `zangarmarsh-glow`
-  (TBC+). Before == phase-10 golden.
+  (TBC+). Before == phase-11 golden.
 - Light count on screen in the HUD: Orgrimmar valley ≥ 150 with `Clustered`.
 - Frame time Orgrimmar at night, T0 and T2, both modes, recorded; clustered must not be
   slower than the 64 loop at 64 lights.

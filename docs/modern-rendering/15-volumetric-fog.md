@@ -1,6 +1,6 @@
-# Phase 14 — Froxel volumetric fog and god rays
+# Phase 15 — Froxel volumetric fog and god rays
 
-**One session, one commit.** Depends on: 11 (clusters), 01 (cascades, fog params).
+**One session, one commit.** Depends on: 12 (clusters), 01 (cascades, fog params).
 Player sees: shafts through the Stranglethorn canopy that move with the trees, torch glow
 that hangs in the air, mist in Duskwood the lamps light from inside.
 
@@ -39,7 +39,7 @@ None. Consumes phase-01 and 15 reservations.
 
 - Compare mode: `stranglethorn-canopy` (`--sequence`), `elwynn-road-sunrise`,
   `duskwood-road` 21:00, `goldshire-inn-interior-night`, `ironforge-great-forge`.
-  Before == phase-13 golden.
+  Before == phase-14 golden.
 - Frame time at Low on T0 (≤ 1.5 ms at 1080p) and High on T2 (≤ 1.2 ms with fp16),
   recorded; that is why Low exists.
 

@@ -8,15 +8,16 @@ velocity buffers every screen-space technique from here on reads.
 
 - **Reverse-Z** unconditionally: `D32_SFLOAT` already; projection flips, compare ops
   `GREATER`, clear 0.0, HiZ build takes max, shadow bias sign, FSR2 depth-inverted flag.
-- **F3** depth pre-pass for opaque terrain/WMO/M2/characters (alpha-tested batches stay in
-  the colour pass) writing depth and a `R16G16_SNORM` octahedral **normal** target; colour
-  pass with `EQUAL`.
+- **F3** depth pre-pass for opaque and alpha-tested terrain/WMO/M2/characters (blended
+  batches stay in the colour pass) writing depth, a `R16G16_SNORM` octahedral **normal**
+  target and a `R16_UINT` **instance-ID** target (reserved for phase 09); colour pass with
+  `EQUAL`.
 - **Velocity target** `R16G16_SFLOAT`, written by the pre-pass from camera reprojection
   (exactly what `fsr2_motion.comp.glsl` computes today) — reserved for phase 08.
 
 ## Not in this session
 
-- Per-object motion vectors → 08. GTAO → 06. Contact shadows → 13.
+- Per-object motion vectors → 08. GTAO → 06. Contact shadows → 14.
 
 ## Steps
 
@@ -29,9 +30,10 @@ velocity buffers every screen-space technique from here on reads.
    pixel-identical except far z-fight pixels.
 2. Pre-pass pipelines: the four renderers' shadow pipelines are already depth-only with the
    same vertex inputs (`shadow.vert.glsl`, `character_shadow.vert.glsl`); derive
-   `prepass.vert/frag` from them with the normal output. Alpha-tested materials
-   (`alphaTest`, `colorKeyBlack` in `M2Material`) are excluded by the same classification
-   the shadow pass uses.
+   `prepass.vert/frag` from them with the normal and ID outputs. Alpha-tested materials
+   (`alphaTest`, `colorKeyBlack` in `M2Material`) run through the pre-pass with the same
+   `discard` the shadow pass uses (`ShadowParamsUBO.alphaTest`), so hair, capes and leaves
+   have depth, normals and IDs; only blended batches stay out.
 3. Render graph (`render_graph.hpp`): new node `prepass` before `main`; outputs `depth`,
    `normals`, `velocity`; `main` declares `depth` as input, its pipelines switch to
    `EQUAL` + depth write off for the opaque set.
@@ -53,6 +55,7 @@ velocity buffers every screen-space technique from here on reads.
 // RESERVED(phase-08, F4-motion-vectors): the velocity attachment holds camera-only
 // reprojection; per-instance previous transforms arrive in phase 08.
 // RESERVED(phase-06, S1-gtao): the normal target has no reader yet.
+// RESERVED(phase-09, U1-unit-outlines): the instance-ID target is written but unread.
 ```
 
 ## Verify

@@ -1,6 +1,6 @@
-# Phase 16 — FSR 3.1 and the upscaler / frame-gen / latency interfaces
+# Phase 17 — FSR 3.1 and the upscaler / frame-gen / latency interfaces
 
-**One session, one commit.** Depends on: 09. Player sees: the AMD upscaler gets the 3.1
+**One session, one commit.** Depends on: 10. Player sees: the AMD upscaler gets the 3.1
 quality step (less ghosting than 2.2); the settings panel gains one "Upscaler" choice that
 later vendors slot into.
 
@@ -12,7 +12,7 @@ later vendors slot into.
 - Interfaces in `include/rendering/upscaler.hpp`:
   `Upscaler { Internal FSR2, AMD FSR 3.1 }`, `FrameGen { Off, AMD FSR3 }`,
   `LatencyMode { Off }` with `beginFrame/markInput/present` hooks in `application.cpp`.
-  `PostProcessPipeline` talks only to the interfaces. Inputs are the phase-09
+  `PostProcessPipeline` talks only to the interfaces. Inputs are the phase-10
   `JitterSource`, the velocity target, depth, exposure.
 - `Upscaler` enum row replaces the FSR2/FSR3 booleans (migrated on load).
 
@@ -35,9 +35,9 @@ later vendors slot into.
 ## Reserved
 
 ```cpp
-// RESERVED(phase-20, V-nvidia): Upscaler/FrameGen/LatencyMode have one slot each for a
+// RESERVED(phase-21, V-nvidia): Upscaler/FrameGen/LatencyMode have one slot each for a
 // Streamline-backed implementation; the factory returns nullptr for them.
-// RESERVED(phase-21, V-xess-antilag): same, for XeSS and VK_AMD_anti_lag.
+// RESERVED(phase-22, V-xess-antilag): same, for XeSS and VK_AMD_anti_lag.
 ```
 
 ## Verify

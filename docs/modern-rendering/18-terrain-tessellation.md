@@ -1,4 +1,4 @@
-# Phase 17 — Terrain tessellation with splat-derived height
+# Phase 18 — Terrain tessellation with splat-derived height
 
 **One session, one commit.** Depends on: 01 (LOD, patch flag), 07 (generator worker).
 Player sees: cobbles, rock and snow at their feet have real relief; the POM from phase 01
@@ -25,13 +25,20 @@ takes over beyond a few yards.
 2. Displacement in `tese`; normals re-derived from the displaced neighbours for the
    pre-pass normal target.
 3. Generator job; sidecar loader; manifest.
-4. Settings; `unavailable` from the `tessellationShader` cap.
+4. **Height-based layer blending.** With per-layer heights available (the phase-01 Sobel
+   height in each layer's normal map alpha, scaled by the class displacement), the splat
+   in `terrain.frag.glsl` blends layers by `alpha * height` with a sharpness term instead
+   of linear alpha: cobbles rise through sand, snow settles into cracks. Same data as the
+   displacement, so it costs one extra fetch per layer. Spec constant; off is the linear
+   splat and the same SPIR-V.
+5. Settings; `unavailable` from the `tessellationShader` cap.
 
 ## Settings
 
 | key | kind | choices | default | L / M / H / U | enabledWhen | requires |
 |---|---|---|---|---|---|---|
 | `terraintessellation` | Enum | `Off|Low|High` | 0 | 0/0/1/2 | `terrainlod!=0` | cap `tessellationShader` |
+| `terrainheightblend` | Bool | | 1 | 0/1/1/1 | `normalmapscope=1` | — (T0; needs no tessellation) |
 
 ## Reserved
 
@@ -40,7 +47,7 @@ None. Consumes phase-01's reservation.
 ## Verify
 
 - Compare mode: `stormwind-gate` (ground close), `kharanos-snow`, `tanaris-dunes`,
-  `orgrimmar-drag`. Before == phase-16 golden.
+  `orgrimmar-drag`. Before == phase-17 golden.
 - Crack sweep: wireframe fly-through of Westfall at each level, zero cracks.
 - Frame time on T1 reference at High: ≤ 0.6 ms; on T0-without-tessellation the row is
   greyed with the reason.
@@ -53,5 +60,5 @@ Tessellate the ground underfoot
 Near terrain chunks are drawn as tessellated patches displaced by a
 per-chunk height sidecar the texture worker blends from the splat
 layers, with parallax taking over beyond. Greyed with a reason on
-GPUs without tessellation; off is the phase-16 frame.
+GPUs without tessellation; off is the phase-17 frame.
 ```
