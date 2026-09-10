@@ -296,7 +296,8 @@ local function addCheckButton(layout, panel, setting, onChanged)
     button:SetScript("OnClick", function(self)
         WoweeSetSetting(setting.key, self:GetChecked() and "1" or "0")
         -- Ticking one of these can be what makes another control live -
-        -- normal mapping gates its strength, each extra bar gates its offsets
+)LUA"
+R"LUA(        -- normal mapping gates its strength, each extra bar gates its offsets
         -- - so the rest of the panel is re-read. A click is one event, unlike
         -- a slider drag, so there is nothing to throttle here.
         if onChanged then onChanged(setting.key) end
@@ -574,7 +575,8 @@ local function buildPanel(category, settings)
     table.insert(registered, panel)
 end
 
--- A heading of our own on each frame that hosts one of our categories.
+)LUA"
+R"LUA(-- A heading of our own on each frame that hosts one of our categories.
 --
 -- Both AddCategory functions nest a panel under an existing one whose name
 -- matches panel.parent, so a heading registered first collects everything
@@ -823,7 +825,8 @@ local function runSearch(query)
 
     -- Trimmed here rather than while collecting, because the ones named after
     -- what was typed are put in front of the ones that only mention it - and
-    -- which those are is not known until the walk is done.
+)LUA"
+R"LUA(    -- which those are is not known until the walk is done.
     while #shown > 5 do table.remove(shown) end
 
     if found == 0 then
@@ -1315,7 +1318,8 @@ local kRemovedCategories = {
     -- come across: the movable world map, which this client's own map does
     -- not read, and the locale list, which had one entry.
     "InterfaceOptionsControlsPanel",
-    "InterfaceOptionsCombatPanel",
+)LUA"
+R"LUA(    "InterfaceOptionsCombatPanel",
     "InterfaceOptionsDisplayPanel",
     "InterfaceOptionsObjectivesPanel",
     "InterfaceOptionsSocialPanel",

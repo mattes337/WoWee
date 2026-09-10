@@ -1288,7 +1288,12 @@ if(WIN32)
         ${CMAKE_CURRENT_BINARY_DIR}/assets/wowee.ico
         COPYONLY
     )
-    set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I ${CMAKE_CURRENT_BINARY_DIR} -I ${CMAKE_CURRENT_SOURCE_DIR}")
+    # Quoted, because a checkout is allowed to live somewhere with a space in
+    # the name and this one does. Unquoted, rc.exe is handed
+    # "-I G:/WoW Projects/wowee" and reads the second word as another argument:
+    # "RC1107: invalid usage", which says nothing about paths and is the only
+    # thing the Windows build says before it stops.
+    set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I \"${CMAKE_CURRENT_BINARY_DIR}\" -I \"${CMAKE_CURRENT_SOURCE_DIR}\"")
     list(APPEND WOWEE_PLATFORM_SOURCES resources/wowee.rc)
 endif()
 

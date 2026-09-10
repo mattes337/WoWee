@@ -6045,6 +6045,18 @@ void LuaEngine::setLuaServices(const LuaServices& services) {
 }
 
 
+// Defined with the other edit-box bindings further down; declared here because
+// the method table in registerCoreAPI refers to them first.
+//
+// At namespace scope rather than inside that function. A block-scope extern
+// declaration is supposed to name the nearest enclosing namespace, which is
+// wowee::addons here, and GCC does that - MSVC binds it to the global
+// namespace instead, so the call went looking for ::lua_EditBox_SetFocus and
+// the Windows build ended in three unresolved externals with no other symptom.
+int lua_EditBox_SetFocus(lua_State* L);
+int lua_EditBox_ClearFocus(lua_State* L);
+int lua_EditBox_HasFocus(lua_State* L);
+
 void LuaEngine::registerCoreAPI() {
     // Override print() to go to chat
     lua_pushcfunction(L_, lua_wow_print);
@@ -6235,12 +6247,6 @@ void LuaEngine::registerCoreAPI() {
     lua_newtable(L_);  // metatable
     lua_pushvalue(L_, -1);
     lua_setfield(L_, -2, "__index"); // metatable.__index = metatable
-
-    // Defined with the other edit-box bindings further down; declared here
-    // because the table below refers to them first.
-    int lua_EditBox_SetFocus(lua_State* L);
-    int lua_EditBox_ClearFocus(lua_State* L);
-    int lua_EditBox_HasFocus(lua_State* L);
 
     static const struct luaL_Reg frameMethods[] = {
         {"RegisterEvent",   lua_Frame_RegisterEvent},

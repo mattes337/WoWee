@@ -734,6 +734,8 @@ static void applySoundCVars(lua_State* L) {
 /// opened. Nothing looked broken: the button worked, it just always agreed
 /// with wherever the controls already were.
 
+static void pushCvarDefaultRest(lua_State* L, const std::string& n);
+
 static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Return sensible defaults for commonly queried CVars
     // The sound ones read back as on and at full, which is what this client
@@ -940,10 +942,22 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "targetoftargetmode") lua_pushstring(L, "5");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
+    // The rest of the chain, which is one continuous else-if in every sense
+    // that matters and is split only because MSVC counts each `else if` as a
+    // nested block and stops at 128. There were 126 of them here and the
+    // Windows build would not compile: "blocks nested too deeply". The order
+    // is the whole meaning of this chain - the sound_enable prefix rule above
+    // swallows every name it starts with - so the split is a cut, not a
+    // reordering, and the second half continues exactly where the first ends.
+    else pushCvarDefaultRest(L, n);
+}
+
+/// The second half of pushCvarDefault. See the note at the cut.
+static void pushCvarDefaultRest(lua_State* L, const std::string& n) {
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
     // itself declares as the default. Only reached before the handler exists;
     // once it does, the branch above answers from the setting itself.
-    else if (n == "autolootdefault") lua_pushstring(L, "0");
+    if (n == "autolootdefault") lua_pushstring(L, "0");
     // On, as it is for a fresh account. The XP bar and the unit frames put
     // their whole tooltip behind this one: GameTooltip_AddNewbieTip is called
     // with noNormalText set, so with tips off it does nothing at all and
