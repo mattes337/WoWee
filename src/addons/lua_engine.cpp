@@ -3725,8 +3725,14 @@ int lua_Frame_SetFrameStrata(lua_State* L) {
 /// the ones the XML puts in FULLSCREEN_DIALOG. Anything branching on it was
 /// deciding from a constant.
 int lua_Frame_GetFrameStrata(lua_State* L) {
-    const auto* w = widgetOf(L, 1);
-    lua_pushstring(L, w ? wowee::ui::strataName(w->strata) : "MEDIUM");
+    const auto* w = measuredWidgetOf(L, 1);
+    // The stratum the frame is actually in, which is its parent's until it
+    // sets one of its own - that is what the real client answers and what the
+    // interface is written against. Answering the declared one instead said
+    // MEDIUM for every frame inside a dialog: GlueDialogBackground draws in
+    // DIALOG with the rest of GlueDialog and reported MEDIUM, which is the
+    // stratum of the login screen it is supposed to be sitting over.
+    lua_pushstring(L, w ? wowee::ui::strataName(w->effStrata) : "MEDIUM");
     return 1;
 }
 
