@@ -248,7 +248,8 @@ struct GlueSceneState {
     float fogEnd = 0.0f;
     float fogColor[3] = {0.0f, 0.0f, 0.0f};
     /// SetGlow: how strongly the scene's bright parts bloom. AccountLogin
-    /// says 0.08. Applied as a pass of its own - see GlueBackdrop::glowTextureId.
+    /// says 0.08. Applied as two passes of its own after the scene is drawn -
+    /// see GlueBackdrop::textureId.
     float glow = 0.0f;
     /// The background light set, which is the one the scene itself is lit by.
     /// The character and pet sets are recorded beside it in the Lua state and
@@ -417,16 +418,17 @@ public:
                 pipeline::AssetManager* assets,
                 rendering::Renderer* renderer, float deltaTime);
 
-    /// The rendered scene, or zero until the first pass has run. A
-    /// VkDescriptorSet carried as an integer, for the same reason
-    /// UnitPortrait::textureId is.
+    /// The rendered scene with its glow already added, or zero until the
+    /// first pass has run. A VkDescriptorSet carried as an integer, for the
+    /// same reason UnitPortrait::textureId is.
     [[nodiscard]] uint64_t textureId() const;
 
-    /// The scene's glow, as a texture to be drawn over it, or zero when the
-    /// screen asked for none. Its alpha carries the bloom's own brightness, so
-    /// laying it over the scene adds light where there was light and leaves
-    /// the dark alone.
-    [[nodiscard]] uint64_t glowTextureId() const;
+    /// How much of that texture the passes wrote, as a 0..1 fraction of its
+    /// width and height. The target is allocated in multiples of 32 and the
+    /// picture is drawn at the frame's own size; sampling the whole image
+    /// would stretch one over the other.
+    [[nodiscard]] float textureU1() const;
+    [[nodiscard]] float textureV1() const;
 
     /// Give the GPU resources back. Must run while the device is still alive,
     /// which is why it is a call and not the destructor's business.

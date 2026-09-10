@@ -313,14 +313,57 @@ struct GlueBackdrop::View {
     VkDescriptorSet bloomSceneSet = VK_NULL_HANDLE;   // samples the scene
     VkPipelineLayout bloomPipelineLayout = VK_NULL_HANDLE;
     VkPipeline bloomPipeline = VK_NULL_HANDLE;
-    VkDescriptorSet bloomTextureId = VK_NULL_HANDLE;  // what the interface draws
+
+    // And the pass that adds it back. Full size, because its result is the
+    // picture: the interface draws this image rather than the scene whenever
+    // the screen asked for a glow. It has to be a pass of its own - an ImGui
+    // draw list has one blend state, and an alpha blend cannot add.
+    std::unique_ptr<rendering::VkRenderTarget> glowTarget;
+    VkDescriptorSetLayout glowSetLayout = VK_NULL_HANDLE;
+    VkDescriptorSet glowInputSet = VK_NULL_HANDLE;    // samples the scene and the bloom
+    VkPipelineLayout glowPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline glowPipeline = VK_NULL_HANDLE;
+    VkDescriptorSet glowTextureId = VK_NULL_HANDLE;   // what the interface draws
+    /// Set by the pass, cleared when it does not run. The interface reads the
+    /// scene straight when this is false, so a screen with no glow - or a run
+    /// with WOWEE_NO_GLUE_GLOW - costs nothing and shows nothing.
+    bool glowApplied = false;
     float glow = 0.0f;
 
     bool buildBloom(int w, int h);
-    void renderBloom(VkCommandBuffer cmd);
+    void renderGlow(VkCommandBuffer cmd);
 
     int width = 0;
     int height = 0;
+    /// What the interface actually draws the image into, in pixels.
+    ///
+    /// Not the target's size. The target is this rounded up to a multiple of
+    /// 32 so a window dragged by a few pixels does not rebuild it, and at
+    /// 1280x720 that makes a 1280x736 image drawn into a 1280x720 rect - a
+    /// resample that drops one row in every forty-six. It is not subtle where
+    /// the picture has edges: over the frost wyrm on the login screen it reads
+    /// as pale bands across the wing, forty-five pixels apart, which is what
+    /// "boxes of light" turned out to be.
+    ///
+    /// So the passes draw into the top-left drawWidth x drawHeight of their
+    /// targets and the interface samples exactly that much, one texel to one
+    /// pixel. The rest of the allocation is never written or read.
+    int drawWidth = 0;
+    int drawHeight = 0;
+    [[nodiscard]] int usedWidth() const { return drawWidth > 0 ? drawWidth : width; }
+    [[nodiscard]] int usedHeight() const { return drawHeight > 0 ? drawHeight : height; }
+    [[nodiscard]] float drawAspect() const {
+        const int h = usedHeight();
+        return h > 0 ? static_cast<float>(usedWidth()) / static_cast<float>(h) : 1.0f;
+    }
+    /// The fraction of each target the passes above actually wrote, which is
+    /// what the interface has to sample.
+    [[nodiscard]] float usedU() const {
+        return width > 0 ? static_cast<float>(usedWidth()) / static_cast<float>(width) : 1.0f;
+    }
+    [[nodiscard]] float usedV() const {
+        return height > 0 ? static_cast<float>(usedHeight()) / static_cast<float>(height) : 1.0f;
+    }
     std::string loadedPath;
     /// Set when the loaded model was placed by its own camera. A scene that
     /// carries none is left undrawn rather than framed by a guess.
@@ -349,6 +392,17 @@ struct GlueBackdrop::View {
     void applyScene(const GlueSceneState& scene);
     void composite();
 };
+
+/// Point the viewport and scissor at the top-left w x h of whatever pass is
+/// open, which is the part of the target that carries the picture.
+static void setUsedViewport(VkCommandBuffer cmd, int w, int h) {
+    VkViewport vp{0.0f, 0.0f, static_cast<float>(std::max(1, w)),
+                  static_cast<float>(std::max(1, h)), 0.0f, 1.0f};
+    VkRect2D sc{{0, 0}, {static_cast<uint32_t>(std::max(1, w)),
+                         static_cast<uint32_t>(std::max(1, h))}};
+    vkCmdSetViewport(cmd, 0, 1, &vp);
+    vkCmdSetScissor(cmd, 0, 1, &sc);
+}
 
 bool GlueBackdrop::View::build(int w, int h, rendering::Renderer* renderer) {
     ctx = renderer->getVkContext();
@@ -472,13 +526,19 @@ bool GlueBackdrop::View::build(int w, int h, rendering::Renderer* renderer) {
 
     // --- the per-frame set the model pipelines read their matrices from ---
     {
+        // Three sets: the model pipelines' per-frame block, the bloom pass's
+        // one scene sampler, and the glow pass's scene-and-bloom pair. The
+        // pool said one set and two descriptors when the glow passes were
+        // added, which is a driver-dependent failure - lavapipe handed out the
+        // extra sets anyway and the glow worked, and a stricter driver would
+        // have returned VK_ERROR_OUT_OF_POOL_MEMORY and quietly lost it.
         VkDescriptorPoolSize sizes[2]{};
         sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         sizes[0].descriptorCount = 1;
         sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        sizes[1].descriptorCount = 1;
+        sizes[1].descriptorCount = 4;
         VkDescriptorPoolCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-        ci.maxSets = 1;
+        ci.maxSets = 3;
         ci.poolSizeCount = 2;
         ci.pPoolSizes = sizes;
         if (vkCreateDescriptorPool(device, &ci, nullptr, &descPool) != VK_SUCCESS) {
@@ -536,7 +596,7 @@ bool GlueBackdrop::View::build(int w, int h, rendering::Renderer* renderer) {
     }
 
     camera = std::make_unique<rendering::Camera>();
-    camera->setAspectRatio(static_cast<float>(width) / static_cast<float>(height));
+    camera->setAspectRatio(drawAspect());
 
     imguiTexture = ImGui_ImplVulkan_AddTexture(target->getSampler(),
                                                target->getColorImageView(),
@@ -582,7 +642,7 @@ bool GlueBackdrop::View::buildBloom(int w, int h) {
         return false;
     }
 
-    VkPushConstantRange pcr{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float) * 3};
+    VkPushConstantRange pcr{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float) * 4};
     VkPipelineLayoutCreateInfo plci{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
     plci.setLayoutCount = 1;
     plci.pSetLayouts = &bloomSetLayout;
@@ -637,34 +697,126 @@ bool GlueBackdrop::View::buildBloom(int w, int h) {
     write.pImageInfo = &sceneInfo;
     vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
 
-    bloomTextureId = ImGui_ImplVulkan_AddTexture(bloomTarget->getSampler(),
-                                                 bloomTarget->getColorImageView(),
-                                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    // --- and the pass that adds the bloom back to the scene ---
+    //
+    // Full size and no blend: it writes the finished picture, which is what
+    // the interface samples. The blur above stays at half size because a blur
+    // throws detail away; this one cannot, because it carries the scene.
+    glowTarget = std::make_unique<rendering::VkRenderTarget>();
+    if (!glowTarget->create(*ctx, static_cast<uint32_t>(w), static_cast<uint32_t>(h),
+                            VK_FORMAT_R8G8B8A8_UNORM, false, VK_SAMPLE_COUNT_1_BIT)) {
+        glowTarget.reset();
+        return false;
+    }
+
+    VkDescriptorSetLayoutBinding glowBindings[2]{};
+    for (uint32_t i = 0; i < 2; ++i) {
+        glowBindings[i].binding = i;
+        glowBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        glowBindings[i].descriptorCount = 1;
+        glowBindings[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    }
+    VkDescriptorSetLayoutCreateInfo glci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+    glci.bindingCount = 2;
+    glci.pBindings = glowBindings;
+    if (vkCreateDescriptorSetLayout(device, &glci, nullptr, &glowSetLayout) != VK_SUCCESS) {
+        return false;
+    }
+
+    VkPushConstantRange gpcr{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float) * 3};
+    VkPipelineLayoutCreateInfo gplci{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+    gplci.setLayoutCount = 1;
+    gplci.pSetLayouts = &glowSetLayout;
+    gplci.pushConstantRangeCount = 1;
+    gplci.pPushConstantRanges = &gpcr;
+    if (vkCreatePipelineLayout(device, &gplci, nullptr, &glowPipelineLayout) != VK_SUCCESS) {
+        return false;
+    }
+
+    rendering::VkShaderModule glowFrag;
+    if (!glowFrag.loadFromFile(device, "assets/shaders/glue_glow.frag.spv")) return false;
+    VkPipelineShaderStageCreateInfo gfs{.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+    gfs.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    gfs.module = glowFrag.getModule();
+    gfs.pName = "main";
+
+    rendering::PipelineBuilder glowBuilder;
+    glowPipeline = glowBuilder
+        .setShaders(vs, gfs)             // the same fullscreen-triangle vertex stage
+        .setVertexInput({}, {})
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setNoDepthTest()
+        .setColorBlendAttachment(rendering::PipelineBuilder::blendDisabled())
+        .setMultisample(VK_SAMPLE_COUNT_1_BIT)
+        .setLayout(glowPipelineLayout)
+        .setRenderPass(glowTarget->getRenderPass())
+        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .build(device);
+    if (glowPipeline == VK_NULL_HANDLE) return false;
+
+    VkDescriptorSetAllocateInfo gai{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+    gai.descriptorPool = descPool;
+    gai.descriptorSetCount = 1;
+    gai.pSetLayouts = &glowSetLayout;
+    if (vkAllocateDescriptorSets(device, &gai, &glowInputSet) != VK_SUCCESS) return false;
+
+    const VkDescriptorImageInfo glowInputs[2]{target->descriptorInfo(),
+                                              bloomTarget->descriptorInfo()};
+    VkWriteDescriptorSet glowWrites[2]{};
+    for (uint32_t i = 0; i < 2; ++i) {
+        glowWrites[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        glowWrites[i].dstSet = glowInputSet;
+        glowWrites[i].dstBinding = i;
+        glowWrites[i].descriptorCount = 1;
+        glowWrites[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        glowWrites[i].pImageInfo = &glowInputs[i];
+    }
+    vkUpdateDescriptorSets(device, 2, glowWrites, 0, nullptr);
+
+    glowTextureId = ImGui_ImplVulkan_AddTexture(glowTarget->getSampler(),
+                                                glowTarget->getColorImageView(),
+                                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     return true;
 }
 
 void GlueBackdrop::View::destroy() {
 
-    // The glow pass, before the pool its descriptor came from.
+    // Before anything is freed. Every image below is sampled by whatever
+    // frames are still in flight - the glow target most of all, since it is
+    // the one the interface draws - and the wait used to sit halfway down,
+    // after the glow pass had already been torn down.
+    if (ctx) vkDeviceWaitIdle(ctx->getDevice());
+
+    // The glow passes, before the pool their descriptors came from.
     if (ctx) {
         VkDevice device = ctx->getDevice();
         if (bloomPipeline) { vkDestroyPipeline(device, bloomPipeline, nullptr); bloomPipeline = VK_NULL_HANDLE; }
         if (bloomPipelineLayout) { vkDestroyPipelineLayout(device, bloomPipelineLayout, nullptr); bloomPipelineLayout = VK_NULL_HANDLE; }
         if (bloomSetLayout) { vkDestroyDescriptorSetLayout(device, bloomSetLayout, nullptr); bloomSetLayout = VK_NULL_HANDLE; }
+        if (glowPipeline) { vkDestroyPipeline(device, glowPipeline, nullptr); glowPipeline = VK_NULL_HANDLE; }
+        if (glowPipelineLayout) { vkDestroyPipelineLayout(device, glowPipelineLayout, nullptr); glowPipelineLayout = VK_NULL_HANDLE; }
+        if (glowSetLayout) { vkDestroyDescriptorSetLayout(device, glowSetLayout, nullptr); glowSetLayout = VK_NULL_HANDLE; }
+    }
+    if (glowTextureId != VK_NULL_HANDLE) {
+        rendering::removeImGuiTexture(glowTextureId);
+        glowTextureId = VK_NULL_HANDLE;
+    }
+    if (glowTarget) {
+        if (ctx) glowTarget->destroy(ctx->getDevice(), ctx->getAllocator());
+        glowTarget.reset();
     }
     if (bloomTarget) {
         if (ctx) bloomTarget->destroy(ctx->getDevice(), ctx->getAllocator());
         bloomTarget.reset();
     }
     bloomSceneSet = VK_NULL_HANDLE;
-    bloomTextureId = VK_NULL_HANDLE;
+    glowInputSet = VK_NULL_HANDLE;
+    glowApplied = false;
     glow = 0.0f;
     if (!ctx) return;
     VkDevice device = ctx->getDevice();
     VmaAllocator allocator = ctx->getAllocator();
-
-    // The image is sampled by whatever frames are still in flight.
-    vkDeviceWaitIdle(device);
 
     if (imguiTexture != VK_NULL_HANDLE) rendering::removeImGuiTexture(imguiTexture);
     if (models) { models->shutdown(); models.reset(); }
@@ -773,7 +925,7 @@ bool GlueBackdrop::View::frameThrough(int index) {
     }
 
     const pipeline::M2Camera& cam = model->cameras[static_cast<size_t>(pick)];
-    const float aspect = static_cast<float>(width) / static_cast<float>(height);
+    const float aspect = drawAspect();
     const float eye[3] = {cam.positionBase.x, cam.positionBase.y, cam.positionBase.z};
     const float at[3] = {cam.targetBase.x, cam.targetBase.y, cam.targetBase.z};
     const GlueBackdropFraming framing = glueBackdropFraming(eye, at, cam.fov, aspect);
@@ -913,28 +1065,39 @@ void GlueBackdrop::View::composite() {
     // frames to spare.
     ctx->immediateSubmit([&](VkCommandBuffer cmd) {
         target->beginPass(cmd, VkClearColorValue{{0.0f, 0.0f, 0.0f, 1.0f}});
+        // beginPass sized the viewport to the whole allocation; the scene
+        // belongs in the part of it the interface will draw, so that the two
+        // are the same size and nothing is resampled on the way to the screen.
+        setUsedViewport(cmd, usedWidth(), usedHeight());
         models->render(cmd, perFrameSet, *camera);
         target->endPass(cmd);
         // The glow, from the scene that was just drawn. Inside the same submit
         // so it reads the target in the layout endPass left it in.
-        renderBloom(cmd);
+        renderGlow(cmd);
     });
     everComposited = true;
 }
 
-/// The bright parts of the scene, blurred, for the interface to lay back over.
+/// The scene's bright parts, blurred, and then the scene with them added.
 ///
-/// A pass of its own into a half-size target rather than a second pass over
-/// the scene: this renderer's off-screen pass clears on begin, so going over
-/// the scene again would throw it away, and the scene target is multisampled
-/// besides. What comes out is drawn on top by the widget renderer, and the
-/// alpha the shader writes is what makes that an addition rather than a veil.
-void GlueBackdrop::View::renderBloom(VkCommandBuffer cmd) {
+/// Two passes of their own rather than a second pass over the scene: this
+/// renderer's off-screen pass clears on begin, so going over the scene again
+/// would throw it away, and the scene target is multisampled besides. The
+/// second pass therefore writes a full-size image of its own, and that - not
+/// the scene target - is what the interface draws.
+///
+/// The alternative, handing the interface a bloom texture to lay on top, is
+/// what this replaced. An ImGui draw list has one blend state and it is an
+/// alpha blend, which replaces what it covers; adding light through it is not
+/// possible at any alpha.
+void GlueBackdrop::View::renderGlow(VkCommandBuffer cmd) {
+    glowApplied = false;
     // WOWEE_NO_GLUE_GLOW turns it off, the way WOWEE_NO_GLUE_BACKDROP turns
     // off the scene: a glow of 0.08 is subtle enough that the only way to know
     // it is doing anything is to take the same frame without it.
     if (glow <= 0.0f || std::getenv("WOWEE_NO_GLUE_GLOW") ||
-        !bloomPipeline || !bloomTarget || !bloomTarget->isValid()) {
+        !bloomPipeline || !bloomTarget || !bloomTarget->isValid() ||
+        !glowPipeline || !glowTarget || !glowTarget->isValid()) {
         return;
     }
 
@@ -955,25 +1118,38 @@ void GlueBackdrop::View::renderBloom(VkCommandBuffer cmd) {
                             0, 1, &bloomSceneSet, 0, nullptr);
 
     const VkExtent2D srcExtent = target->getExtent();
-    struct { float glow, texelX, texelY; } push{
-        glow,
+    // The scene only wrote the used sub-rect, so every tap is taken inside it.
+    struct { float texelX, texelY, uvU, uvV; } push{
         srcExtent.width  > 0 ? 1.0f / static_cast<float>(srcExtent.width)  : 0.0f,
         srcExtent.height > 0 ? 1.0f / static_cast<float>(srcExtent.height) : 0.0f,
+        usedU(), usedV(),
     };
     vkCmdPushConstants(cmd, bloomPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT,
                        0, sizeof(push), &push);
 
-    const VkExtent2D dst = bloomTarget->getExtent();
-    VkViewport vp{0.0f, 0.0f, static_cast<float>(dst.width),
-                  static_cast<float>(dst.height), 0.0f, 1.0f};
-    VkRect2D scissor{{0, 0}, dst};
-    vkCmdSetViewport(cmd, 0, 1, &vp);
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
+    setUsedViewport(cmd, std::max(1, usedWidth() / 2), std::max(1, usedHeight() / 2));
 
     // Three vertices and no vertex buffer - the fullscreen triangle the
     // post-process vertex shader builds from gl_VertexIndex.
     vkCmdDraw(cmd, 3, 1, 0, 0);
     bloomTarget->endPass(cmd);
+
+    // And the scene with it added. Same submit again, so this reads both
+    // images in the layout their own endPass left them in.
+    glowTarget->beginPass(cmd, VkClearColorValue{{0.0f, 0.0f, 0.0f, 1.0f}});
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, glowPipeline);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, glowPipelineLayout,
+                            0, 1, &glowInputSet, 0, nullptr);
+    // The bloom pass wrote the same fraction of its own half-size target as
+    // the scene did of the full-size one, so one pair of scales serves both.
+    const struct { float glow, uvU, uvV; } gpush{glow, usedU(), usedV()};
+    vkCmdPushConstants(cmd, glowPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT,
+                       0, sizeof(gpush), &gpush);
+    setUsedViewport(cmd, usedWidth(), usedHeight());
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+    glowTarget->endPass(cmd);
+
+    glowApplied = true;
 }
 
 GlueBackdrop::GlueBackdrop() = default;
@@ -1010,6 +1186,15 @@ bool GlueBackdrop::update(const GlueSceneState& scene, int width, int height,
         }
     }
 
+    // The rect the interface will draw into, which is not the target's size.
+    // A change here only re-frames the camera; the target is kept.
+    if (view_->drawWidth != width || view_->drawHeight != height) {
+        view_->drawWidth = width;
+        view_->drawHeight = height;
+        if (view_->placed) view_->frameThrough(view_->appliedCamera);
+        else view_->camera->setAspectRatio(view_->drawAspect());
+    }
+
     if (view_->loadedPath != scene.model) {
         view_->loadedPath = scene.model;
         view_->loadScene(scene.model, scene);
@@ -1024,12 +1209,20 @@ bool GlueBackdrop::update(const GlueSceneState& scene, int width, int height,
 
 uint64_t GlueBackdrop::textureId() const {
     if (!view_ || !view_->everComposited) return 0;
+    // The glow pass writes the scene with its glow already in it, so that is
+    // the picture when it ran. When it did not - no glow on this screen, or
+    // WOWEE_NO_GLUE_GLOW - the scene target is the picture and nothing else
+    // was drawn or paid for.
+    if (view_->glowApplied) return reinterpret_cast<uint64_t>(view_->glowTextureId);
     return reinterpret_cast<uint64_t>(view_->imguiTexture);
 }
 
-uint64_t GlueBackdrop::glowTextureId() const {
-    if (!view_ || !view_->everComposited || view_->glow <= 0.0f) return 0;
-    return reinterpret_cast<uint64_t>(view_->bloomTextureId);
+float GlueBackdrop::textureU1() const {
+    return view_ ? view_->usedU() : 1.0f;
+}
+
+float GlueBackdrop::textureV1() const {
+    return view_ ? view_->usedV() : 1.0f;
 }
 
 void GlueBackdrop::shutdown() {

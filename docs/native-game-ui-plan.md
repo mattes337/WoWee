@@ -447,14 +447,16 @@ regression.
 ### The glue screens' glow
 
 `SetGlow` is applied. `AccountLogin.xml` asks for `glow="0.08"` and there was
-no bloom anywhere in this renderer, so it is a pass of its own beside the
-backdrop: a bright-pass and a thirteen-tap blur into a half-size target, laid
-back over the scene by the interface. `WOWEE_NO_GLUE_GLOW` turns it off, the
-way `WOWEE_NO_GLUE_BACKDROP` turns off the scene - a glow of 0.08 is subtle
-enough that the only way to know it is doing anything is to take the same
-frame without it.
+no bloom anywhere in this renderer, so it is two passes of its own after the
+backdrop's: a bright-pass and a thirteen-tap blur into a half-size target, and
+a full-size pass that writes the scene with that added. The interface draws
+the result of the second one, so the glow is already in the picture rather
+than laid over it. `WOWEE_NO_GLUE_GLOW` turns it off, the way
+`WOWEE_NO_GLUE_BACKDROP` turns off the scene - a glow of 0.08 is subtle enough
+that the only way to know it is doing anything is to take the same frame
+without it.
 
-Three things about it were wrong first and each was caught by measuring rather
+Four things about it were wrong first and each was caught by measuring rather
 than by looking, which is worth repeating because the effect is quiet enough
 to make a broken one look like a working one:
 
@@ -464,18 +466,56 @@ to make a broken one look like a working one:
   passed almost nothing, and the pass ran every frame to produce a texture that
   was very nearly empty. It is 0.55, from that measurement.
 - **The overlay dimmed the scene instead of brightening it.** The interface
-  lays it on with an ordinary alpha blend, which replaces rather than adds -
-  `bloom*a + scene*(1-a)` - and the bloom colour was a dimmed copy of the
-  scene, so raising the glow made the picture darker. At twelve times the glow
-  the sky's mean fell from 69 to 65. What is written now is the bloom's hue at
-  full luminance with the amount in the alpha.
+  lays a texture on with an ordinary alpha blend, which replaces rather than
+  adds - `bloom*a + scene*(1-a)` - and the bloom colour was a dimmed copy of
+  the scene, so raising the glow made the picture darker. At twelve times the
+  glow the sky's mean fell from 69 to 65.
 - **A null result nearly passed for "it is just subtle".** Forcing the glow to
   forty times and *still* measuring nothing is what showed the path was broken
   rather than quiet.
+- **Then the fix for the second one was itself wrong, and shipped.** Writing
+  the bloom's hue at full luminance with the amount in the alpha does brighten
+  rather than darken, but it is still a replacement: up to a fifth of every
+  pixel the glow reached became a blurred bright copy of its surroundings.
+  Against the login sky that is invisible; against the frost wyrm standing in
+  front of it, it washed the body out and left the bright parts of the blur as
+  pale shapes over dark bone. There is no alpha that turns a blend into an
+  addition, so the addition is done in a pass of its own and the interface
+  draws its result. An ImGui draw list has one blend state; anything that has
+  to add light cannot go through it.
 
-With it right, the same frame with and without: the sky's mean moves 0.6 and
-its ninety-ninth percentile moves 8. Brightening the bright parts and leaving
-the rest alone is the shape a bloom has; a tint would have moved the mean.
+With it right, the same frame with and without: the sky's mean moves 0.5 and
+its ninety-ninth percentile moves 8, and no pixel of the scene is darker than
+it was. Brightening the bright parts and leaving the rest alone is the shape a
+bloom has; a tint would have moved the mean.
+
+The descriptor pool the passes allocate from said one set and two descriptors
+while three sets were being taken out of it. lavapipe handed them over anyway,
+which is why it worked at all; a driver that returns `VK_ERROR_OUT_OF_POOL_MEMORY`
+would have lost the glow silently on the machine it was written for.
+
+### One texel to one pixel
+
+The backdrop's target is the frame's pixel size rounded up to a multiple of 32,
+so that a window dragged by a few pixels does not rebuild the view. At 1280x720
+that is a 1280x736 image, and it was drawn into the 1280x720 rect whole: 736
+rows resampled onto 720, one row in every forty-six thrown away. In the flat
+sky that is under one level of luminance and invisible. Over the frost wyrm it
+is a set of pale bands forty-five pixels apart, and that - not the glow, and
+not the model - is what "the boxes of light are back" turned out to be.
+
+The scene, the blur and the glow now draw into the top-left `drawWidth x
+drawHeight` of their targets and the interface samples exactly that much. The
+camera is framed for the same rect: it had been framed for the allocation, so
+at 1280x720 the scene was rendered for a 1.739 aspect and shown at 1.778, two
+per cent short.
+
+Screenshots of a running client tear, and a torn frame reads as banding too -
+the wing lands twice, offset, across a horizontal line. `import -window root`
+against a client that is drawing catches two frames in one image; stopping the
+process first (`kill -STOP`, capture, `kill -CONT`) does not, and the seams go
+with it. Nine of ten still captures have no seam at all; the same ten taken
+while it ran have one each.
 
 ### Recorded and deliberately not applied
 

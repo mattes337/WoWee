@@ -258,10 +258,16 @@ void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* asset
     const int w = static_cast<int>(frame->rectW * scale);
     const int h = static_cast<int>(frame->rectH * scale);
     const bool drawn = glueBackdrop().update(*scene, w, h, assets, renderer, deltaTime);
+    // With the screen's glow already in it, where it asked for one - the glow
+    // is a pass over the scene rather than a second image laid on top, because
+    // adding light is not something the interface's draw list can be asked to
+    // do. See GlueBackdrop::textureId.
     frame->externalTexture = drawn ? glueBackdrop().textureId() : 0;
-    // And the screen's glow over it, where it asked for one. Zero for a screen
-    // that did not, which is every one but AccountLogin and RealmWizard.
-    frame->externalTextureOverlay = drawn ? glueBackdrop().glowTextureId() : 0;
+    // And only the part of it the passes wrote: the target is allocated in
+    // multiples of 32 and this frame is 1280x720, so a whole-image draw
+    // squashes 736 rows into 720 and bands the picture.
+    frame->externalTextureU1 = drawn ? glueBackdrop().textureU1() : 1.0f;
+    frame->externalTextureV1 = drawn ? glueBackdrop().textureV1() : 1.0f;
 }
 
 /// The expansion profile files built into the executable, keyed by their path

@@ -606,12 +606,14 @@ struct Widget {
     /// portrait is a live view of the character, not an image on disk. Zero
     /// means the path above is used instead.
     uint64_t externalTexture = 0;
-    /// A second image laid over externalTexture, for a glow the client renders
-    /// alongside the scene. Its own alpha decides where it shows, so the dark
-    /// parts of it add nothing - the same way additive interface art is drawn
-    /// here. Zero for the frames that have no such thing, which is all but the
-    /// glue backdrop.
-    uint64_t externalTextureOverlay = 0;
+    /// How much of that texture carries the picture. A client-rendered view is
+    /// allocated in round numbers and drawn at whatever size the frame is, and
+    /// sampling the whole image would stretch the written part over the unused
+    /// remainder - a resample that shows as banding wherever the picture has
+    /// edges. One means the whole image, which is what every view but the glue
+    /// backdrop uses.
+    float externalTextureU1 = 1.0f;
+    float externalTextureV1 = 1.0f;
 
     /// The typeface a font object named, as it wrote it. Empty means
     /// whatever the renderer is already using.

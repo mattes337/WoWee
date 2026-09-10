@@ -3049,8 +3049,9 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
 
                 // WOWEE_SCENE_DIAG=1 dumps what each backdrop batch is actually told to
                 // draw - texture, blend mode, shader path - once per scene model.
-                static int sceneDiagLines = 0;
-                if (instance.isSceneModel && sceneDiagEnabled() && sceneDiagLines++ < 40) {
+                static std::set<size_t> sceneDiagSeen;
+                if (instance.isSceneModel && sceneDiagEnabled() &&
+                    sceneDiagSeen.insert(bi).second) {
                     std::string texName = "<white>";
                     if (batch.textureIndex < gpuModel.data.textureLookup.size()) {
                         uint16_t lk = gpuModel.data.textureLookup[batch.textureIndex];
@@ -3060,7 +3061,8 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     // Warning level: the diagnostic is opt-in already, and the file log
                     // filters info out by default.
                     core::Logger::getInstance().warning(
-                        "SCENE DIAG batch submesh=", batch.submeshId,
+                        "SCENE DIAG batch bi=", bi, " submesh=", batch.submeshId,
+                        " shader=", batch.shader, " texcnt=", batch.textureCount,
                         " blend=", blendMode, " matFlags=0x", std::hex, materialFlags, std::dec,
                         " alphaTest=", matData.alphaTest,
                         " unlit=", matData.unlit,
