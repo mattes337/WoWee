@@ -1296,10 +1296,28 @@ void WidgetTree::collectDrawOrder() {
     // ARTWORK, so it lands above the box's background and border art and
     // alongside the header rather than over it - the two never overlap, the
     // insets see to that.
-    auto sortLevel = [](const Widget* w) {
-        return ((w->isStatusBar && !w->barTexture.empty()) || w->isEditBox)
-                   ? w->effLevel + 1
-                   : w->effLevel;
+    auto sortLevel = [this](const Widget* w) {
+        if ((w->isStatusBar && !w->barTexture.empty()) || w->isEditBox) {
+            return w->effLevel + 1;
+        }
+        // A region an edit box owns rides up with it, or the box's backdrop -
+        // drawn in the box's own slot, one level in - lands on top of it.
+        //
+        // The login screen's "Enter your email address" is where that showed:
+        // the placeholder is an ARTWORK region inside AccountLoginAccountEdit,
+        // the box paints UI-Tooltip-Background over its whole rect, and the
+        // draw order ran label, placeholder, box. The words were there in the
+        // right colour and simply had a dark panel painted over them, so they
+        // read as near-black rather than as the grey they are. The heading
+        // above the box was fine, because it hangs outside the box's rect.
+        //
+        // Safe against the box's own text, which sorts in the same slot: the
+        // interface never shows both. AccountLogin.xml hides the placeholder
+        // the moment the box has anything in it.
+        if (const Widget* parent = get(w->parent); parent && parent->isEditBox) {
+            return w->effLevel + 1;
+        }
+        return w->effLevel;
     };
     auto sortLayer = [](const Widget* w) {
         if (w->isEditBox) return layerRank(DrawLayer::Artwork);
