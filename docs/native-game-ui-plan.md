@@ -1,12 +1,19 @@
 # Original game UI and drop-in client plan
 
-Status, 2026-09-09. What an untouched installation now gets: wowee finds it
+Status, 2026-09-10. What an untouched installation now gets: wowee finds it
 beside its own executable, reads its archives directly, and loads the
 installation's own FrameXML, its Blizzard addons and its GlueXML out of them,
 with no extracted tree, no manifest and no environment variable. Stage 1 and
 stage 2's first bullet are done and evidenced; stage 3's first bullet is done
-and the bindings behind those screens' buttons are not; parts of stages 5 and 6
-landed alongside. Stage 4 is untouched.
+and most of the vocabulary behind those screens' buttons now exists; parts of
+stages 5 and 6 landed alongside. Stage 4 is untouched.
+
+The login screen now looks like the login screen. That sentence covers a round
+of work whose parts were each invisible on their own and are listed under
+"What the drop-in round found" below - the fonts, the version line, the
+backdrop model and its lighting, the glue music, an interface element that had
+been drawing its own HTML markup on screen, and a rule about unanchored frames
+that was hiding a label the markup never meant to hide. 200 tests pass.
 
 Every box below is ticked only where there is evidence under it, and the
 unticked ones say what is missing rather than being left blank.
@@ -218,19 +225,22 @@ realm selection, Enter World - is stage 3's work and is not there yet.
 
 - [ ] Wire original login, realm selection, connection progress, errors,
   cancellation, and disconnect dialogs to real authentication/network state.
-  The screens load and build; nothing behind their buttons is bound.
-  AccountLogin's login button calls `DefaultServerLogin`, its cancel and
-  GlueDialog's call `CancelLogin`, and neither exists - nor do `SetCurrentScreen`,
-  `PlayGlueMusic`, `StopGlueMusic`, `QuitGame`, `LaunchURL`, `StatusDialogClick`
-  or the account-list pair. The native `AuthScreen` still polls `AuthHandler`
-  state directly and would have to become an event pump for these to mean
-  anything.
+  The screens load, build and now draw correctly, and most of the vocabulary
+  exists: `DefaultServerLogin`, `CancelLogin`, `SetCurrentScreen`, `QuitGame`,
+  `StatusDialogClick`, the account-name and account-list pairs, `PlayGlueMusic`
+  and `PlayGlueAmbience`. `StopGlueMusic` and `LaunchURL` are still absent -
+  the second is what Manage Account and Community Site call. The native
+  `AuthScreen` still polls `AuthHandler` state directly and would have to
+  become an event pump before a login started from these screens could report
+  its own progress.
 - [ ] Wire character list, selection, preview models, creation/customization,
   deletion confirmation, addon selection, and Enter World to real client state.
-  `GetNumCharacters` and the two model-frame setters are bound;
-  `SetCharSelectModelFrame` and `SetCharCustomizeFrame` record which frame was
-  asked for and nothing draws into it yet. The character list, Enter World,
-  creation and customization are unbound.
+  `GetNumCharacters` and the two model-frame setters are bound, and something
+  draws into them now: the recorded frame gets a rendered scene, framed by the
+  model's own embedded camera. Only the login case has been seen working -
+  character select and character create share the wiring and are unverified,
+  because no auth server was reachable. The character list, Enter World,
+  creation and customization are still unbound.
 - [ ] Render installation-provided loading art and progress through the native
   loading mechanism where the original files do not define a Lua/XML screen.
 - [ ] Verify return journeys: failed login, cancelled connection, failed world
@@ -315,6 +325,144 @@ restart, and save their state without modifying the original client's files.
   Record build, locale, patch set, and server fixture for each run. Completion
   requires all four profiles to pass, not just the first working installation.
 
+## What the drop-in round found
+
+Twenty-three commits, `6135a773f..2a486538f`. Recorded because most of these
+were invisible until something else was fixed, and the order they surfaced in
+is the useful part.
+
+### Faults that hid behind other faults
+
+- **The interface fonts were never read.** `loadInterfaceFont` walked the disk
+  for a fonts directory and returned when it found none - and the archive
+  fallback it has sits *below* that return, so it ran only when it was not
+  needed. A drop-in installation extracts nothing, so every face is inside the
+  MPQs and the whole original interface drew in ImGui's built-in face. The
+  harness had reported five faces of five the whole time, because it asks the
+  archives first and never walks.
+- **`GetBoundsRect` did not exist, and two more faults were hiding behind it.**
+  `GlueDialog.lua` asks an HTML block how tall its text came out; the call
+  raised, `GlueDialog_Show` stopped there, and no dialog on the glue screens
+  could appear. Implementing it revealed the login screen's
+  system-requirements notice, raised on every machine because
+  `IsSystemSupported` was missing and read false, and the fact that a
+  SimpleHTML frame drew its own markup - `<html><body><p align="CENTER">` on
+  screen, in front of the player.
+- **`GetBuildInfo`'s first two values were swapped and both wrong.** The screen
+  read `Release 3.3.5a (12340) (0)`; the original reads
+  `Version 3.3.5 (12340) (Release)`. 3.3.5a's `WoW.exe` carries `"VERSION"`
+  and `"RELEASE_BUILD"` beside `"3.3.5"`, `"12340"` and `"Jun 24 2010"` in one
+  literal pool, and GlueStrings defines them as "Version" and "Release" - the
+  client resolves both through its own string table before handing them to Lua.
+- **`.mdx` meant nothing.** `AccountLogin_OnLoad`'s
+  `SetModel("...UI_MainMenu_Northrend.mdx")` is the only statement of what the
+  login screen looks like. Taking that extension at its word left the screen
+  black with one line in the log to say why. `.mdx` means `.m2`, the way `.tga`
+  already meant `.blp` here.
+
+### Rules that were right and applied too widely
+
+- **An unanchored frame is not displayed - but its descendants may still be.**
+  The rule was propagating to every child, including regions anchored to
+  something outside that frame, which do have a position. `AccountLogin.xml`
+  wraps "Remember Account Name" in an anonymous `<Frame>` with no anchors and
+  no size, purely to have a layer, and anchors the font string to
+  `AccountLoginLoginButton`. Fifty-nine such frames exist across GlueXML and
+  FrameXML; the ones whose regions anchor to `$parentTitle` must stay hidden,
+  and do.
+- **A button's regions were built in the emitter's slot order, not the
+  markup's.** `RealmSortButtonTemplate` declares its `<ButtonText>` and then a
+  `$parentArrow` anchored to it, so the arrow was anchored to a font string
+  that did not exist yet. Within-layer order is byte-identical across all 39
+  affected files; only cross-layer interleaving moved, and layers are drawn in
+  a fixed order.
+
+### Markup nobody was reading
+
+`ModelFFX` - the declared type of five glue screens - was an unknown element,
+so every one of them was built from no type and no template. Read as a Model,
+its `fogNear`, `fogFar`, `glow` and `<FogColor>` become calls, and a model's
+`file=` is read for the first time (`PatchDownload` names its model there and
+nowhere else). Also newly read: `<TextInsets>` (every edit box in the interface
+drew its caret on top of its own left border), `<Gradient>` (the credits
+scroll's fade masks drew as opaque slabs over the names they exist to fade),
+`<FontStringHeader1..3>`, and a SimpleHTML's `spacing` and `hyperlinkFormat`.
+
+### The harness was lying, twice
+
+`framexml_run` reported all fourteen glue model methods as no-ops against a
+client where they were not, because the installer that puts them on the frame
+metatable lives in `application.cpp` and the harness never called it. It also
+ignored loose interface files entirely. Both are fixed. A harness that quietly
+reads a different interface than the client is worse than no harness: it exists
+so that a gap it reports can be believed.
+
+### Loose interface files
+
+The original client prefers `<install>/Interface/...` over its archives - that
+is how every interface edit anyone has ever made takes effect - and this client
+looked only under `Data/`. The rule now sits at the single point every
+interface path passes through, because a manifest directory only decides where
+its own listed files are looked for: everything those files then name (a
+`<Script>`, an `<Include>`) is resolved relative to wherever the file that
+named it was read from, so an XML that came out of an archive asked the archive
+for its Lua and never looked on disk.
+
+Note for anyone testing this against the WotLK installation here: its
+`Interface/GlueXML/AccountLogin.lua` is a screenshot-capture stub that hides
+the whole login UI and keeps only the background model. It is honoured now, by
+both the client and the harness, so a run against that installation shows the
+Icecrown scene with no widgets on it. That is correct behaviour, not a
+regression.
+
+### Corrections to earlier notes
+
+- `Origin` and `RelOrigin` are not a gap. A scan that counted 283 uses had
+  swept `Interface/LCDXML/`, the Logitech G15 keyboard layouts, which nothing
+  loads. Restricted to FrameXML and GlueXML the unknown-element list was nine.
+- Two reported faults were misdiagnoses, and were checked rather than taken.
+  The glue dialog *does* occlude the login fields behind it - the draw order
+  puts it after them, and an A/B of the same frame with and without the dialog
+  shows those pixels change; what is left is `UI-DialogBox-Background`'s own
+  alpha, which is translucent in the original too. And the Okay button does not
+  overlap a tall notice, because the buttons anchor to `GlueDialogBackground`,
+  which `GlueDialog.lua` sizes from the now-correct `GetBoundsRect`.
+- A single-file Docker bind mount is not a valid way to test loose-file
+  precedence here. Docker mounts by exact path string while the host filesystem
+  is case-insensitive, so a lookup through different casing reaches the
+  underlying file rather than the mount. Mount the directory instead.
+
+### Recorded and deliberately not applied
+
+- **`SetGlow`.** `AccountLogin.xml` asks for `glow="0.08"` and there is no
+  bloom in this renderer at all - no bright-pass, no blur, nothing in
+  `post_process_pipeline`. Folding it into the ambient colour would brighten
+  lit surfaces rather than bloom the scene, and a wrong effect wearing the
+  right name is worse than a missing one. It needs a real post-process stage.
+- **`SetSequenceTime`.** Nothing here can seek an animation. Its only caller in
+  the whole interface is SecurityMatrix's sparkle, which this client does not
+  draw.
+- **The glue audio is unverified.** `PlayGlueMusic` resolves `GS_LichKing` to
+  `Sound\Music\GlueScreenMusic\WotLK_main_title.mp3` and its 10,883,817 bytes
+  are read from the archives and accepted by the decoder; `PlayGlueAmbience`
+  resolves `GlueScreenIntro` to `GlueScreenLogin.wav`, 5,380,244 bytes,
+  measured at 61 seconds. Nothing has been listened to - the machine this was
+  built and run on has no sound device. Whether any of it is audible, at what
+  volume, and whether the four-second fade and the 61-second re-trigger sound
+  right are all open.
+- **The authored fog was never seen on screen.** The one glue screen reachable
+  here clears its fog: death knights have no `CharModelFogInfo` row, so
+  `SetLighting` reaches `ClearFog`. `PatchDownload` and `TrialConvert` declare a
+  0-1200 range and cannot be brought up from here; only the arithmetic is
+  unit-tested.
+
+### Still no Windows binary
+
+Everything above was built and run on Linux, in Docker, under Xvfb with
+lavapipe software Vulkan. Nothing in this tree has ever been compiled for
+Windows in this session, so `wowee.exe` remains a stage 6 item rather than a
+thing that exists. Stage 6's clean-machine acceptance is untouched.
+
 ## Implementation and evidence rules
 
 - Begin with archive-backed UI loading and GlueXML, then complete FrameXML
@@ -335,9 +483,11 @@ remains open until it is run against real installations and recorded here.
 
 What is left, in the order it unblocks the rest:
 
-1. The glue vocabulary (stage 3). `DefaultServerLogin`, `CancelLogin`, the
-   realm list, the character list, Enter World, creation and customization.
-   Until these exist `WOWEE_LOAD_GLUEXML` is a screen you cannot log in from.
+1. The glue vocabulary (stage 3). `DefaultServerLogin` and `CancelLogin` now
+   exist; the realm list, the character list, Enter World, creation and
+   customization do not, and neither does `LaunchURL`. Until they do,
+   `WOWEE_LOAD_GLUEXML` is a screen that looks right and cannot yet be logged
+   in from.
 2. The glue and world lifecycle (stage 2). World entry has to tear glue down
    and logout has to build it again, and the native screens have to stop
    drawing underneath.
