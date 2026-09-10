@@ -2007,6 +2007,19 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                              ImVec2(x0, y0), ImVec2(x1, y1),
                              ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f),
                              packColor(w->color, w->alpha));
+                // The scene's glow over the scene. Its alpha is the bloom's
+                // own brightness, so this adds light where there was light and
+                // leaves the dark sky alone - the same reason additive art is
+                // drawn through alpha here rather than through a blend mode
+                // this draw list cannot be asked for.
+                if (w->externalTextureOverlay != 0) {
+                    // NOLINTNEXTLINE(performance-no-int-to-ptr) - as above.
+                    dl->AddImage(reinterpret_cast<ImTextureID>(
+                                     reinterpret_cast<VkDescriptorSet>(w->externalTextureOverlay)),
+                                 ImVec2(x0, y0), ImVec2(x1, y1),
+                                 ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f),
+                                 packColor(w->color, w->alpha));
+                }
             }
             // With the frame's own scale in it: a backdrop's insets and edge
             // size are in the frame's units, the same as a font height, and a

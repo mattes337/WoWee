@@ -247,7 +247,8 @@ struct GlueSceneState {
     float fogStart = 0.0f;
     float fogEnd = 0.0f;
     float fogColor[3] = {0.0f, 0.0f, 0.0f};
-    /// SetGlow. Recorded and not applied - see the note on GlueBackdrop.
+    /// SetGlow: how strongly the scene's bright parts bloom. AccountLogin
+    /// says 0.08. Applied as a pass of its own - see GlueBackdrop::glowTextureId.
     float glow = 0.0f;
     /// The background light set, which is the one the scene itself is lit by.
     /// The character and pet sets are recorded beside it in the Lua state and
@@ -405,13 +406,9 @@ public:
     /// stays unplaced rather than being put somewhere that happens to look
     /// right on one screen.
     ///
-    /// Two things the scene carries are recorded and not applied, and are
-    /// named here rather than left to be discovered:
+    /// One thing the scene carries is recorded and not applied, and is named
+    /// here rather than left to be discovered:
     ///
-    ///  * `glow`. The model shader has no glow term. It could be added to the
-    ///    ambient colour, which is not what glow is - it would brighten the
-    ///    lit surfaces of the scene rather than make it bloom - and a wrong
-    ///    effect wearing the right name is worse than a missing one.
     ///  * `sequenceTimeMs`. Nothing here can seek an animation; the renderer
     ///    plays them and reads the clock back but does not take one. The only
     ///    caller in the whole interface is SecurityMatrix's sparkle, which
@@ -424,6 +421,12 @@ public:
     /// VkDescriptorSet carried as an integer, for the same reason
     /// UnitPortrait::textureId is.
     [[nodiscard]] uint64_t textureId() const;
+
+    /// The scene's glow, as a texture to be drawn over it, or zero when the
+    /// screen asked for none. Its alpha carries the bloom's own brightness, so
+    /// laying it over the scene adds light where there was light and leaves
+    /// the dark alone.
+    [[nodiscard]] uint64_t glowTextureId() const;
 
     /// Give the GPU resources back. Must run while the device is still alive,
     /// which is why it is a call and not the destructor's business.

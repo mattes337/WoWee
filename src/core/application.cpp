@@ -257,10 +257,11 @@ void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* asset
     const float scale = widgets.uiScale();
     const int w = static_cast<int>(frame->rectW * scale);
     const int h = static_cast<int>(frame->rectH * scale);
-    frame->externalTexture =
-        glueBackdrop().update(*scene, w, h, assets, renderer, deltaTime)
-            ? glueBackdrop().textureId()
-            : 0;
+    const bool drawn = glueBackdrop().update(*scene, w, h, assets, renderer, deltaTime);
+    frame->externalTexture = drawn ? glueBackdrop().textureId() : 0;
+    // And the screen's glow over it, where it asked for one. Zero for a screen
+    // that did not, which is every one but AccountLogin and RealmWizard.
+    frame->externalTextureOverlay = drawn ? glueBackdrop().glowTextureId() : 0;
 }
 
 /// The expansion profile files built into the executable, keyed by their path

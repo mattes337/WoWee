@@ -31,6 +31,8 @@ Makefile
 *.spv
 !assets/shaders/footprint.vert.spv
 !assets/shaders/footprint.frag.spv
+!assets/shaders/glue_bloom.vert.spv
+!assets/shaders/glue_bloom.frag.spv
 
 # Compiled Dynamic libraries
 *.so

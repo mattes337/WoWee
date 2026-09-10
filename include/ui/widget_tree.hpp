@@ -606,6 +606,12 @@ struct Widget {
     /// portrait is a live view of the character, not an image on disk. Zero
     /// means the path above is used instead.
     uint64_t externalTexture = 0;
+    /// A second image laid over externalTexture, for a glow the client renders
+    /// alongside the scene. Its own alpha decides where it shows, so the dark
+    /// parts of it add nothing - the same way additive interface art is drawn
+    /// here. Zero for the frames that have no such thing, which is all but the
+    /// glue backdrop.
+    uint64_t externalTextureOverlay = 0;
 
     /// The typeface a font object named, as it wrote it. Empty means
     /// whatever the renderer is already using.
