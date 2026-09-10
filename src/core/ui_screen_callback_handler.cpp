@@ -42,6 +42,18 @@ void UIScreenCallbackHandler::setupCallbacks() {
             glueLoginActive_ = false;
             LOG_INFO("Glue login authenticated, transitioning to realm selection");
             setState_(AppState::REALM_SELECTION);
+            // And ask for the realm list, which nothing else will.
+            //
+            // This client's own realm screen requests it from its render, so a
+            // login started there is carried the rest of the way by the screen
+            // that started it. The original glue screens do not render that
+            // one, and the list is not something the player asks for either -
+            // RealmList.lua opens its frame when OPEN_REALM_LIST arrives, and
+            // that event is fired here when realms turn up. With nobody
+            // requesting them none ever turned up, so a glue login
+            // authenticated and then sat on "Retrieving realm list" for as
+            // long as it was left there.
+            authHandler_.requestRealmList();
         }
     });
 
