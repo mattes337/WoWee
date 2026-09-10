@@ -3837,7 +3837,61 @@ int lua_FontString_SetTextColor(lua_State* L) {
     return 0;
 }
 
+/// Which of a SimpleHTML's per-element fonts a name picks out, or -1 for the
+/// body.
+///
+/// "p" is the body and so is anything this does not model, which is the
+/// forgiving reading: an element nobody implemented drawing in the body font is
+/// right far more often than dropping the call.
+static int htmlElementIndex(const char* name) {
+    if (!name) return -1;
+    if ((name[0] == 'h' || name[0] == 'H') && name[1] >= '1' && name[1] <= '3' &&
+        name[2] == '\0') {
+        return name[1] - '1';
+    }
+    return -1;
+}
+
+/// Whether a string names the body element, which is the one remaining
+/// spelling WoW defines: SetFontObject("p", ...) is the paragraph font, and the
+/// paragraph font is the frame's own.
+///
+/// Asked separately from htmlElementIndex because "not a heading" and "not an
+/// element at all" are different questions. A call that arrives with three
+/// arguments whose first is neither is the body form with something trailing
+/// it, and reading that as the element form would throw the font object away
+/// and set nothing.
+static bool htmlBodyElement(const char* name) {
+    return name && (name[0] == 'p' || name[0] == 'P') && name[1] == '\0';
+}
+
 int lua_FontString_SetFont(lua_State* L) {
+    // SimpleHTML:SetFont("h1", file, height, flags) - the same call with an
+    // element in front of it.
+    //
+    // Argument count cannot tell the two apart: SetFont("h1", file, 14) and
+    // SetFont(file, 14, "OUTLINE") both arrive with three. What separates them
+    // is that the body form's second argument is the height and the element
+    // form's is a file name, so the type of that argument is the honest
+    // question - and a height is never written as a string in FrameXML.
+    if (lua_gettop(L) >= 4 && lua_type(L, 2) == LUA_TSTRING &&
+        lua_type(L, 3) == LUA_TSTRING && !lua_isnumber(L, 3)) {
+        auto* w = widgetOf(L, 1);
+        const char* named = lua_tostring(L, 2);
+        const int element = htmlElementIndex(named);
+        if (w && element >= 0) {
+            wowee::ui::Widget::HtmlFont& hf = w->htmlFonts[element];
+            hf.set = true;
+            hf.face = lua_tostring(L, 3);
+            hf.objectName.clear();
+            const double h = luaL_optnumber(L, 4, 0.0);
+            if (h > 0.0) hf.height = static_cast<float>(h);
+            return 0;
+        }
+        // "p" is the body, which is the frame itself. Shifted along so the
+        // body path reads its own arguments.
+        if (htmlBodyElement(named)) lua_remove(L, 2);
+    }
     if (auto* w = widgetOf(L, 1)) {
         if (lua_isstring(L, 2)) w->fontFace = lua_tostring(L, 2);
         // The flags argument, where "OUTLINE" and "THICKOUTLINE" arrive.
@@ -3876,6 +3930,21 @@ int lua_FontString_SetFont(lua_State* L) {
 /// the emitter already fixed.
 int lua_FontString_GetFont(lua_State* L) {
     const auto* w = widgetOf(L, 1);
+    // SimpleHTML:GetFont("h1"), which reports the heading's own type where one
+    // was set and the body's where it was not - the same fallback the drawing
+    // side uses, so the two cannot disagree.
+    if (w && lua_gettop(L) >= 2 && lua_type(L, 2) == LUA_TSTRING) {
+        const int element = htmlElementIndex(lua_tostring(L, 2));
+        if (element >= 0) {
+            const auto& hf = w->htmlFonts[element];
+            const std::string& face = hf.face.empty() ? w->fontFace : hf.face;
+            lua_pushstring(L, face.empty() ? "Fonts\\FRIZQT__.TTF" : face.c_str());
+            lua_pushnumber(L, wowee::ui::interfaceFontSize(
+                                  hf.height > 0.0f ? hf.height : w->fontHeight));
+            lua_pushstring(L, w->fontOutline.empty() ? "" : w->fontOutline.c_str());
+            return 3;
+        }
+    }
     lua_pushstring(L, (w && !w->fontFace.empty()) ? w->fontFace.c_str()
                                                   : "Fonts\\FRIZQT__.TTF");
     lua_pushnumber(L, wowee::ui::interfaceFontSize(w ? w->fontHeight : 0.0f));
@@ -3885,15 +3954,45 @@ int lua_FontString_GetFont(lua_State* L) {
 
 /// Extra space between wrapped lines. Zero unless set, and a number either
 /// way: WorldMapFrame adds it to a font height on the line after asking.
+///
+/// GetSpacing("h1") is the same question about one of a SimpleHTML's heading
+/// elements. Told from the body form by how many arguments arrived rather than
+/// by what the first one looks like - see SetSpacing below.
 int lua_FontString_GetSpacing(lua_State* L) {
     const auto* w = widgetOf(L, 1);
+    if (w && lua_gettop(L) >= 2 && lua_type(L, 2) == LUA_TSTRING) {
+        const int element = htmlElementIndex(lua_tostring(L, 2));
+        lua_pushnumber(L, element >= 0 ? w->htmlFonts[element].spacing
+                                       : w->lineSpacing);
+        return 1;
+    }
     lua_pushnumber(L, w ? w->lineSpacing : 0.0);
     return 1;
 }
 
+/// SetSpacing([element,] spacing).
+///
+/// The element is optional and names one of a SimpleHTML's heading fonts:
+/// GlueDialog.xml declares <FontStringHeader1 inherits="GlueFontNormalLarge"
+/// spacing="4"/> and the emitter writes that out as SetSpacing("h1", 4). Every
+/// FontString in the interface uses the one-argument form and it has to keep
+/// working, so the two are told apart by how many arguments arrived - not by
+/// the value of the first, which in the body form is the spacing itself.
+///
+/// Until this took the element form the emitted call fell through to the
+/// no-op, which is the "missing API called: noop:SetSpacing" the login screen
+/// reported.
 int lua_FontString_SetSpacing(lua_State* L) {
-    if (auto* w = widgetOf(L, 1))
-        w->lineSpacing = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    if (lua_gettop(L) >= 3 && lua_type(L, 2) == LUA_TSTRING) {
+        const int element = htmlElementIndex(lua_tostring(L, 2));
+        const float value = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+        if (element >= 0) w->htmlFonts[element].spacing = value;
+        else              w->lineSpacing = value;
+        return 0;
+    }
+    w->lineSpacing = static_cast<float>(luaL_optnumber(L, 2, 0.0));
     return 0;
 }
 
@@ -4003,7 +4102,43 @@ int lua_FontString_SetTextHeight(lua_State* L) {
     }
     return 0;
 }
+/// A font object read onto one of a SimpleHTML's heading elements.
+///
+/// Through applyFontObject and a throwaway widget rather than by unpacking the
+/// object a second time here: two readers of the same table drift, and what a
+/// font object carries - the face, the height, the colour - has already been
+/// got wrong once on this path.
+static void applyHtmlElementFont(lua_State* L, int fontIndex,
+                                 wowee::ui::Widget::HtmlFont& out) {
+    wowee::ui::Widget probe;
+    applyFontObject(L, fontIndex, &probe);
+    out.set = true;
+    out.face = probe.fontFace;
+    out.objectName = probe.fontObjectName;
+    out.height = probe.fontHeight;
+    for (int i = 0; i < 4; ++i) out.color[i] = probe.color[i];
+}
+
 int lua_FontString_SetFontObject(lua_State* L) {
+    // SimpleHTML:SetFontObject("h1", "GlueFontNormalLarge") - the same call
+    // with the element it applies to in front of it.
+    //
+    // By argument count, not by what the first argument says: "h1" and
+    // "GameFontNormal" are both strings, and the one-argument form is what
+    // every FontString in the interface uses. Sniffing the name would have to
+    // be right about one it has never seen.
+    if (lua_gettop(L) >= 3 && lua_type(L, 2) == LUA_TSTRING) {
+        auto* html = widgetOf(L, 1);
+        const char* named = lua_tostring(L, 2);
+        const int element = htmlElementIndex(named);
+        if (html && element >= 0) {
+            applyHtmlElementFont(L, 3, html->htmlFonts[element]);
+            return 0;
+        }
+        // "p" is the body, which is the frame itself and is what the rest of
+        // this function already handles.
+        if (htmlBodyElement(named)) lua_remove(L, 2);
+    }
     // On a button this is the label's font, the same redirect SetTextColor
     // makes; on an edit box or a message frame there is no label and the font
     // belongs to the frame itself, which is what draws the text.
@@ -4035,7 +4170,18 @@ int lua_FontString_SetFontObject(lua_State* L) {
 /// answer there: it is what the real client says too.
 int lua_FontString_GetFontObject(lua_State* L) {
     const auto* w = widgetOf(L, 1);
-    if (!w || w->fontObjectName.empty()) { lua_pushnil(L); return 1; }
+    if (!w) { lua_pushnil(L); return 1; }
+    // GetFontObject("h1") on a SimpleHTML, the getter beside the setter above.
+    if (lua_gettop(L) >= 2 && lua_type(L, 2) == LUA_TSTRING) {
+        const int element = htmlElementIndex(lua_tostring(L, 2));
+        if (element >= 0) {
+            const std::string& name = w->htmlFonts[element].objectName;
+            if (name.empty()) lua_pushnil(L);
+            else              lua_getglobal(L, name.c_str());
+            return 1;
+        }
+    }
+    if (w->fontObjectName.empty()) { lua_pushnil(L); return 1; }
     lua_getglobal(L, w->fontObjectName.c_str());
     return 1;
 }
@@ -6151,6 +6297,14 @@ void LuaEngine::registerCoreAPI() {
         // setting it is all that was missing.
         {"GetFont",         lua_FontString_GetFont},
         {"SetFont",         lua_FontString_SetFont},
+        // And the line spacing beside them, which a frame that draws its own
+        // text needs for the same reason. A SimpleHTML is told its heading
+        // spacing this way - SetSpacing("h1", 4) out of <FontStringHeader1
+        // spacing="4"/> - and with the pair registered only on font strings
+        // that call reached the no-op, which is what the login screen reported
+        // as "missing API called: noop:SetSpacing".
+        {"GetSpacing",      lua_FontString_GetSpacing},
+        {"SetSpacing",      lua_FontString_SetSpacing},
         {"SetTalent",       lua_Tooltip_SetTalent},
         {"SetAuctionItem",  lua_Tooltip_SetAuctionItem},
         {"_WoweeAppendItemEnchants", lua_Tooltip_AppendItemEnchants},
@@ -6984,7 +7138,8 @@ void LuaEngine::registerCoreAPI() {
         "GetNumChildren=1,GetNumMessages=1,GetNumPoints=1,GetNumTooltips=1,\n"
         "GetObjectType=1,GetParent=1,GetPoint=1,GetPushedTexture=1,GetRect=1,\n"
         "GetRegionParent=1,GetRegions=1,GetRight=1,GetScale=1,GetScript=1,\n"
-        "GetScrollChild=1,GetSize=1,GetSpacing=1,\n"
+        // GetSpacing is a real binding now, applied after this set.
+        "GetScrollChild=1,GetSize=1,\n"
         "GetStringHeight=1,GetStringWidth=1,GetTexCoord=1,GetText=1,\n"
         "GetTextHeight=1,GetTexture=1,GetTextWidth=1,GetTooltipIndex=1,GetTop=1,\n"
         // GetUTF8CursorPosition is a real binding now, applied after this set.
@@ -7035,7 +7190,8 @@ void LuaEngine::registerCoreAPI() {
         "SetScrollChild=1,SetSelection=1,SetSequence=1,\n"
         // SetShadowOffset is a real binding now, applied after this set.
         "SetSequenceTime=1,SetShown=1,SetSize=1,\n"
-        "SetSpacing=1,SetSpell=1,SetSpellByID=1,SetStartDelay=1,SetStatusBarColor=1,\n"
+        // SetSpacing is a real binding now, applied after this set.
+        "SetSpell=1,SetSpellByID=1,SetStartDelay=1,SetStatusBarColor=1,\n"
         // Tooltip setters for things this client cannot describe yet. They
         // belong here rather than nowhere: a name the metatable does not answer
         // comes back nil, and GameTooltip:SetTalent(...) on nil is "attempt to
