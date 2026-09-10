@@ -508,6 +508,19 @@ function(compile_shaders TARGET_NAME)
     file(GLOB GLSL_SOURCES "${SHADER_DIR}/*.glsl")
     set(SPV_OUTPUTS)
 
+    # A .glsl whose name carries no stage is an include rather than a shader -
+    # shadow_common.glsl, fog.glsl and the rest that the lit shaders pull in.
+    # They compile to nothing of their own and every shader depends on all of
+    # them, which is coarse and costs nothing: there are five of them and they
+    # change once a phase.
+    set(SHADER_INCLUDES)
+    foreach(GLSL_FILE ${GLSL_SOURCES})
+        get_filename_component(FILE_NAME ${GLSL_FILE} NAME)
+        if(NOT FILE_NAME MATCHES "\\.(vert|frag|comp|geom)\\.glsl$")
+            list(APPEND SHADER_INCLUDES ${GLSL_FILE})
+        endif()
+    endforeach()
+
     foreach(GLSL_FILE ${GLSL_SOURCES})
         get_filename_component(FILE_NAME ${GLSL_FILE} NAME)
         # e.g. skybox.vert.glsl -> skybox.vert.spv
@@ -524,14 +537,14 @@ function(compile_shaders TARGET_NAME)
         elseif(FILE_NAME MATCHES "\\.geom\\.glsl$")
             set(SHADER_STAGE geometry)
         else()
-            message(WARNING "Cannot determine shader stage for: ${FILE_NAME}")
+            # An include. Nothing to compile, and nothing to warn about.
             continue()
         endif()
 
         add_custom_command(
             OUTPUT ${SPV_FILE}
-            COMMAND ${GLSLC} -fshader-stage=${SHADER_STAGE} -O ${GLSL_FILE} -o ${SPV_FILE}
-            DEPENDS ${GLSL_FILE}
+            COMMAND ${GLSLC} -fshader-stage=${SHADER_STAGE} -I ${SHADER_DIR} -O ${GLSL_FILE} -o ${SPV_FILE}
+            DEPENDS ${GLSL_FILE} ${SHADER_INCLUDES}
             COMMENT "Compiling SPIR-V: ${FILE_NAME} -> ${SPV_NAME}"
             VERBATIM
         )
@@ -980,6 +993,11 @@ set(WOWEE_SOURCES
     src/rendering/vk_buffer.cpp
     src/rendering/vk_pipeline.cpp
     src/rendering/vk_render_target.cpp
+    # Which settings this GPU cannot honour, from RenderCaps. Its own file so
+    # render_caps.hpp stays free of the settings schema and settings_schema.cpp
+    # stays free of Vulkan.
+    src/rendering/render_caps_settings.cpp
+    src/rendering/shader_features.cpp
 
     # Rendering
     src/rendering/renderer.cpp
@@ -2409,6 +2427,8 @@ add_executable(wowee_editor
     src/rendering/vk_texture.cpp
     src/rendering/vk_buffer.cpp
     src/rendering/vk_pipeline.cpp
+    src/rendering/render_caps_settings.cpp
+    src/rendering/shader_features.cpp
     src/rendering/camera.cpp
     src/rendering/terrain_renderer.cpp
     src/rendering/shadow_params.cpp

@@ -15,6 +15,7 @@
  * the original WoW Model Viewer (charcontrol.h, REGION_FAC=2).
  */
 #include <atomic>
+#include "rendering/shader_features.hpp"
 #include "rendering/character_renderer.hpp"
 #include "rendering/pom_quality.hpp"
 #include "rendering/shadow_params.hpp"
@@ -307,6 +308,10 @@ void CharacterRenderer::buildMainPassPipelines(VkDevice device, VkRenderPass mai
     };
 
     // --- Build pipelines ---
+    // The variant of the lit shaders this session's settings ask for. Held
+    // across the builds below: VkSpecializationInfo points at this object's
+    // arrays and the pipeline is created before build() returns.
+    const ShaderSpecialization spec(activeShaderFeatures());
     auto buildCharPipeline = [&](VkPipelineColorBlendAttachmentState blendState,
                                   bool depthWrite, bool alphaToCoverage = false) -> VkPipeline {
         auto builder = PipelineBuilder()
@@ -318,6 +323,7 @@ void CharacterRenderer::buildMainPassPipelines(VkDevice device, VkRenderPass mai
             .setDepthTest(true, depthWrite, VK_COMPARE_OP_LESS)
             .setDepthBias(0.0f, 0.0f)
             .setColorBlendAttachment(blendState)
+            .setSpecialization(spec.info())
             .setMultisample(samples);
         if (alphaToCoverage)
             builder.setAlphaToCoverage(true);

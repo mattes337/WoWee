@@ -436,6 +436,47 @@ if(Python3_Interpreter_FOUND)
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/sweep_guard.py)
 endif()
 
+# ── shader_offpath_identity ──────────────────────────────────────
+# The rule the whole modern-rendering plan stands on: a technique switched off
+# leaves the frame exactly as it was (docs/plan-modern-rendering.md §6.3).
+# Every toggle from phase 01 on is a specialization constant whose default is
+# the old behaviour, so an unspecialized pipeline is the shader that shipped.
+# This compiles the archived pre-phase source and the current one, freezes the
+# constants at their defaults, and compares what the two actually compute.
+#
+# Also inside sweep_guard, which is where the ceiling lives; here as well
+# because this one names the shader and prints the instructions that moved,
+# and because it is the check most likely to fire during a phase rather than
+# after one. Skips where the Vulkan SDK is not installed. A second or two.
+if(Python3_Interpreter_FOUND)
+    add_test(NAME shader_offpath_identity
+             COMMAND ${Python3_EXECUTABLE}
+                     ${CMAKE_SOURCE_DIR}/tools/shader_offpath_check.py)
+endif()
+
+# ── reserved_code ───────────────────────────────────────────────
+# Plumbing one phase wrote for a later one, when the later one has shipped
+# without using it (§7.3). A field bound to a zero-filled buffer in a struct
+# seventeen shaders mirror, that nobody remembers the reason for, is the exact
+# thing the marker exists to prevent becoming permanent. Instant.
+if(Python3_Interpreter_FOUND)
+    add_test(NAME reserved_code
+             COMMAND ${Python3_EXECUTABLE}
+                     ${CMAKE_SOURCE_DIR}/tools/reserved_code_check.py)
+endif()
+
+# ── shader_features_agree ───────────────────────────────────────
+# A specialization constant is a number on both sides and a name on neither:
+# the GLSL declares `constant_id = 17` and the header says `ShadowFilter = 17`,
+# and Vulkan silently ignores a map entry naming an id the module does not
+# declare. An id typed wrong in one of the two is a setting that saves, reads
+# back and changes nothing. Instant, and needs no toolchain.
+if(Python3_Interpreter_FOUND)
+    add_test(NAME shader_features_agree
+             COMMAND ${Python3_EXECUTABLE}
+                     ${CMAKE_SOURCE_DIR}/tools/shader_feature_check.py)
+endif()
+
 # ── unicorn_stub_compiles ────────────────────────────────────────
 # Unicorn is optional and every build here has it, so the stub branch the
 # Warden emulator falls back to compiles in no configuration anyone runs. It
@@ -1045,6 +1086,17 @@ register_test_target(test_blp_alpha_scan)
 wowee_add_test(test_frustum
     SOURCES test_frustum.cpp
             ${CMAKE_SOURCE_DIR}/src/rendering/frustum.cpp)
+
+# ── test_height_fog ─────────────────────────────────────────────
+# The exponential height fog is calibrated against the linear ramp it replaces,
+# because every zone in the game was authored against that ramp: the distance
+# the horizon disappears at is art, off Light.dbc. These pin the calibration -
+# the horizon does not move, a shorter fog end thickens rather than shortens,
+# the valley is thick and the ridge is clear - and the two numerical traps in
+# the closed form, a level ray dividing by zero and a camera far below the base
+# exponentiating to infinity. Header-only; instant.
+wowee_add_test(test_height_fog
+    SOURCES test_height_fog.cpp)
 
 # ── test_packed_time ─────────────────────────────────────────
 # Header-only domain logic: the one uint32 that carries a whole date, which

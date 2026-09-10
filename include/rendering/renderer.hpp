@@ -352,8 +352,31 @@ public:
 
     void setWaterRefractionEnabled(bool enabled);
 
+    /// 0 = the linear start/end ramp the client has always had, 1 = exponential
+    /// height fog with aerial perspective.
+    ///
+    /// The model is a specialization constant, so changing it means rebuilding
+    /// the four lit renderers' pipelines. That is queued for between frames,
+    /// exactly as an MSAA change is: destroying a pipeline a recorded command
+    /// buffer still names is how this renderer has lost a device before.
+    void setFogModel(int model);
+    [[nodiscard]] int getFogModel() const { return fogModel_; }
+
+    /// How strongly the fog carries the sun's colour when looking toward it.
+    /// Live: it is a per-frame value, not a variant.
+    void setFogAerialStrength(float strength) {
+        fogAerialStrength_ = glm::clamp(strength, 0.0f, 1.0f);
+    }
+    [[nodiscard]] float getFogAerialStrength() const { return fogAerialStrength_; }
+
 private:
     void applyMsaaChange();
+    /// Rebuild the lit renderers' pipelines against the current shader variant.
+    /// Between frames only - see setFogModel.
+    void applyShaderFeatureChange();
+    bool shaderFeatureChangePending_ = false;
+    int fogModel_ = 0;
+    float fogAerialStrength_ = 0.6f;
     bool ensureSkyboxModel();
     VkSampleCountFlagBits pendingMsaaSamples_ = VK_SAMPLE_COUNT_1_BIT;
     bool msaaChangePending_ = false;

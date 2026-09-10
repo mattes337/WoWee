@@ -1030,6 +1030,36 @@ CHECKS = [
     ("duplicate_block_check.py",
      r"^(\d+) file pair\(s\) sharing code", 0,
      "unjudged pairs of files sharing a block of code"),
+    # Code a phase wrote for a later phase, when the later phase has already
+    # shipped without using it. Zero, and it stays zero by the phase that
+    # consumes the code deleting its marker in the same commit - see
+    # docs/plan-modern-rendering.md §7.3. The other two counts are about the
+    # marker itself: a shape this cannot parse, and a "why now" too short to
+    # be a reason, which is the whole point of writing one.
+    ("reserved_code_check.py",
+     r"^(\d+) marker\(s\) for a phase that has already shipped", 0,
+     "reserved code whose consuming phase has shipped"),
+    ("reserved_code_check.py",
+     r"^(\d+) malformed marker\(s\)", 0,
+     "RESERVED markers that do not parse"),
+    ("reserved_code_check.py",
+     r"^(\d+) marker\(s\) with no reason worth reading", 0,
+     "RESERVED markers with no reason on them"),
+    # A shader whose switched-off path is no longer the shader that shipped.
+    # Zero by construction: every toggle is a specialization constant whose
+    # default is the old behaviour, so an unspecialized module is the old
+    # module. This is what measures that rather than asserting it. Skips with
+    # a message, and counts zero, where the Vulkan SDK is not installed.
+    ("shader_offpath_check.py",
+     r"^(\d+) shader\(s\) whose off-path moved", 0,
+     "shaders whose off-path is no longer what shipped"),
+    # A specialization constant is a number on both sides and a name on
+    # neither. An id typed wrong in one of the two declarations is a
+    # VkSpecializationMapEntry Vulkan ignores, which is a setting that saves,
+    # reads back and changes nothing. Zero, and canaried before it was pinned.
+    ("shader_feature_check.py",
+     r"^(\d+) that the two halves disagree about", 0,
+     "shader features the GLSL and the C++ disagree about"),
 ]
 
 # Prose rather than a count: the chunk checker says one of two sentences.
@@ -1229,7 +1259,26 @@ def missing_input(tool):
     # above went to the failure list instead.
     if "framexml_run" in source and not (ROOT / "build/bin/framexml_run").is_file():
         return "build/bin/framexml_run"
+    # A sweep that compiles SPIR-V needs the Vulkan SDK's glslc. A checkout
+    # without it has nothing to compile with, which is a missing input and not
+    # a clean tree - the shader off-path check would otherwise print its skip
+    # line, report no count at all, and be read here as having gone blind.
+    if "glslc" in source and _glslc() is None:
+        return "glslc (Vulkan SDK)"
     return None
+
+
+def _glslc():
+    """glslc, from PATH or from the Vulkan SDK, or None.
+
+    Borrowed from the sweep that needs it rather than written again here: two
+    copies of "where does the Vulkan SDK keep its binaries" is exactly what
+    tool_duplication_check exists to catch, and it caught this one.
+    """
+    if str(TOOLS) not in sys.path:
+        sys.path.insert(0, str(TOOLS))
+    import shader_offpath_check
+    return shader_offpath_check.find_tool("glslc")
 
 
 #: Sweeps that plant their own canaries and so need no population line: each

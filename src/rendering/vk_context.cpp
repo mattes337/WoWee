@@ -593,6 +593,13 @@ bool VkContext::selectPhysicalDevice() {
     // been chosen - it is not known here.
     timestampPeriodNs_ = props.limits.timestampPeriod;
 
+    // The limits half of RenderCaps. The feature half is filled in below, next
+    // to each enable_features_if_present that already asks the question, and
+    // the extension half in createLogicalDevice where the extensions are
+    // asked for - nothing here probes the device a second time.
+    caps_.maxImage2D = props.limits.maxImageDimension2D;
+    caps_.maxImageArrayLayers = props.limits.maxImageArrayLayers;
+
     // Each of these has to be enabled before createLogicalDevice constructs the
     // DeviceBuilder, for the reason spelled out at the top of that function.
     // One call per feature: enable_features_if_present is all or nothing, so
@@ -635,6 +642,36 @@ bool VkContext::selectPhysicalDevice() {
              fsr2ComputeFeaturesSupported_ ? "YES" : "NO");
     LOG_INFO("Block compressed textures (BC1/2/3) supported: ",
              blockCompressionSupported_ ? "YES" : "NO");
+
+    // The T0-but-not-everywhere half of RenderCaps, from the probes just made.
+    caps_.samplerAnisotropy = samplerAnisotropySupported_;
+    caps_.wireframe = fillModeNonSolidSupported_;
+    caps_.blockCompression = blockCompressionSupported_;
+    // Two more that no other caller wants, asked here so the settings panel can
+    // say why terrain tessellation and GPU-driven draws are greyed. Enabled as
+    // well as probed: a feature the device is not told about is one a pipeline
+    // cannot use later, and both are free where they exist.
+    caps_.tessellation = enableIfPresent(&VkPhysicalDeviceFeatures::tessellationShader);
+    caps_.multiDrawIndirect = enableIfPresent(&VkPhysicalDeviceFeatures::multiDrawIndirect);
+    // The T2 set. Asked, not enabled: an extension nothing uses yet is an
+    // extension the device does not need to be told about, and asking is what
+    // lets the panel say "This GPU has no ray query support" instead of
+    // greying a row with no reason. The phase that uses one enables it there.
+    //
+    // Guarded on the macro rather than on the header version, the way the
+    // device-fault block further down already is: the Android NDK's sysroot
+    // headers and an older SDK do not all know these names, and a capability
+    // this build cannot even spell is a capability it does not have.
+#if defined(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME)
+    caps_.fragmentShadingRate =
+        vkbPhysicalDevice_.is_extension_present(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
+#endif
+#if defined(VK_EXT_MESH_SHADER_EXTENSION_NAME)
+    caps_.meshShader = vkbPhysicalDevice_.is_extension_present(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+#endif
+#if defined(VK_KHR_RAY_QUERY_EXTENSION_NAME)
+    caps_.rayQuery = vkbPhysicalDevice_.is_extension_present(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+#endif
 
     VkPhysicalDeviceDepthStencilResolveProperties dsResolveProps{};
     dsResolveProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES;
@@ -772,6 +809,14 @@ bool VkContext::createLogicalDevice() {
         features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
         features2.pNext = &supported11;
         vkGetPhysicalDeviceFeatures2(physicalDevice, &features2);
+        // The 1.2 half of RenderCaps, off the same query. Read rather than
+        // enabled: descriptor indexing and buffer device address are what
+        // phases 19 and beyond build on, and asking for them now would enable
+        // a feature nothing uses on every device that has one.
+        caps_.descriptorIndexing = supported12.descriptorIndexing == VK_TRUE;
+        caps_.bufferDeviceAddress = supported12.bufferDeviceAddress == VK_TRUE;
+        caps_.drawIndirectCount = supported12.drawIndirectCount == VK_TRUE;
+        caps_.shaderFloat16 = supported12.shaderFloat16 == VK_TRUE;
         if (supported12.shaderFloat16) {
             enabled12.shaderFloat16 = VK_TRUE;
             LOG_INFO("Enabling shaderFloat16 for FSR2/FSR3 compute shaders");
@@ -969,6 +1014,34 @@ bool VkContext::createLogicalDevice() {
     LOG_WARNING("Device-loss diagnostics: fault info ",
                 deviceFaultSupported_ ? "on" : "off",
                 ", queue checkpoints ", checkpointsSupported_ ? "on" : "off");
+
+    // RenderCaps is complete here: the limits and features came off the
+    // physical device above, the extensions were asked for a few lines up, and
+    // synchronization2 is only known once its entry point has resolved.
+    caps_.synchronization2 = synchronization2Supported_;
+    caps_.tier = RenderTier::Baseline;
+    if (caps_.descriptorIndexing && caps_.bufferDeviceAddress && caps_.drawIndirectCount &&
+        caps_.multiDrawIndirect && caps_.tessellation) {
+        caps_.tier = RenderTier::Core12;
+    }
+    if (caps_.fragmentShadingRate || caps_.meshShader || caps_.rayQuery || caps_.shaderFloat16) {
+        caps_.tier = RenderTier::Modern;
+    }
+    LOG_INFO("Render capability tier: ",
+             caps_.tier == RenderTier::Modern     ? "T2 Modern"
+             : caps_.tier == RenderTier::Core12   ? "T1 Core-1.2"
+                                                  : "T0 Baseline",
+             " (descriptorIndexing ", caps_.descriptorIndexing ? "yes" : "no",
+             ", bufferDeviceAddress ", caps_.bufferDeviceAddress ? "yes" : "no",
+             ", drawIndirectCount ", caps_.drawIndirectCount ? "yes" : "no",
+             ", multiDrawIndirect ", caps_.multiDrawIndirect ? "yes" : "no",
+             ", tessellation ", caps_.tessellation ? "yes" : "no",
+             ", fragmentShadingRate ", caps_.fragmentShadingRate ? "yes" : "no",
+             ", meshShader ", caps_.meshShader ? "yes" : "no",
+             ", rayQuery ", caps_.rayQuery ? "yes" : "no",
+             ", shaderFloat16 ", caps_.shaderFloat16 ? "yes" : "no",
+             ", maxImage2D ", caps_.maxImage2D,
+             ", maxImageArrayLayers ", caps_.maxImageArrayLayers, ")");
 
     if (requestTransferQueue) {
         // With custom_queue_setup, we must retrieve queues manually.

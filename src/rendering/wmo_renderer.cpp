@@ -12,6 +12,7 @@
 #include "rendering/vk_texture.hpp"
 #include "rendering/vk_buffer.hpp"
 #include "rendering/vk_pipeline.hpp"
+#include "rendering/shader_features.hpp"
 #include "rendering/vk_shader.hpp"
 #include "rendering/vk_utils.hpp"
 #include "rendering/vk_frame_data.hpp"
@@ -91,6 +92,10 @@ bool WMORenderer::buildMainPassPipelines(VkDevice device,
     // --- Build opaque pipeline (base for derivatives - shared state optimization) ---
     VkRenderPass mainPass = vkCtx_->getImGuiRenderPass();
 
+    // The variant of the lit shaders this session's settings ask for. Held on
+    // the stack across the builds below: VkSpecializationInfo points at this
+    // object's arrays and the pipeline is created before build() returns.
+    const ShaderSpecialization spec(activeShaderFeatures());
     opaquePipeline_ = PipelineBuilder()
         .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
                     fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
@@ -104,6 +109,7 @@ bool WMORenderer::buildMainPassPipelines(VkDevice device,
         .setRenderPass(mainPass)
         .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)
+        .setSpecialization(spec.info())
         .build(device, vkCtx_->getPipelineCache());
 
     if (!opaquePipeline_) {
@@ -126,6 +132,7 @@ bool WMORenderer::buildMainPassPipelines(VkDevice device,
         .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
         .setBasePipeline(opaquePipeline_)
+        .setSpecialization(spec.info())
         .build(device, vkCtx_->getPipelineCache());
 
     if (!transparentPipeline_) {
@@ -147,6 +154,7 @@ bool WMORenderer::buildMainPassPipelines(VkDevice device,
         .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
         .setBasePipeline(opaquePipeline_)
+        .setSpecialization(spec.info())
         .build(device, vkCtx_->getPipelineCache());
 
     // --- Build wireframe pipeline (derivative of opaque) ---
@@ -164,6 +172,7 @@ bool WMORenderer::buildMainPassPipelines(VkDevice device,
         .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
         .setBasePipeline(opaquePipeline_)
+        .setSpecialization(spec.info())
         .build(device, vkCtx_->getPipelineCache());
 
     if (!wireframePipeline_) {

@@ -31,6 +31,47 @@ struct GPUPerFrameData {
     glm::vec4 localLightPosRadius[MAX_LOCAL_LIGHTS];       // xyz = position, w = radius
     glm::vec4 localLightColorIntensity[MAX_LOCAL_LIGHTS];  // rgb = color, w = intensity
     glm::ivec4 localLightMeta;                             // x = active light count
+
+    // ---- appended in phase 01, all at once ----
+    //
+    // This block is mirrored by hand in every shader that declares it, so it
+    // grows once per phase rather than once per technique: five techniques
+    // adding a vec4 each is five chances to get an offset wrong in one of the
+    // copies, and std140 gives no error for that - it gives a shader reading
+    // the field next to the one it meant.
+    //
+    // A shader declares a *prefix* of this block, never a hole in it, so a
+    // shader that reads none of these does not mention them. That is what the
+    // client already did: skybox.frag stops at shadowParams.
+
+    /// RESERVED(phase-01b, L1-csm): the four cascade view-projections. Phase 01
+    /// shipped the consolidation and left cascaded shadows to 01b (see
+    /// docs/modern-rendering/01-shadows-fog-distance-surfaces.md, "Cut order"),
+    /// but the slots are here so this block does not move again when they land.
+    /// cascadeMatrix[0] is kept equal to lightSpaceMatrix; the rest are zero
+    /// and no shader reads them.
+    glm::mat4 cascadeMatrix[4] = {};
+    /// RESERVED(phase-01b, L1-csm): view-space depth at which each cascade ends.
+    glm::vec4 shadowSplits{0.0f};
+    /// RESERVED(phase-01b, L1-csm): x = cascade count, y = blend band in yards,
+    /// z = filter, w = unused.
+    glm::ivec4 shadowMeta{1, 0, 0, 0};
+
+    /// Height fog: x = base height in world Z, y = density per yard at that
+    /// height, z = 1 / scale height, w = aerial-perspective strength.
+    ///
+    /// RESERVED(phase-15, A2-volumetric-fog): these and fogSunColor below are
+    /// also the froxel volume's inputs; declared with the fog parameters so
+    /// this block moves once rather than twice.
+    glm::vec4 fogHeight{0.0f};
+    /// The colour the sun scatters into the fog: rgb = colour, w unused. Taken
+    /// from the zone's own Light.dbc directional colour, unchanged, so nothing
+    /// authored shifts hue. How much of it reaches the frame is fogHeight.w.
+    glm::vec4 fogSunColor{0.0f};
+
+    /// RESERVED(phase-11, L5-sky-probes): SH9 ambient slots appended now so
+    /// PerFrame moves once. Zero-filled; no shader reads them.
+    glm::vec4 skySH[7] = {};
 };
 
 // Push constants for the model matrix (most common case)

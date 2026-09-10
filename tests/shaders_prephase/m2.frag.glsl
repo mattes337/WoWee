@@ -16,19 +16,6 @@ layout(set = 0, binding = 0) uniform PerFrame {
     vec4 localLightPosRadius[64];
     vec4 localLightColorIntensity[64];
     ivec4 localLightMeta;
-    // ---- appended in phase 01, all at once. See vk_frame_data.hpp. ----
-    // RESERVED(phase-01b, L1-csm): cascade slots, filled when cascaded shadows
-    // land. cascadeMatrix[0] mirrors lightSpaceMatrix; nothing reads the rest.
-    mat4 cascadeMatrix[4];
-    vec4 shadowSplits;
-    ivec4 shadowMeta;
-    // RESERVED(phase-15, A2-volumetric-fog): fogHeight.w and fogSunColor are
-    // the froxel volume's inputs too; declared with the fog parameters so this
-    // block moves once.
-    vec4 fogHeight;    // x = base height, y = density/yd, z = 1/scale height, w = aerial
-    vec4 fogSunColor;  // rgb = sun in-scatter colour, w unused
-    // RESERVED(phase-11, L5-sky-probes): SH9 ambient. Zero-filled; unread.
-    vec4 skySH[7];
 };
 
 layout(set = 1, binding = 0) uniform sampler2D uTexture;
@@ -71,7 +58,24 @@ layout(location = 7) flat in float vHighlight;
 
 layout(location = 0) out vec4 outColor;
 
-#include "lit_common.glsl"
+// One texel of the shadow map, handed in by the renderer. The map is 512,
+// 1024, 2048 or 4096 a side by the quality setting; this used to be a
+// constant for 4096, so at 512 the filter taps all landed inside one texel
+// and the bias shrank eightfold. The fallback covers a per-frame block that
+// never filled the slot in, such as the character preview's.
+float shadowTexel() {
+    return shadowParams.z > 0.0 ? shadowParams.z : 1.0 / 4096.0;
+}
+
+float sampleShadowPCF(sampler2DShadow smap, vec3 coords) {
+    float shadow = 0.0;
+    for (int x = -1; x <= 1; ++x) {
+        for (int y = -1; y <= 1; ++y) {
+            shadow += texture(smap, vec3(coords.xy + vec2(x, y) * shadowTexel(), coords.z));
+        }
+    }
+    return shadow / 9.0;
+}
 
 vec3 localLightContribution(vec3 pos, vec3 normal, vec3 albedo) {
     vec3 sum = vec3(0.0);
@@ -196,9 +200,9 @@ void main() {
     // Per-instance color variation (foliage only)
     if (isFoliage) {
         float hash = fract(sin(dot(InstanceOrigin.xy, vec2(127.1, 311.7))) * 43758.5453);
-        float hueShiftR = 1.0 + (hash - 0.5) * 0.16;       // Â±8% red
-        float hueShiftB = 1.0 + (fract(hash * 7.13) - 0.5) * 0.16; // Â±8% blue
-        float brightness = 0.85 + hash * 0.30;               // 85â€“115%
+        float hueShiftR = 1.0 + (hash - 0.5) * 0.16;       // ±8% red
+        float hueShiftB = 1.0 + (fract(hash * 7.13) - 0.5) * 0.16; // ±8% blue
+        float brightness = 0.85 + hash * 0.30;               // 85–115%
         texColor.rgb *= vec3(hueShiftR, 1.0, hueShiftB) * brightness;
     }
 
@@ -240,7 +244,7 @@ void main() {
             spec = pow(max(dot(norm, halfDir), 0.0), 32.0) * specularIntensity;
         }
 
-        if (SPEC_SHADOWS && shadowParams.x > 0.5) {
+        if (shadowParams.x > 0.5) {
             float normalOffset = shadowTexel() * 2.0 * (1.0 - abs(dot(norm, ldir)));
             vec3 biasedPos = FragPos + norm * normalOffset;
             vec4 lsPos = lightSpaceMatrix * vec4(biasedPos, 1.0);
@@ -290,16 +294,16 @@ void main() {
     if (unlit == 0) result += localLightContribution(FragPos, norm, texColor.rgb);
 
     float dist = length(viewPos.xyz - FragPos);
-    float fogAmount = fogFactor(FragPos, dist);
+    float fogFactor = clamp((fogParams.y - dist) / (fogParams.y - fogParams.x), 0.0, 1.0);
     if (blendMode >= 3) {
         // Additive. Mixing toward the fog colour would give the card's black
         // corners the fog's colour, and additive then adds that to the scene -
         // the whole quad shows up as a lit rectangle hanging in the air, which
         // is what Orgrimmar's bonfire glow was doing to the wall behind it.
         // Distance can only take an additive contribution away.
-        result *= fogAmount;
+        result *= fogFactor;
     } else {
-        result = mix(fogColor.rgb, result, fogAmount);
+        result = mix(fogColor.rgb, result, fogFactor);
     }
 
     float outAlpha = texColor.a * vFadeAlpha;

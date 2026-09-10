@@ -1,4 +1,5 @@
 #include <atomic>
+#include "rendering/shader_features.hpp"
 #include "rendering/placement_transform.hpp"
 #include "rendering/m2_renderer.hpp"
 #include "core/env_flag.hpp"
@@ -298,6 +299,10 @@ bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
         {.location = 4, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = 14 * sizeof(float)}, // boneIndices (float)
     };
 
+    // The variant of the lit shaders this session's settings ask for. Held
+    // across the builds below: VkSpecializationInfo points at this object's
+    // arrays and the pipeline is created before build() returns.
+    const ShaderSpecialization spec(activeShaderFeatures());
     // Pipeline derivatives - opaque is the base, others derive from it for shared state optimization
     auto buildM2Pipeline = [&](VkPipelineColorBlendAttachmentState blendState, bool depthWrite,
                                VkPipelineCreateFlags flags = 0, VkPipeline basePipeline = VK_NULL_HANDLE,
@@ -314,6 +319,7 @@ bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
             // everything drawn after.
             .setDepthTest(true, skyMode_ ? false : depthWrite, VK_COMPARE_OP_LESS_OR_EQUAL)
             .setColorBlendAttachment(blendState)
+            .setSpecialization(spec.info())
             .setMultisample(vkCtx_->getMsaaSamples());
         // MSAA alpha-to-coverage dithers the shader's sharpened cutout alpha
         // across samples for smooth foliage/leaf silhouettes.

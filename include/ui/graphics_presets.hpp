@@ -61,6 +61,15 @@ struct GraphicsPresetValues {
     int   grassDensity;      ///< percent of what the terrain asks for
     int   grassHeight;       ///< percent
     int   grassDistance;     ///< yards
+    /// 0 = the linear start/end ramp, 1 = exponential height fog.
+    ///
+    /// Every preset says 1, including Low: the height model costs a handful of
+    /// instructions in a shader that already runs a dozen texture fetches, and
+    /// it is the one thing in this table that changes what the world *looks*
+    /// like rather than how much of it is drawn. A column all the same value
+    /// is still worth having - it is what makes turning the model off read as
+    /// Custom rather than as the preset it no longer is.
+    int   fogModel;
 };
 
 // Note the shadows column: every preset leaves them on.
@@ -76,10 +85,10 @@ struct GraphicsPresetValues {
 // only softened the resolve. It stays in the panel for anyone who wants it,
 // which mostly means anyone running without MSAA.
 constexpr GraphicsPresetValues kGraphicsPresets[] = {
-    /* Low    */ { .viewDistance = 600.0f, .shadows = true,  .shadowDistance = 100.0f, .antiAliasing = 0, .fxaa = false, .normalMapping = false, .normalMapStrength = 0.6f, .parallax = false, .parallaxQuality = 0,  .groundClutter = 25,  .grass = false, .grassDensity = 70, .grassHeight = 50, .grassDistance = 215},
-    /* Medium */ {.viewDistance = 1000.0f, .shadows = true,  .shadowDistance = 200.0f, .antiAliasing = 1, .fxaa = false, .normalMapping = true,  .normalMapStrength = 0.6f, .parallax = true,  .parallaxQuality = 0,  .groundClutter = 60,  .grass = false, .grassDensity = 70, .grassHeight = 50, .grassDistance = 215},
-    /* High   */ {.viewDistance = 1600.0f, .shadows = true,  .shadowDistance = 350.0f, .antiAliasing = 2, .fxaa = false, .normalMapping = true,  .normalMapStrength = 0.8f, .parallax = true,  .parallaxQuality = 1, .groundClutter = 100, .grass = false, .grassDensity = 70, .grassHeight = 50, .grassDistance = 215},
-    /* Ultra  */ {.viewDistance = 2400.0f, .shadows = true,  .shadowDistance = 500.0f, .antiAliasing = 3, .fxaa = false, .normalMapping = true,  .normalMapStrength = 1.2f, .parallax = true,  .parallaxQuality = 2, .groundClutter = 150, .grass = true,  .grassDensity = 70, .grassHeight = 50, .grassDistance = 215},
+    /* Low    */ { .viewDistance = 600.0f, .shadows = true,  .shadowDistance = 100.0f, .antiAliasing = 0, .fxaa = false, .normalMapping = false, .normalMapStrength = 0.6f, .parallax = false, .parallaxQuality = 0,  .groundClutter = 25,  .grass = false, .grassDensity = 70, .grassHeight = 50, .grassDistance = 215, .fogModel = 1},
+    /* Medium */ {.viewDistance = 1000.0f, .shadows = true,  .shadowDistance = 200.0f, .antiAliasing = 1, .fxaa = false, .normalMapping = true,  .normalMapStrength = 0.6f, .parallax = true,  .parallaxQuality = 0,  .groundClutter = 60,  .grass = false, .grassDensity = 70, .grassHeight = 50, .grassDistance = 215, .fogModel = 1},
+    /* High   */ {.viewDistance = 1600.0f, .shadows = true,  .shadowDistance = 350.0f, .antiAliasing = 2, .fxaa = false, .normalMapping = true,  .normalMapStrength = 0.8f, .parallax = true,  .parallaxQuality = 1, .groundClutter = 100, .grass = false, .grassDensity = 70, .grassHeight = 50, .grassDistance = 215, .fogModel = 1},
+    /* Ultra  */ {.viewDistance = 2400.0f, .shadows = true,  .shadowDistance = 500.0f, .antiAliasing = 3, .fxaa = false, .normalMapping = true,  .normalMapStrength = 1.2f, .parallax = true,  .parallaxQuality = 2, .groundClutter = 150, .grass = true,  .grassDensity = 70, .grassHeight = 50, .grassDistance = 215, .fogModel = 1},
 };
 
 /// The number of presets, not counting Custom - which is not a set of values

@@ -5,6 +5,7 @@
 #include "rendering/vk_texture.hpp"
 #include "rendering/vk_buffer.hpp"
 #include "rendering/vk_pipeline.hpp"
+#include "rendering/shader_features.hpp"
 #include "rendering/vk_shader.hpp"
 #include "rendering/vk_utils.hpp"
 #include "rendering/vk_frame_data.hpp"
@@ -55,6 +56,10 @@ bool TerrainRenderer::buildMainPassPipelines(VkDevice device,
     // --- Build fill pipeline (base for derivatives - shared state optimization) ---
     VkRenderPass mainPass = vkCtx->getImGuiRenderPass();
 
+    // The variant of the lit shaders this session's settings ask for. Held on
+    // the stack across the builds below: VkSpecializationInfo points at this
+    // object's arrays and the pipeline is created before build() returns.
+    const ShaderSpecialization spec(activeShaderFeatures());
     pipeline = PipelineBuilder()
         .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
                     fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
@@ -68,6 +73,7 @@ bool TerrainRenderer::buildMainPassPipelines(VkDevice device,
         .setRenderPass(mainPass)
         .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)
+        .setSpecialization(spec.info())
         .build(device, vkCtx->getPipelineCache());
 
     if (!pipeline) {
@@ -99,6 +105,7 @@ bool TerrainRenderer::buildMainPassPipelines(VkDevice device,
         .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
         .setBasePipeline(pipeline)
+        .setSpecialization(spec.info())
         .build(device, vkCtx->getPipelineCache());
 
     if (!wireframePipeline) {

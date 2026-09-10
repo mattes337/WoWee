@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "rendering/render_caps.hpp"
 #include "rendering/vk_utils.hpp"
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
@@ -255,6 +256,14 @@ public:
     [[nodiscard]] bool isBlockCompressionSupported() const {
         return blockCompressionSupported_;
     }
+
+    /// What this GPU can be asked to do, decided once during device creation.
+    ///
+    /// Read by `applyRenderCapsToSchema()` at start-up to fill in
+    /// `SettingDesc::unavailable`, so a setting the hardware cannot honour is
+    /// greyed with the reason rather than silently ignored. Everything in it
+    /// is false or the guaranteed minimum before `createLogicalDevice` runs.
+    [[nodiscard]] const RenderCaps& getRenderCaps() const { return caps_; }
 
     /// Whether barriers can be recorded as VkDependencyInfo. False means the
     /// same barriers still record, through the legacy entry point.
@@ -568,6 +577,9 @@ private:
     // Sampler cache - deduplicates VkSamplers by configuration hash.
     std::mutex samplerCacheMutex_;
     std::unordered_map<uint64_t, VkSampler> samplerCache_;
+    /// What this device can be asked to do. Filled during device creation;
+    /// see getRenderCaps().
+    RenderCaps caps_;
     bool samplerAnisotropySupported_ = false;
     bool fillModeNonSolidSupported_ = false;
     bool fsr2ComputeFeaturesSupported_ = false;

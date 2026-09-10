@@ -19,6 +19,11 @@ PipelineBuilder& PipelineBuilder::setShaders(
     return *this;
 }
 
+PipelineBuilder& PipelineBuilder::setSpecialization(const VkSpecializationInfo* info) {
+    specialization_ = info;
+    return *this;
+}
+
 PipelineBuilder& PipelineBuilder::setVertexInput(
     const std::vector<VkVertexInputBindingDescription>& bindings,
     const std::vector<VkVertexInputAttributeDescription>& attributes)
@@ -181,11 +186,23 @@ VkPipeline PipelineBuilder::build(VkDevice device, VkPipelineCache cache) const 
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates_.size());
     dynamicState.pDynamicStates = dynamicStates_.data();
 
+    // Specialization, if this pipeline wants a variant rather than the shader
+    // as it was compiled. The stages are copied so the caller's own structs
+    // are left alone - a renderer builds several variants from one pair of
+    // VkPipelineShaderStageCreateInfo and would otherwise find the last one's
+    // specialization still attached.
+    std::vector<VkPipelineShaderStageCreateInfo> stages = shaderStages_;
+    if (specialization_ != nullptr) {
+        for (VkPipelineShaderStageCreateInfo& stage : stages) {
+            stage.pSpecializationInfo = specialization_;
+        }
+    }
+
     // Create pipeline
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages_.size());
-    pipelineInfo.pStages = shaderStages_.data();
+    pipelineInfo.stageCount = static_cast<uint32_t>(stages.size());
+    pipelineInfo.pStages = stages.data();
     pipelineInfo.pVertexInputState = &vertexInput;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
     pipelineInfo.pViewportState = &viewportState;

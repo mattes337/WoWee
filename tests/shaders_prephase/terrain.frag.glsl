@@ -16,19 +16,6 @@ layout(set = 0, binding = 0) uniform PerFrame {
     vec4 localLightPosRadius[64];
     vec4 localLightColorIntensity[64];
     ivec4 localLightMeta;
-    // ---- appended in phase 01, all at once. See vk_frame_data.hpp. ----
-    // RESERVED(phase-01b, L1-csm): cascade slots, filled when cascaded shadows
-    // land. cascadeMatrix[0] mirrors lightSpaceMatrix; nothing reads the rest.
-    mat4 cascadeMatrix[4];
-    vec4 shadowSplits;
-    ivec4 shadowMeta;
-    // RESERVED(phase-15, A2-volumetric-fog): fogHeight.w and fogSunColor are
-    // the froxel volume's inputs too; declared with the fog parameters so this
-    // block moves once.
-    vec4 fogHeight;    // x = base height, y = density/yd, z = 1/scale height, w = aerial
-    vec4 fogSunColor;  // rgb = sun in-scatter colour, w unused
-    // RESERVED(phase-11, L5-sky-probes): SH9 ambient. Zero-filled; unread.
-    vec4 skySH[7];
 };
 
 layout(set = 1, binding = 0) uniform sampler2D uBaseTexture;
@@ -55,7 +42,24 @@ layout(location = 3) in vec2 LayerUV;
 
 layout(location = 0) out vec4 outColor;
 
-#include "lit_common.glsl"
+// One texel of the shadow map, handed in by the renderer. The map is 512,
+// 1024, 2048 or 4096 a side by the quality setting; this used to be a
+// constant for 4096, so at 512 the filter taps all landed inside one texel
+// and the bias shrank eightfold. The fallback covers a per-frame block that
+// never filled the slot in, such as the character preview's.
+float shadowTexel() {
+    return shadowParams.z > 0.0 ? shadowParams.z : 1.0 / 4096.0;
+}
+
+float sampleShadowPCF(sampler2DShadow smap, vec3 coords) {
+    float shadow = 0.0;
+    for (int x = -1; x <= 1; ++x) {
+        for (int y = -1; y <= 1; ++y) {
+            shadow += texture(smap, vec3(coords.xy + vec2(x, y) * shadowTexel(), coords.z));
+        }
+    }
+    return shadow / 9.0;
+}
 
 vec3 localLightContribution(vec3 pos, vec3 normal, vec3 albedo) {
     vec3 sum = vec3(0.0);
@@ -154,7 +158,7 @@ void main() {
     vec3 diffuse = diff * lightColor.rgb * finalColor.rgb;
 
     float shadow = 1.0;
-    if (SPEC_SHADOWS && shadowParams.x > 0.5) {
+    if (shadowParams.x > 0.5) {
         vec3 ldir = normalize(-lightDir.xyz);
         float normalOffset = shadowTexel() * 2.0 * (1.0 - abs(dot(norm, ldir)));
         vec3 biasedPos = FragPos + norm * normalOffset;
@@ -171,7 +175,8 @@ void main() {
     vec3 result = ambient + shadow * diffuse;
     result += localLightContribution(FragPos, norm, finalColor.rgb);
 
-    result = applyFog(result, FragPos, fragDist);
+    float fogFactor = clamp((fogParams.y - fragDist) / (fogParams.y - fogParams.x), 0.0, 1.0);
+    result = mix(fogColor.rgb, result, fogFactor);
 
     outColor = vec4(result, 1.0);
 }

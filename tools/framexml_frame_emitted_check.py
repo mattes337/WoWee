@@ -66,18 +66,30 @@ def _find_emit() -> pathlib.Path:
     which is the one failure mode sweep_guard exists to catch, so it is worth
     looking in more than one place.
     """
+    # A multi-config generator - which is what MSBuild is, and what a Windows
+    # build uses - puts the binary in bin/<Config>/ and gives it an .exe. That
+    # left this looking in bin/ for a name with no suffix, finding nothing, and
+    # reporting that it could not read its own count on every Windows run.
+    names = ("framexml_emit", "framexml_emit.exe")
+    configs = ("", "Release", "RelWithDebInfo", "Debug")
+
+    def under(base: pathlib.Path):
+        for config in configs:
+            directory = base / config if config else base
+            for name in names:
+                candidate = directory / name
+                if candidate.exists():
+                    return candidate
+        return None
+
     if env := os.environ.get("WOWEE_BUILD_DIR"):
-        candidate = pathlib.Path(env) / "bin/framexml_emit"
-        if candidate.exists():
-            return candidate
+        if found := under(pathlib.Path(env) / "bin"):
+            return found
     for rel in ("build/bin", ".build-docker/bin", "build-docker/bin"):
-        candidate = ROOT / rel / "framexml_emit"
-        if candidate.exists():
-            return candidate
-    for absolute in ("/build/bin/framexml_emit",):
-        candidate = pathlib.Path(absolute)
-        if candidate.exists():
-            return candidate
+        if found := under(ROOT / rel):
+            return found
+    if found := under(pathlib.Path("/build/bin")):
+        return found
     return ROOT / "build/bin/framexml_emit"
 
 

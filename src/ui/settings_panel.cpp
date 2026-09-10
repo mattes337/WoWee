@@ -813,6 +813,7 @@ constexpr const char* kGraphicsPresetKeys[] = {
     "normalmapping", "normalmapstrength", "parallax", "parallaxquality",
     "groundclutter",
     "grassenabled", "grassdensity", "grassheight", "grassdistance",
+    "fogmodel",
 };
 
 /// Every graphics setting that has to reach something when it is loaded.
@@ -834,7 +835,7 @@ constexpr const char* kGraphicsApplyKeys[] = {
     "grassdistance", "waterrefraction", "upscaling", "fsrquality",
     "fsrsharpness", "framegen", "brightness", "uiopacity", "minimapsquare",
     "minimapnpcdots", "minimapclock", "minimapcoords", "minimaprotate", "latencymeter",
-    "fogskyblend", "fogstrength", "sharpstars",
+    "fogskyblend", "fogstrength", "fogmodel", "fogaerial", "sharpstars",
     // Moved off the game's own Effects panel, so this list is now what
     // applies them at startup; the cvar store used to do it.
     "groundclutterdistance", "particledensity", "weatherdetail",
@@ -888,6 +889,7 @@ void SettingsPanel::applyGraphicsPreset(GraphicsPreset preset) {
         pendingGrassDensity      = p.grassDensity;
         pendingGrassHeight       = p.grassHeight;
         pendingGrassDistance     = p.grassDistance;
+        pendingFogModel          = p.fogModel;
         // Each one goes to the thing it affects through the one function that
         // knows where that is, rather than through a second copy of the same
         // renderer calls written out here.
@@ -919,6 +921,7 @@ void SettingsPanel::updateGraphicsPresetFromCurrentSettings() {
             pendingPOM == p.parallax &&
             std::abs(pendingGroundClutterDensity - p.groundClutter) <= 10 &&
             pendingGrassEnabled == p.grass &&
+            pendingFogModel == p.fogModel &&
             // As with shadows: a preset that grows no grass says nothing about
             // how dense, how tall or how far it would have been.
             (!p.grass || (std::abs(pendingGrassDensity - p.grassDensity) <= 5 &&
@@ -968,6 +971,8 @@ constexpr FieldBinding kFieldBindings[] = {
     {.key = "viewdistance",   .asFloat = &SettingsPanel::pendingViewDistance},
     {.key = "fogskyblend",    .asFloat = &SettingsPanel::pendingFogSkyBlend},
     {.key = "fogstrength",    .asFloat = &SettingsPanel::pendingFogStrength},
+    {.key = "fogmodel",       .asInt   = &SettingsPanel::pendingFogModel},
+    {.key = "fogaerial",      .asFloat = &SettingsPanel::pendingFogAerial},
     {.key = "mousespeed",     .asFloat = &SettingsPanel::pendingMouseSensitivity},
     {.key = "minimapclock",   .asBool  = &SettingsPanel::pendingShowMinimapClock},
     {.key = "friendlyplates", .asBool  = &SettingsPanel::showFriendlyNameplates_},
@@ -1343,6 +1348,12 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
                 lighting->setFogSkyBlend(pendingFogSkyBlend);
             }
         }
+    } else if (key == "fogmodel") {
+        // Rebuilds the lit pipelines, between frames. Costs about as much as
+        // an anti-aliasing change and is asked for about as often.
+        if (renderer) renderer->setFogModel(pendingFogModel);
+    } else if (key == "fogaerial") {
+        if (renderer) renderer->setFogAerialStrength(pendingFogAerial);
     } else if (key == "framegen") {
         if (post) post->setAmdFsr3FramegenEnabled(pendingAMDFramegen);
     } else if (key == "fsrjittersign") {

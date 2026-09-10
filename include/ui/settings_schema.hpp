@@ -211,6 +211,24 @@ inline bool settingIsOn(const std::string& v) { return !v.empty() && v != "0"; }
 /// each one was checked against the bug it describes before being trusted.
 const SettingDesc* clientSettingsSchema(std::size_t& count);
 
+/// Say that this machine cannot honour a setting, and why.
+///
+/// `SettingDesc::unavailable` in the table above is what this client can never
+/// do - the option exists in the original client and there is no code here it
+/// could reach. This is the other half: what *this GPU* cannot do, which is
+/// not knowable until the Vulkan device exists. Both end up in the same field,
+/// because both panels already grey a row that has one and refuse to write it,
+/// and a player does not care which kind of "no" they are looking at.
+///
+/// Called once per gated setting at start-up, from applyRenderCapsToSchema
+/// (rendering/render_caps_settings.cpp), which is where the mapping from a
+/// capability to a sentence lives. An empty reason clears the row again.
+///
+/// Before the first call, clientSettingsSchema() answers with the table
+/// exactly as written - so a unit test or a source-reading check in tools/
+/// sees the source and not some machine's opinion of it.
+void setSettingUnavailable(const std::string& key, std::string reason);
+
 /// The range a setting's own row declares.
 ///
 /// A slider's limits were written again wherever the value was clamped on the

@@ -30,6 +30,18 @@ public:
     PipelineBuilder& setShaders(VkPipelineShaderStageCreateInfo vert,
         VkPipelineShaderStageCreateInfo frag);
 
+    /// Which variant of those shaders to compile.
+    ///
+    /// The pointer is borrowed, not copied: `VkSpecializationInfo` points at
+    /// the caller's entry array and data, and both have to outlive `build()`.
+    /// Hold a `ShaderSpecialization` (rendering/shader_features.hpp) on the
+    /// stack beside the builder and pass its `info()`.
+    ///
+    /// Applied to both stages. A constant a stage does not declare is ignored,
+    /// which is what lets one set of features drive a vertex and a fragment
+    /// shader that care about different halves of it.
+    PipelineBuilder& setSpecialization(const VkSpecializationInfo* info);
+
     // Vertex input
     PipelineBuilder& setVertexInput(
         const std::vector<VkVertexInputBindingDescription>& bindings,
@@ -89,6 +101,7 @@ public:
 
 private:
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages_;
+    const VkSpecializationInfo* specialization_ = nullptr;
     std::vector<VkVertexInputBindingDescription> vertexBindings_;
     std::vector<VkVertexInputAttributeDescription> vertexAttributes_;
     VkPrimitiveTopology topology_ = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;

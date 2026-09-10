@@ -1,5 +1,8 @@
 #include "rendering/renderer.hpp"
 
+#include "rendering/height_fog.hpp"
+#include "rendering/shader_features.hpp"
+
 #include <fstream>
 #include <iterator>
 #include "addons/lua_api_registrations.hpp"
@@ -461,9 +464,33 @@ void Renderer::updatePerFrameUBO() {
                 currentFrameData.fogParams.y = glm::mix(lp.fogEnd, 200.0f, blend);
             }
         }
+
+        // The height model's parameters, calibrated against whatever fogEnd
+        // ended up being - including the underwater shortening just above, or
+        // diving would move the horizon. See rendering/height_fog.hpp.
+        //
+        // The ground under the camera is taken as the player's own Z rather
+        // than by sampling the terrain: the player is standing on it, it is
+        // already here, and a height query per frame on the render thread is
+        // the thing the async floor queries exist to avoid. A camera orbited
+        // away from the player is looking at the same valley the player is in,
+        // which is what the base height is for.
+        const float groundZ =
+            playerMotionTracked_ ? characterPosition.z : camera->getPosition().z;
+        const HeightFogParams heightFog =
+            computeHeightFog(groundZ, currentFrameData.fogParams.y, fogAerialStrength_,
+                             lp.diffuseColor);
+        currentFrameData.fogHeight = heightFog.fogHeight;
+        currentFrameData.fogSunColor = heightFog.fogSunColor;
     }
 
     currentFrameData.lightSpaceMatrix = lightSpaceMatrix;
+    // RESERVED(phase-01b, L1-csm): one cascade, and it is the map that already
+    // exists. Filled rather than left zero so the slot is never a stale matrix
+    // from a previous frame if a shader starts reading it before the cascade
+    // pass does; shadowMeta.x says how many of the four mean anything.
+    currentFrameData.cascadeMatrix[0] = lightSpaceMatrix;
+    currentFrameData.shadowMeta.x = 1;
     // Scale shadow bias proportionally to ortho extent to avoid acne at close range / gaps at far range
     float shadowBias = glm::clamp(0.8f * (shadowDistance_ / 300.0f), 0.0f, 1.0f);
     // z carries one texel of the shadow map. The shaders used to hold that as
@@ -894,6 +921,42 @@ void Renderer::setMsaaSamples(VkSampleCountFlagBits samples) {
     msaaChangePending_ = true;
 }
 
+void Renderer::setFogModel(int model) {
+    const int wanted = (model == 1) ? 1 : 0;
+    if (wanted == fogModel_) return;
+    fogModel_ = wanted;
+
+    ShaderFeatures features = activeShaderFeatures();
+    features.fogModel = wanted;
+    if (!setActiveShaderFeatures(features)) return;
+
+    // Deferred, for the same reason the MSAA change is: destroying a pipeline
+    // that a command buffer already in flight still names is how this renderer
+    // has lost a device before.
+    shaderFeatureChangePending_ = true;
+}
+
+void Renderer::applyShaderFeatureChange() {
+    shaderFeatureChangePending_ = false;
+    if (!vkCtx) return;
+
+    // The four lit renderers, and only those: the shader variant is the four
+    // lit fragment shaders. Sky, water, grass and the effects do not read the
+    // constants and rebuilding them would be work for nothing.
+    //
+    // No resetFrameSyncState() afterwards, unlike the MSAA change below. That
+    // one needs it because it destroys and remakes the swapchain, every render
+    // pass and every framebuffer, and leaves the frame slots mid-cycle. This
+    // destroys pipelines and nothing else, after a full device idle, so no
+    // command buffer in flight still names one and no fence has moved.
+    vkDeviceWaitIdle(vkCtx->getDevice());
+    if (terrainRenderer) terrainRenderer->recreatePipelines();
+    if (wmoRenderer) wmoRenderer->recreatePipelines();
+    if (m2Renderer) m2Renderer->recreatePipelines();
+    if (characterRenderer) characterRenderer->recreatePipelines();
+    LOG_INFO("Lit pipelines rebuilt for the new shader variant");
+}
+
 void Renderer::applyMsaaChange() {
     VkSampleCountFlagBits samples = pendingMsaaSamples_;
     msaaChangePending_ = false;
@@ -1000,6 +1063,12 @@ void Renderer::beginFrame() {
     ZoneScopedN("Renderer::beginFrame");
     if (!vkCtx) return;
     if (vkCtx->isDeviceLost()) return;
+
+    // Apply a deferred shader-variant change between frames. Same reason as
+    // the MSAA change below: these destroy and remake pipelines.
+    if (shaderFeatureChangePending_) {
+        applyShaderFeatureChange();
+    }
 
     // Apply deferred MSAA change between frames (before any rendering state is used)
     if (msaaChangePending_) {

@@ -2,6 +2,10 @@
 
 #include "ui/graphics_defaults.hpp"
 
+#include <string>
+#include <unordered_map>
+#include <vector>
+
 namespace wowee {
 namespace ui {
 
@@ -86,6 +90,19 @@ constexpr SettingDesc kSchema[] = {
      "How much distant fog is tinted toward the sky behind it, so the\n"
      "horizon does not stand out pale against a dark sky. 0 uses the\n"
      "zone's fog colour alone; 1 matches the sky.", "", 0.7f},
+    // Height fog is calibrated against the linear model rather than replacing
+    // it: the distance the horizon disappears at is the zone's own, off
+    // Light.dbc, and moving it would change how every zone in the game reads.
+    // What changes is what happens between here and there - see
+    // rendering/height_fog.hpp for the calibration and the test that pins it.
+    {"fogmodel", "Fog model", SettingKind::Enum, 0, 1, 1, "Graphics", "",
+     "Linear thickens with distance alone. Height also thins with\n"
+     "altitude, so valleys hold mist and hilltops stand clear, and\n"
+     "the air glows where you look toward the sun through it.",
+     "Linear|Height", 1},
+    {"fogaerial", "Sun through the air", SettingKind::Float, 0, 1, 0.05f, "Graphics", "",
+     "How much the air itself glows when the sun is in front of you.\n"
+     "0 leaves distant fog its own colour.", "", 0.6f, "fogmodel=1"},
 
     // Labelled for what it does, with the term of art in brackets: nobody
     // looks for "multisampling" when their edges are jagged.
@@ -888,9 +905,55 @@ constexpr SettingDesc kSchema[] = {
      "The same for the helm.", "", 1, "", "lua:ShowingHelm|ShowHelm"},
 };
 
+/// What the running GPU cannot honour, filled at start-up.
+///
+/// The table above is constexpr and stays that way: it is what this client can
+/// be told, which does not depend on the machine it was told on. What the
+/// machine can *do* is decided once, when the Vulkan device exists, and lands
+/// here - see setSettingUnavailable and applyRenderCapsToSchema
+/// (rendering/render_caps_settings.cpp).
+///
+/// Kept as a map plus a lazily built copy rather than by mutating the table,
+/// so a build with no device at all - a unit test, the schema checks in
+/// tools/ - reads exactly what the source says.
+std::unordered_map<std::string, std::string>& unavailableOverlay() {
+    static std::unordered_map<std::string, std::string> overlay;
+    return overlay;
+}
+
+/// The table with the overlay applied, rebuilt whenever the overlay changes.
+std::vector<SettingDesc>& overlaidSchema() {
+    static std::vector<SettingDesc> rows;
+    return rows;
+}
+
 }  // namespace
 
+void setSettingUnavailable(const std::string& key, std::string reason) {
+    if (reason.empty()) {
+        unavailableOverlay().erase(key);
+    } else {
+        unavailableOverlay()[key] = std::move(reason);
+    }
+
+    // Rebuilt whole rather than patched: the overlay is written a handful of
+    // times at start-up and read for the rest of the session, and a rebuild
+    // cannot leave a row holding a pointer into a string that has been erased.
+    std::vector<SettingDesc>& rows = overlaidSchema();
+    rows.assign(std::begin(kSchema), std::end(kSchema));
+    for (SettingDesc& row : rows) {
+        auto it = unavailableOverlay().find(row.key);
+        if (it != unavailableOverlay().end()) {
+            row.unavailable = it->second.c_str();
+        }
+    }
+}
+
 const SettingDesc* clientSettingsSchema(std::size_t& count) {
+    if (!overlaidSchema().empty()) {
+        count = overlaidSchema().size();
+        return overlaidSchema().data();
+    }
     count = sizeof(kSchema) / sizeof(kSchema[0]);
     return kSchema;
 }

@@ -5,8 +5,15 @@ each for one pair of hands (or one agent run). Phase 01 is the exception on purp
 techniques that edit the same shaders, UBO block and settings table, done as one pass so
 those files are refactored once — two to three days, with a cut order inside the file.
 
-**Shipped through: none.** (Phase files and `tools/reserved_code_check.py` read this line;
+**Shipped through: phase 01.** (Phase files and `tools/reserved_code_check.py` read this line;
 bump it in the same commit that ships a phase.)
+
+Phase 01 shipped its consolidation (steps 1–5) and A1 height fog. Cascaded and
+soft shadows, sun shafts, terrain LOD and normal maps everywhere were cut to a
+**phase 01b**, because `tools/capture_scene` — which §7.5 of the plan says
+already exists — is not in this tree, so nothing that is only visible in a
+picture could be checked before shipping it. Compare v0 went to phase 02 with
+it. See [`../evidence/phase-01/README.md`](../evidence/phase-01/README.md).
 
 Context, ranking and rules live in [`../plan-modern-rendering.md`](../plan-modern-rendering.md).
 This directory is the execution order. Every phase ends as a production-grade client per
@@ -18,7 +25,8 @@ Sorted by impact ÷ effort with dependencies respected (plan §7.1). Ratio in br
 
 | # | File | Ships | Depends on |
 |---|---|---|---|
-| 01 | [01-shadows-fog-distance-surfaces.md](01-shadows-fog-distance-surfaces.md) | Shader consolidation (includes, spec constants, one UBO append); F5 capability gating; L1 cascaded shadows (off works again); L2 soft shadows; A1 height fog + aerial perspective; S4 sun shafts; G1 terrain LOD; M3a normal maps and tangents for M2 doodads and terrain; compare v0. **The one multi-day phase** | — |
+| 01 | [01-shadows-fog-distance-surfaces.md](01-shadows-fog-distance-surfaces.md) | **Shipped:** shader consolidation (includes, spec constants, one UBO append); F5 capability gating; A1 height fog + aerial perspective. **Cut to 01b:** L1 cascaded shadows and the off switch, L2 soft shadows, S4 sun shafts, G1 terrain LOD, M3a normal maps. **Cut to 02:** compare v0 | — |
+| 01b | *(to write)* | L1 cascaded shadows and the shadows-off switch; L2 Poisson and PCSS; S4 sun shafts; G1 terrain LOD with skirts and geomorph; M3a tangents and generated normal maps. Everything phase 01 could not check without a scene harness | 02 |
 | 02 | [02-comparison-mode.md](02-comparison-mode.md) | §7.5 `--compare` on the game exe, scene catalogue, report, CI | 01 |
 | 03 | [03-depth-prepass-reverse-z.md](03-depth-prepass-reverse-z.md) | F3 pre-pass, reverse-Z, normal target; velocity target reserved | 02 |
 | 04 | [04-hdr-pipeline.md](04-hdr-pipeline.md) | F2 HDR scene target, tone map, exposure, Light.dbc recalibration | 03 |

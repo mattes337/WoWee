@@ -1,6 +1,6 @@
 # Project Status
 
-**Last updated**: 2026-08-11
+**Last updated**: 2026-09-10
 
 ## What This Repo Is
 
@@ -61,6 +61,14 @@ Recent work (August 2026):
 - AMD FidelityFX SDK backends are off by default (`WOWEE_ENABLE_AMD_FSR2`, `WOWEE_ENABLE_AMD_FSR3_FRAMEGEN`). This client's own FSR 1 and `fsr2_*` compute shaders are in-tree and unaffected
 - 89 test suites registered with CTest, up from the 31 noted above
 - macOS: SIGPIPE is ignored at startup, so a send to a dropped connection no longer terminates the client; crash backtraces now work there as well as on Linux
+
+Modern rendering, phase 01 (September 2026):
+
+- The four lit fragment shaders were consolidated once, before anything was added to them: the shadow filter, the fog ramp and the parallax march are `assets/shaders/*.glsl` includes now (`shadow_common.glsl`, `fog.glsl`, `parallax.glsl`, gathered by `lit_common.glsl`), and the per-frame uniform block grew once - cascade matrices, height-fog parameters and SH9 ambient slots - rather than once per technique
+- Every renderer toggle is a specialization constant rather than a uniform `int` and an `if`. The defaults are what the client did before, so a pipeline built with no `VkSpecializationInfo` is the shader that shipped. `tests/shader_offpath_identity` measures that rather than asserting it: it compiles the archived pre-phase source and the current one, freezes the constants at their defaults, and compares what the two actually compute
+- `VkContext::getRenderCaps()` reports a capability tier and a flag per optional feature, and a settings row the GPU cannot honour is greyed with the reason instead of being silently ignored
+- Exponential height fog with a sun-coloured in-scatter term, calibrated against each zone's own Light.dbc fog end so the horizon does not move and no zone shifts hue. `fogmodel` and `fogaerial` on the Graphics page; the model is a shader variant, so changing it rebuilds the four lit renderers' pipelines between frames, the way an anti-aliasing change already does
+- **Cut to a phase 01b:** cascaded and soft shadows, the shadows-off switch, sun shafts, terrain LOD and normal maps everywhere. `tools/capture_scene`, which `docs/plan-modern-rendering.md` §7.5 describes as already existing, is not in this tree, so there was no way to render a before/after of anything. What is only visible in a picture was not shipped unseen. See `docs/evidence/phase-01/README.md`
 
 In progress / known gaps:
 

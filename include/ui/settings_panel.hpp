@@ -62,6 +62,13 @@ public:
     float pendingFogSkyBlend = 0.7f;
     /// How much distance fog. See LightingManager::setFogStrength.
     float pendingFogStrength = 0.4f;
+    /// 0 = the linear start/end ramp the client always had, 1 = exponential
+    /// height fog. A shader variant rather than a uniform, so changing it
+    /// rebuilds the four lit renderers' pipelines - which Renderer::setFogModel
+    /// queues for between frames, the way an MSAA change already is.
+    int   pendingFogModel = 1;
+    /// How strongly the fog carries the sun's own colour toward the sun.
+    float pendingFogAerial = 0.6f;
     bool pendingWaterRefraction = true;
     int pendingBrightness = 50; // 0-100, maps to 0.0-2.0 (50 = 1.0 default)
 

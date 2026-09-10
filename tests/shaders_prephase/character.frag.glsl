@@ -16,19 +16,6 @@ layout(set = 0, binding = 0) uniform PerFrame {
     vec4 localLightPosRadius[64];
     vec4 localLightColorIntensity[64];
     ivec4 localLightMeta;
-    // ---- appended in phase 01, all at once. See vk_frame_data.hpp. ----
-    // RESERVED(phase-01b, L1-csm): cascade slots, filled when cascaded shadows
-    // land. cascadeMatrix[0] mirrors lightSpaceMatrix; nothing reads the rest.
-    mat4 cascadeMatrix[4];
-    vec4 shadowSplits;
-    ivec4 shadowMeta;
-    // RESERVED(phase-15, A2-volumetric-fog): fogHeight.w and fogSunColor are
-    // the froxel volume's inputs too; declared with the fog parameters so this
-    // block moves once.
-    vec4 fogHeight;    // x = base height, y = density/yd, z = 1/scale height, w = aerial
-    vec4 fogSunColor;  // rgb = sun in-scatter colour, w unused
-    // RESERVED(phase-11, L5-sky-probes): SH9 ambient. Zero-filled; unread.
-    vec4 skySH[7];
 };
 
 layout(set = 1, binding = 0) uniform sampler2D uTexture;
@@ -84,8 +71,24 @@ layout(location = 0) out vec4 outColor;
 
 const int PREVIEW_SIMPLE_TEXTURE_MODE = -31336;
 
-#define WOWEE_HAS_NORMAL_HEIGHT_MAP
-#include "lit_common.glsl"
+// One texel of the shadow map, handed in by the renderer. The map is 512,
+// 1024, 2048 or 4096 a side by the quality setting; this used to be a
+// constant for 4096, so at 512 the filter taps all landed inside one texel
+// and the bias shrank eightfold. The fallback covers a per-frame block that
+// never filled the slot in, such as the character preview's.
+float shadowTexel() {
+    return shadowParams.z > 0.0 ? shadowParams.z : 1.0 / 4096.0;
+}
+
+float sampleShadowPCF(sampler2DShadow smap, vec3 coords) {
+    float shadow = 0.0;
+    for (int x = -1; x <= 1; ++x) {
+        for (int y = -1; y <= 1; ++y) {
+            shadow += texture(smap, vec3(coords.xy + vec2(x, y) * shadowTexel(), coords.z));
+        }
+    }
+    return shadow / 9.0;
+}
 
 vec3 localLightContribution(vec3 pos, vec3 normal, vec3 albedo) {
     vec3 sum = vec3(0.0);
@@ -105,6 +108,14 @@ vec3 localLightContribution(vec3 pos, vec3 normal, vec3 albedo) {
                (localLightColorIntensity[i].w * attenuation * wrappedDiffuse);
     }
     return sum;
+}
+
+// LOD factor from screen-space UV derivatives
+float computeLodFactor() {
+    vec2 dx = dFdx(TexCoord);
+    vec2 dy = dFdy(TexCoord);
+    float texelDensity = max(dot(dx, dx), dot(dy, dy));
+    return smoothstep(0.0001, 0.005, texelDensity);
 }
 
 vec3 safeNormalize(vec3 v, vec3 fallback) {
@@ -181,6 +192,53 @@ vec4 samplePreviewTexture(sampler2D tex, vec2 uv) {
     return vec4(0.0);
 }
 
+// Parallax Occlusion Mapping with angle-adaptive sampling
+vec2 parallaxOcclusionMap(vec2 uv, vec3 viewDirTS, float lodFactor) {
+    float VdotN = abs(viewDirTS.z);
+
+    if (VdotN < 0.15) return uv;
+
+    float angleFactor = clamp(VdotN, 0.15, 1.0);
+    int maxS = pomMaxSamples;
+    int minS = max(maxS / 4, 4);
+    int numSamples = int(mix(float(minS), float(maxS), angleFactor));
+    numSamples = int(mix(float(minS), float(numSamples), 1.0 - lodFactor));
+
+    float layerDepth = 1.0 / float(numSamples);
+    float currentLayerDepth = 0.0;
+
+    vec2 P = viewDirTS.xy / max(VdotN, 0.15) * pomScale;
+    float maxOffset = pomScale * 3.0;
+    P = clamp(P, vec2(-maxOffset), vec2(maxOffset));
+    vec2 deltaUV = P / float(numSamples);
+
+    // The mip level is chosen once, from the undisplaced UV, and used for
+    // every sample in the march. Inside the loop the UV differs from one
+    // pixel to the next by how many steps each has taken, so the implicit
+    // derivatives were noise and the level chosen from them was too - which
+    // showed as sparkle on relief at distance and cost a gradient fetch
+    // per sample on top.
+    float lod = textureQueryLod(uNormalHeightMap, uv).x;
+    vec2 currentUV = uv;
+    float currentDepthMapValue = 1.0 - textureLod(uNormalHeightMap, currentUV, lod).a;
+
+    for (int i = 0; i < 64; i++) {
+        if (i >= numSamples || currentLayerDepth >= currentDepthMapValue) break;
+        currentUV -= deltaUV;
+        currentDepthMapValue = 1.0 - textureLod(uNormalHeightMap, currentUV, lod).a;
+        currentLayerDepth += layerDepth;
+    }
+
+    vec2 prevUV = currentUV + deltaUV;
+    float afterDepth = currentDepthMapValue - currentLayerDepth;
+    float beforeDepth = (1.0 - textureLod(uNormalHeightMap, prevUV, lod).a) - currentLayerDepth + layerDepth;
+    float weight = afterDepth / (afterDepth - beforeDepth + 0.0001);
+    vec2 result = mix(currentUV, prevUV, weight);
+
+    float fadeFactor = smoothstep(0.15, 0.35, VdotN);
+    return mix(uv, result, fadeFactor);
+}
+
 void main() {
     if (enablePOM == PREVIEW_SIMPLE_TEXTURE_MODE) {
         vec4 texColor = samplePreviewTexture(uTexture, TexCoord);
@@ -217,12 +275,12 @@ void main() {
 
     vec2 finalUV = TexCoord;
 
-    bool usePOM = SPEC_PARALLAX && enablePOM != 0 &&
+    bool usePOM = enablePOM != 0 &&
                   alphaTest == 0 &&
                   colorKeyBlack == 0 &&
                   heightMapVariance > 0.001 &&
                   lodFactor < 0.99;
-    bool useNormalMap = SPEC_NORMAL_MAP && enableNormalMap != 0 &&
+    bool useNormalMap = enableNormalMap != 0 &&
                         unlit == 0 &&
                         lodFactor < 0.99 &&
                         normalMapStrength > 0.001;
@@ -309,7 +367,7 @@ void main() {
         float spec = pow(max(dot(norm, halfDir), 0.0), 32.0) * specularIntensity;
 
         float shadow = 1.0;
-        if (SPEC_SHADOWS && shadowParams.x > 0.5) {
+        if (shadowParams.x > 0.5) {
             float normalOffset = shadowTexel() * 2.0 * (1.0 - abs(dot(norm, ldir)));
             vec3 biasedPos = FragPos + norm * normalOffset;
             vec4 lsPos = lightSpaceMatrix * vec4(biasedPos, 1.0);
@@ -331,7 +389,8 @@ void main() {
     if (unlit == 0) result += localLightContribution(FragPos, norm, texColor.rgb);
 
     float dist = length(viewPos.xyz - FragPos);
-    result = applyFog(result, FragPos, dist);
+    float fogFactor = clamp((fogParams.y - dist) / (fogParams.y - fogParams.x), 0.0, 1.0);
+    result = mix(fogColor.rgb, result, fogFactor);
     if (!finiteVec3(result)) {
         result = texColor.rgb;
     }

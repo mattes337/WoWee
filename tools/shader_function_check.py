@@ -7,7 +7,7 @@ WHY
 
 GLSL has no linker here. Every shader is compiled on its own, so a function
 two of them need is written into both, and nothing connects the copies. Seven
-bodies are duplicated across the seventy-eight shaders in this tree:
+bodies were duplicated across the shaders in this tree when this was written:
 
     parallaxOcclusionMap    29 lines, in character.frag and wmo.frag
     localLightContribution  14 lines, in character.frag, m2.frag, terrain.frag
@@ -20,6 +20,12 @@ kind of surface differently from the others - a character lit slightly unlike
 the terrain under them, or a shadow softer on a wall than on the ground - and
 that reads as an art problem rather than a code one.
 
+Four of those seven are gone: phase 01 of the modern-rendering plan put
+shadowTexel, sampleShadowPCF, computeLodFactor and parallaxOcclusionMap into
+`assets/shaders/shadow_common.glsl` and `parallax.glsl`, pulled in through
+`lit_common.glsl`. What is left - localLightContribution, safeNormalize and
+two more - is still four copies each waiting to drift, so this stays.
+
 WHAT IT LOOKS FOR
 
 Every named function defined in more than one shader, and whether the copies
@@ -27,12 +33,14 @@ have the same body once comments and whitespace are normalised. Not whether a
 function is duplicated - it has to be, without a linker - but whether the
 duplicates still agree.
 
-This is deliberately a guard rather than a fix. Sharing the bodies for real
-means an include directive, a new file extension so the glob does not compile
-the shared file as a shader, dependency edges so a change to it recompiles its
-dependents, and regenerating every affected .spv - and those .spv files are
-tracked, because they are the fallback when glslc is absent. That is worth
-doing deliberately, not as a side effect of noticing.
+This is a guard rather than a fix, and it stayed one until the sharing was
+worth doing deliberately. It is now, for the four functions phase 01 moved:
+`compile_shaders()` passes `-I assets/shaders` and treats a `.glsl` whose name
+carries no stage as an include rather than a shader, every shader depends on
+every include so a change to one recompiles its dependents, and
+`shader_offpath_check.py` proves the moved bodies compile to the same
+instructions they did before. The remaining copies are still copies, and this
+is still what notices when they stop agreeing.
 
 WHAT IT CANNOT SEE
 

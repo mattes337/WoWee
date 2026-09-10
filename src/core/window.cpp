@@ -1,5 +1,7 @@
 #include "core/window.hpp"
 
+#include "rendering/render_caps_settings.hpp"
+
 #include <algorithm>
 
 #include <cmath>
@@ -275,6 +277,11 @@ bool Window::initialize() {
                          "machine.");
         return false;
     }
+
+    // What this GPU can be asked to do is known now, and the settings panels
+    // are drawn after this. A row the hardware cannot honour is greyed with the
+    // reason from here on; before this call the schema is what the source says.
+    rendering::applyRenderCapsToSchema(vkContext->getRenderCaps());
 
 #ifdef __ANDROID__
     // SDL and the Vulkan driver leave the working directory at /system/bin on
