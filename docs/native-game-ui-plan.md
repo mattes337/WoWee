@@ -15,6 +15,12 @@ backdrop model and its lighting, the glue music, an interface element that had
 been drawing its own HTML markup on screen, and a rule about unanchored frames
 that was hiding a label the markup never meant to hide. 200 tests pass.
 
+There is a `wowee.exe` now, built with MSVC and run against the 3.3.5a
+installation on real hardware. Getting there needed four fixes for faults only
+that compiler can see, and the login screen it drew turned out to be missing
+the second texture layer of every two-layer material - which is what its light
+shafts and aurora are made of. Both are under "The Windows build" below.
+
 Every box below is ticked only where there is evidence under it, and the
 unticked ones say what is missing rather than being left blank.
 
@@ -456,12 +462,101 @@ regression.
   0-1200 range and cannot be brought up from here; only the arithmetic is
   unit-tested.
 
-### Still no Windows binary
+## The Windows build, and what it found
 
-Everything above was built and run on Linux, in Docker, under Xvfb with
-lavapipe software Vulkan. Nothing in this tree has ever been compiled for
-Windows in this session, so `wowee.exe` remains a stage 6 item rather than a
-thing that exists. Stage 6's clean-machine acceptance is untouched.
+`wowee.exe` exists and runs. Built with MSVC 14.44 (VS 2022 BuildTools) against
+vcpkg, on the 3.3.5a installation, on an RTX 2070 SUPER: it finds the install,
+reads its archives, and draws the original login screen. That closes nothing in
+stage 6 on its own - nothing is embedded yet and the clean-machine run has not
+been done - but the binary is no longer hypothetical.
+
+### What it took
+
+Three toolchain pieces were missing, and every one was a stale pointer to a
+directory that no longer exists, so C: had evidently been cleaned at some point:
+
+- `C:\vcpkg`, gone. Installed to `D:\vcpkg`; the 23 manifest packages build
+  from source in about 16 minutes.
+- `VULKAN_SDK=C:\VulkanSDK\1.4.341.1`, gone. The LunarG installer wants an
+  elevation it cannot get from a command line and rolls itself back, so the
+  import library is generated instead - 265 exports read out of the
+  `vulkan-1.dll` already on the system, exactly what `container/build-windows.sh`
+  does with `dlltool` for the MinGW cross-build.
+- StormLib, not on any search path. Without it the client cannot read an MPQ at
+  all, which is the whole premise; its LibTomCrypt is compiled into the same
+  archive, which is what the "requires LibTomCrypt and LibTomMath" check wants.
+
+`glslc` came with the Vulkan SDK, so shaders are not compiled from source on
+this machine and the build embeds the prebuilt `.spv` - which is the shipped
+path, but it means an edited `.glsl` does nothing until someone regenerates
+the `.spv`. `glslangValidator` in the Linux image does that job.
+
+Do not put the build or its `vcpkg_installed` under `G:\WoW Projects`. ffmpeg's
+own configure emits `-libpath:` unquoted, so a space in the path makes
+`link.exe` read the second word as an input file and the port fails to build.
+
+### Four faults that only MSVC sees
+
+All pre-existing. The Linux build cannot reach any of them, which is why 200
+passing tests never said a word.
+
+- **`pushCvarDefault` was a 126-branch else-if chain.** MSVC counts each
+  `else if` as a nested block and stops at 128. Cut once at a branch boundary
+  rather than rewritten as a table: the order in that chain is its meaning -
+  the `sound_enable` prefix rule swallows every name it starts with - and a
+  table would have put 126 CVar defaults at risk to satisfy a compiler limit.
+- **Two raw literals were over MSVC's 16380-byte limit.**
+  `kWoweeOptionsPanelLua` at 38731 bytes, `kRemovedControlsLua` at 18199. The
+  diagnostic is "string too big, **trailing characters truncated**": without
+  `/WX` this compiles into an options panel missing two thirds of itself and
+  says nothing at all. Split into concatenated chunks; the concatenation of
+  every literal in the file is 78071 bytes before and after.
+- **Three `extern` declarations sat inside a function.** A block-scope extern
+  declaration names the nearest enclosing namespace, which is `wowee::addons`
+  and is what GCC does; MSVC binds it to the global namespace, so the calls
+  went looking for `::lua_EditBox_SetFocus` and the link ended in three
+  unresolved externals.
+- **The RC include flags were unquoted.** `rc.exe` received
+  `-I G:/WoW Projects/wowee` and read the second word as another argument.
+  `RC1107: invalid usage` says nothing about paths, and a checkout is allowed
+  to live somewhere with a space in its name.
+
+`WOWEE_WARNINGS_AS_ERRORS=OFF` is still needed for an MSVC build: there is a
+`uint64`-to-`lua_Number` narrowing in `lua_system_api.cpp` and a cluster of
+shadowing warnings in `entity.hpp`, none of them reachable from the Linux
+build.
+
+## A material's second texture layer
+
+The login screen's light shafts, aurora and snow drew as hard-edged rectangles
+over the sky. An M2 material may declare two texture layers; this renderer only
+ever bound one, and for these effects the second layer is the falloff - so each
+one drew as its own quad, with edges.
+
+Nothing reported it. The batches drew, with real textures, in the right places,
+through the right pipelines. The only trace was on screen, and it was there on
+Linux under lavapipe exactly as on Windows on real hardware, so it was never a
+driver or a packaging matter.
+
+Diagnosed by dumping the scene's batches rather than by reading the shader:
+several came back `texCount=2`, one of them `blend=2` over a first texture with
+no alpha channel at all - so its transparency could only come from somewhere
+nothing was looking. Skipping every two-layer batch removed the rectangles and
+the shafts, the aurora and the snow together, which is the same set.
+
+Fixed for the character and scene path: a second sampler at `set=1 binding=3`,
+a combiner in the material UBO taking the pad slot so the UBO size does not
+move, and the layer resolved through `textureLookup[textureIndex + 1]`. A
+one-layer material binds a white 1x1, so modulating by it is the identity and
+every existing draw is unchanged.
+
+Left open, deliberately:
+
+- **`m2.frag.glsl` has one sampler too**, so every two-layer doodad material in
+  the *world* has this same fault. Only the path that was on screen is fixed.
+- **The combiner is modulate.** That is what two layers mean for these
+  materials and it is demonstrably right here, but M2 can specify other
+  operations and those want the material's shader id read properly.
 
 ## Implementation and evidence rules
 
