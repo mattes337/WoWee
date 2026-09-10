@@ -1051,6 +1051,24 @@ int lua_Frame_GetBoundsRect(lua_State* L) {
 
     float x0 = w->left, y0 = w->bottom;
     float x1 = w->left + w->rectW, y1 = w->bottom + w->rectH;
+    // An HTML block's text is not a child region here, so nothing in the walk
+    // below would ever see it and this answered the frame's declared height -
+    // thirty units for GlueDialogHTML, whatever the dialog actually says. The
+    // text flows down from the top of the frame, so a document taller than the
+    // frame reaches below its bottom edge.
+    if (w->isSimpleHtml && !w->text.empty()) {
+        const float es = (w->effScale > 0.0f) ? w->effScale : 1.0f;
+        const float wrap = w->rectW / es;
+        float flowed = 0.0f;
+        for (const auto& block : wowee::ui::parseSimpleHtml(w->text)) {
+            const auto font = wowee::ui::htmlBlockFont(*w, block.kind);
+            const int rows = wowee::ui::interfaceTextLines(block.text, font.face,
+                                                           font.height, wrap, false);
+            flowed += wowee::ui::interfaceFontSize(font.height) * 1.2f *
+                      static_cast<float>(rows > 0 ? rows : 1) + font.spacing;
+        }
+        y0 = std::min(y0, w->bottom + w->rectH - flowed * es);
+    }
     // Iterative rather than recursive: a frame's subtree is as deep as the
     // interface cares to nest, and this runs from a Lua call.
     std::vector<uint32_t> pending(w->children.begin(), w->children.end());
