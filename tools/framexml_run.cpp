@@ -70,6 +70,13 @@
 #include "game/spell_handler.hpp"
 
 #include <imgui.h>
+// For the glue model-method installer below, which is a Lua global. Wrapped
+// the way every other user of this header wraps it: lua.h carries no linkage
+// guard of its own and the library is built as C, so a bare include here
+// asks the linker for C++-mangled names that do not exist.
+extern "C" {
+#include <lua.h>
+}
 
 #include <cstdio>
 #include <filesystem>
@@ -278,6 +285,29 @@ int main(int argc, char** argv) {
 
     if (loadGlue) {
         mgr.setGlueXmlDir(assetPath + "/interface/GlueXML");
+        // The same fourteen model methods the client installs before it loads
+        // GlueXML - SetCamera, SetSequence, the fog range, SetLighting and the
+        // rest. They live on the frame metatable, which does not exist until
+        // the engine is up, so both the client and this have to ask for them
+        // at this exact point.
+        //
+        // Without it this harness reported all fourteen as no-ops on a client
+        // where they are not, which is the worst way for a harness to be
+        // wrong: it stands in for the client precisely so that a gap it
+        // reports can be believed.
+        if (auto* engine = mgr.getLuaEngine();
+            engine != nullptr && engine->getState() != nullptr) {
+            lua_State* L = engine->getState();
+            lua_getglobal(L, "__WoweeInstallGlueModelMethods");
+            if (lua_isfunction(L, -1) && lua_pcall(L, 0, 1, 0) == 0) {
+                if (!lua_toboolean(L, -1)) {
+                    std::printf("== glue model methods: NOT installed\n");
+                }
+                lua_pop(L, 1);
+            } else {
+                lua_pop(L, 1);
+            }
+        }
         mgr.loadGlueXml(mgr.getGlueXmlDir());
         std::printf("== glue load: %zu error(s)\n", errors.size());
         for (const std::string& e : errors) std::printf("   %s\n", e.c_str());
