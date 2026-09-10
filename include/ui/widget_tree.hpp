@@ -437,10 +437,28 @@ struct Widget {
     /// one, which is why a letter opened to a blank page: the words were set
     /// and stored, and nothing drew text for anything but a FontString.
     ///
-    /// The markup is ignored. Real SimpleHTML parses a subset of HTML and this
-    /// draws the text as it stands, which is right for the pages the game
-    /// actually ships - they are plain text with line breaks.
+    /// The text is a small HTML document when it opens with <html>, and plain
+    /// prose otherwise - see parseSimpleHtml. A letter or a sign is prose; the
+    /// login screen's dialogs are documents, and drawing one as it stands put
+    /// `<html><body><p align="CENTER">` on screen in front of the player.
     bool  isSimpleHtml = false;
+    /// One of a SimpleHTML's per-element fonts.
+    ///
+    /// <FontStringHeader1..3> declare these beside the body's <FontString>, and
+    /// SetFontObject("h1", ...) sets one at runtime. An element nothing
+    /// declared draws in the body's font, which is what `set` distinguishes:
+    /// the colour of a font object that carries none is white, and white is
+    /// also a colour something might have asked for.
+    struct HtmlFont {
+        bool  set = false;
+        std::string face;
+        std::string objectName;
+        float height = 0.0f;
+        float spacing = 0.0f;
+        float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    };
+    /// h1, h2 and h3, in that order. Only a SimpleHTML has any use for them.
+    HtmlFont htmlFonts[3];
     /// A scrolling message frame keeps its own lines rather than a single
     /// string: chat is a list that grows at one end and falls off the other,
     /// and the frame draws as many as fit from the bottom up.
@@ -661,6 +679,65 @@ struct Widget {
     FrameStrata effStrata = FrameStrata::Medium;
     int   effLevel = 0;
 };
+
+/// One block of a SimpleHTML document, ready to be drawn.
+///
+/// Blocks stack down the frame, each wrapped to its width and justified on its
+/// own. A heading is told apart from a paragraph because it draws in a font of
+/// its own; nothing else about it differs.
+struct HtmlBlock {
+    enum class Kind : uint8_t { Paragraph, Heading1, Heading2, Heading3 };
+    Kind kind = Kind::Paragraph;
+    /// The block's contents in WoW's own markup rather than in HTML: <a href>
+    /// has become |H...|h, <img src> |T...|t and <br/> a newline. So the
+    /// drawing side needs to learn nothing - it already draws all three - and
+    /// a link inside an HTML block is clickable for the same reason one in a
+    /// chat line is.
+    std::string text;
+    /// LEFT, CENTER or RIGHT, from the element's align attribute. Empty means
+    /// the element did not say and the frame's own justifyH stands.
+    std::string align;
+};
+
+/// Break what a SimpleHTML was given into the blocks it draws.
+///
+/// The interface hands these frames a small HTML document - the login screen's
+/// dialogs, the terms of use, the connection help. Handed straight to the text
+/// renderer, as it used to be, every tag was drawn on screen as characters:
+///
+///     <html><body><p align="CENTER">This system will not be supported ...
+///
+/// Only what the interface actually writes is understood: html, body, p with
+/// an align, h1 to h3, br, a with an href, img with a src, and the four
+/// entities. An unknown tag is dropped and the text inside it still renders,
+/// which is the forgiving reading and the one that loses nothing.
+///
+/// Text that does not open with <html> is not a document and is returned whole
+/// as a single paragraph. ItemTextFrame's page is that: a letter or a sign is
+/// prose with line breaks, and reading it as markup would lose the rest of a
+/// sentence to any less-than sign in it.
+///
+/// `hyperlinkFormat` is how an anchor is written into the markup, with the
+/// href first and the anchor text second. It is a property of the frame in the
+/// real client - GlueDialog's dialogs wrap their links in green brackets - and
+/// defaults here to WoW's own "|H%s|h%s|h".
+[[nodiscard]] std::vector<HtmlBlock> parseSimpleHtml(
+    const std::string& text, const std::string& hyperlinkFormat = std::string());
+
+/// The type one block of a SimpleHTML draws in: the element's own font where
+/// the markup declared one, and the body's where it did not.
+///
+/// Shared rather than worked out twice. The renderer draws the blocks and
+/// GetBoundsRect reports how much room they took, and GlueDialog sizes its
+/// dialog around that answer - so the two have to agree on the pitch or the
+/// box is drawn to the wrong height.
+struct HtmlBlockFont {
+    std::string face;
+    float height = 0.0f;
+    float spacing = 0.0f;
+    float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+};
+[[nodiscard]] HtmlBlockFont htmlBlockFont(const Widget& w, HtmlBlock::Kind kind);
 
 /// A link drawn on screen this frame, and where it landed.
 ///

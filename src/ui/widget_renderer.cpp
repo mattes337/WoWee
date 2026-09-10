@@ -2196,24 +2196,67 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                 }
             }
             if (w->isSimpleHtml && !w->text.empty()) {
-                ImFont* font = interfaceFaceOrDefault(w->fontFace);
-                const float size = interfaceFontSize(w->fontHeight) * ws;
-                const float wrapW = (x1 - x0) > size ? (x1 - x0) : 0.0f;
-                // The shadow under the words, the single offset copy a font
-                // string draws, for the same reason it does.
-                if (w->hasShadow) {
-                    float sc[4] = {w->shadowColor[0], w->shadowColor[1],
-                                   w->shadowColor[2], w->shadowColor[3]};
-                    drawMarkupText(dl, font, size,
-                                   ImVec2(x0 + w->shadowX * s, y0 - w->shadowY * s),
-                                   packColor(sc, w->alpha * w->shadowColor[3]),
-                                   w->alpha, w->text, wrapW, false,
-                                   w->justifyH.c_str(), true);
+                // A document, block by block, rather than one string.
+                //
+                // What the frame holds is markup, and handing it to the text
+                // renderer drew the markup: the login screen's dialogs said
+                // `<html><body><p align="CENTER">This system will not be
+                // supported ...` on screen, tags and all, because drawMarkupText
+                // understands WoW's |c escapes and nothing at all about HTML.
+                //
+                // parseSimpleHtml turns the document into blocks whose text is
+                // already in those escapes, so each one draws through exactly
+                // the path a chat line does - links included. The blocks stack
+                // downward, each wrapped to the frame and justified by its own
+                // align attribute.
+                float top = y0;
+                for (const HtmlBlock& block : parseSimpleHtml(w->text)) {
+                    const HtmlBlockFont bf = htmlBlockFont(*w, block.kind);
+                    ImFont* font = interfaceFaceOrDefault(bf.face);
+                    const float size = interfaceFontSize(bf.height) * ws;
+                    // A box narrower than one glyph is not a column to wrap
+                    // inside, it is a frame that has not been laid out yet -
+                    // and wrapping into it would break every word onto a line
+                    // of its own.
+                    const float wrapW = (x1 - x0) > size ? (x1 - x0) : 0.0f;
+                    // Its own align where it stated one, and the frame's where
+                    // it did not: <p align="CENTER"> is how every login dialog
+                    // centres its notice, and a book's page states nothing and
+                    // reads from the left margin.
+                    const char* justify =
+                        block.align.empty() ? w->justifyH.c_str() : block.align.c_str();
+                    float rgba[4] = {bf.color[0], bf.color[1], bf.color[2],
+                                     bf.color[3]};
+                    // The shadow under the words, the single offset copy a font
+                    // string draws, for the same reason it does.
+                    if (w->hasShadow) {
+                        float sc[4] = {w->shadowColor[0], w->shadowColor[1],
+                                       w->shadowColor[2], w->shadowColor[3]};
+                        drawMarkupText(dl, font, size,
+                                       ImVec2(x0 + w->shadowX * s,
+                                              top - w->shadowY * s),
+                                       packColor(sc, w->alpha * w->shadowColor[3]),
+                                       w->alpha, block.text, wrapW, false,
+                                       justify, true);
+                    }
+                    drawMarkupText(dl, font, size, ImVec2(x0, top),
+                                   packColor(rgba, w->alpha), w->alpha,
+                                   block.text, wrapW, false, justify, false,
+                                   &tree, w->id);
+                    // Down by however many lines it actually took, which is the
+                    // one thing drawMarkupText does not report back. Wrapped a
+                    // second time rather than through a changed signature: a
+                    // page is a few dozen words and this runs once per block.
+                    const auto lines = wrapText(
+                        parseMarkup(block.text), wrapW, false,
+                        [&](const std::string& piece) {
+                            return font->CalcTextSizeA(size, FLT_MAX, 0.0f,
+                                                       piece.c_str()).x;
+                        });
+                    const size_t rows = lines.empty() ? 1 : lines.size();
+                    top += size * 1.2f * static_cast<float>(rows) +
+                           bf.spacing * ws;
                 }
-                drawMarkupText(dl, font, size, ImVec2(x0, y0),
-                               packColor(w->color, w->alpha), w->alpha, w->text,
-                               wrapW, false, w->justifyH.c_str(), false,
-                               &tree, w->id);
             }
 
             if (w->isEditBox) {

@@ -510,6 +510,19 @@ target_link_libraries(test_widget_tree PRIVATE catch2_main)
 add_test(NAME widget_tree COMMAND test_widget_tree)
 register_test_target(test_widget_tree)
 
+# ── test_simple_html ────────────────────────────────────────
+# Reading a SimpleHTML frame's markup into the blocks it draws. Pure string
+# work, so no font and no device.
+add_executable(test_simple_html
+    test_simple_html.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/widget_tree.cpp
+)
+target_include_directories(test_simple_html PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_simple_html SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_simple_html PRIVATE catch2_main)
+add_test(NAME simple_html COMMAND test_simple_html)
+register_test_target(test_simple_html)
+
 # ── test_text_edit ──────────────────────────────────────────
 wowee_add_test(test_text_edit SOURCES
     test_text_edit.cpp

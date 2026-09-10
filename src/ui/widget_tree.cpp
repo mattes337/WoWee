@@ -1,9 +1,12 @@
 #include "ui/widget_tree.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <climits>
 #include <cmath>
+#include <cstdlib>
 #include <ranges>
+#include <utility>
 
 namespace wowee {
 namespace ui {
@@ -1359,6 +1362,297 @@ void rgbToHsv(const float rgb[3], float hsv[3]) {
     else              h = 4.0f + (r - g) / span;
     h /= 6.0f;
     hsv[0] = h - std::floor(h);
+}
+
+// ---------------------------------------------------------------------------
+// SimpleHTML
+//
+// The interface writes small HTML documents into these frames and the drawing
+// side knew only WoW's own escapes, so the tags themselves were what appeared
+// on screen. Everything below turns a document into blocks whose text is in
+// that same escape language, which is why the renderer needs no new drawing
+// code for links or images.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+char lowerChar(char c) {
+    return static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+}
+
+std::string lowerAll(std::string s) {
+    for (char& c : s) c = lowerChar(c);
+    return s;
+}
+
+bool isSpaceChar(char c) {
+    return ::isspace(static_cast<unsigned char>(c)) != 0;
+}
+
+/// Whether `s` reads `lit` at `at`, ignoring case. `lit` is lowercase.
+bool matchesAt(const std::string& s, size_t at, const char* lit) {
+    for (size_t i = 0; lit[i] != '\0'; ++i) {
+        if (at + i >= s.size() || lowerChar(s[at + i]) != lit[i]) return false;
+    }
+    return true;
+}
+
+/// The four entities the interface writes, plus the two that cost nothing to
+/// add beside them and the numeric forms.
+///
+/// An ampersand that begins nothing is left as it stands: prose is full of
+/// them, and eating one because a semicolon happened to follow later in the
+/// sentence would be worse than not decoding at all. Hence the bound on how
+/// far away the semicolon may be.
+std::string decodeEntities(const std::string& in) {
+    std::string out;
+    out.reserve(in.size());
+    for (size_t i = 0; i < in.size();) {
+        if (in[i] != '&') { out += in[i++]; continue; }
+        const size_t end = in.find(';', i + 1);
+        if (end == std::string::npos || end - i > 10) { out += in[i++]; continue; }
+        const std::string name = lowerAll(in.substr(i + 1, end - i - 1));
+        if      (name == "lt")   out += '<';
+        else if (name == "gt")   out += '>';
+        else if (name == "amp")  out += '&';
+        else if (name == "quot") out += '"';
+        else if (name == "apos") out += '\'';
+        else if (name == "nbsp") out += ' ';
+        else if (name.size() > 1 && name[0] == '#') {
+            const bool hex = name[1] == 'x';
+            const long code = std::strtol(name.c_str() + (hex ? 2 : 1), nullptr,
+                                          hex ? 16 : 10);
+            // Only the part of Unicode a byte can hold. Anything above it
+            // would need encoding and nothing in the interface asks.
+            if (code > 0 && code < 128) out += static_cast<char>(code);
+            else                        out += in.substr(i, end - i + 1);
+        } else {
+            out += in.substr(i, end - i + 1);
+        }
+        i = end + 1;
+    }
+    return out;
+}
+
+struct HtmlTag {
+    std::string name;                                       ///< lowercased
+    bool closing = false;
+    std::vector<std::pair<std::string, std::string>> attrs; ///< names lowercased
+    const std::string* attr(const char* key) const {
+        for (const auto& kv : attrs) {
+            if (kv.first == key) return &kv.second;
+        }
+        return nullptr;
+    }
+};
+
+/// Read the tag that starts at in[i], leaving i past its '>'.
+///
+/// False when the '<' does not begin one - a less-than sign in prose, or a tag
+/// the string ends in the middle of. i is untouched then, so the caller emits
+/// the character and carries on rather than losing the rest of the document.
+bool readTag(const std::string& in, size_t& i, HtmlTag& tag) {
+    size_t p = i + 1;
+    if (p < in.size() && in[p] == '/') { tag.closing = true; ++p; }
+    if (p >= in.size() || ::isalpha(static_cast<unsigned char>(in[p])) == 0) return false;
+    while (p < in.size() && ::isalnum(static_cast<unsigned char>(in[p])) != 0) {
+        tag.name += lowerChar(in[p++]);
+    }
+    while (p < in.size() && in[p] != '>') {
+        // The slash of a self-closing tag is not the start of an attribute.
+        if (isSpaceChar(in[p]) || in[p] == '/') { ++p; continue; }
+        std::string key;
+        while (p < in.size() && !isSpaceChar(in[p]) && in[p] != '=' &&
+               in[p] != '>' && in[p] != '/') {
+            key += lowerChar(in[p++]);
+        }
+        while (p < in.size() && isSpaceChar(in[p])) ++p;
+        std::string value;
+        if (p < in.size() && in[p] == '=') {
+            ++p;
+            while (p < in.size() && isSpaceChar(in[p])) ++p;
+            // Both quotes: the interface writes href='...' as readily as
+            // href="...", and GlueStrings.lua does both.
+            if (p < in.size() && (in[p] == '"' || in[p] == '\'')) {
+                const char quote = in[p++];
+                while (p < in.size() && in[p] != quote) value += in[p++];
+                if (p < in.size()) ++p;
+            } else {
+                while (p < in.size() && !isSpaceChar(in[p]) && in[p] != '>') {
+                    value += in[p++];
+                }
+            }
+        }
+        if (!key.empty()) tag.attrs.emplace_back(key, decodeEntities(value));
+    }
+    if (p >= in.size()) return false;
+    i = p + 1;
+    return true;
+}
+
+/// The href and the anchor text written into the frame's hyperlink format,
+/// which carries the two in that order.
+std::string formatLink(const std::string& format, const std::string& href,
+                       const std::string& text) {
+    if (href.empty()) return text;
+    std::string out;
+    int filled = 0;
+    for (size_t i = 0; i < format.size(); ++i) {
+        if (format[i] == '%' && i + 1 < format.size() && format[i + 1] == 's') {
+            out += (filled++ == 0) ? href : text;
+            ++i;
+            continue;
+        }
+        out += format[i];
+    }
+    return out;
+}
+
+std::string trimSpace(const std::string& s) {
+    size_t b = 0, e = s.size();
+    while (b < e && isSpaceChar(s[b])) ++b;
+    while (e > b && isSpaceChar(s[e - 1])) --e;
+    return s.substr(b, e - b);
+}
+
+} // namespace
+
+std::vector<HtmlBlock> parseSimpleHtml(const std::string& text,
+                                       const std::string& hyperlinkFormat) {
+    std::vector<HtmlBlock> blocks;
+
+    size_t at = 0;
+    while (at < text.size() && isSpaceChar(text[at])) ++at;
+    if (!matchesAt(text, at, "<html")) {
+        if (!text.empty()) {
+            HtmlBlock only;
+            only.text = text;
+            blocks.push_back(std::move(only));
+        }
+        return blocks;
+    }
+
+    const std::string linkFormat =
+        hyperlinkFormat.empty() ? std::string("|H%s|h%s|h") : hyperlinkFormat;
+
+    HtmlBlock cur;
+    std::string anchorText, anchorHref;
+    bool inAnchor = false;
+
+    // Runs of whitespace collapse to one space, which is what HTML means by
+    // them and what keeps a document written across several indented lines of
+    // a file from drawing its indentation. A break this puts in itself is not
+    // collapsed - that one was asked for.
+    const auto append = [&](const std::string& s) {
+        std::string& dst = inAnchor ? anchorText : cur.text;
+        for (char c : s) {
+            if (isSpaceChar(c)) {
+                if (!dst.empty() && dst.back() != ' ' && dst.back() != '\n') dst += ' ';
+            } else {
+                dst += c;
+            }
+        }
+    };
+    const auto closeAnchor = [&]() {
+        if (!inAnchor) return;
+        inAnchor = false;
+        cur.text += formatLink(linkFormat, anchorHref, trimSpace(anchorText));
+        anchorText.clear();
+        anchorHref.clear();
+    };
+    const auto flush = [&]() {
+        closeAnchor();
+        cur.text = trimSpace(cur.text);
+        if (!cur.text.empty()) blocks.push_back(cur);
+        cur = HtmlBlock();
+    };
+
+    for (size_t i = 0; i < text.size();) {
+        if (text[i] != '<') {
+            const size_t next = text.find('<', i);
+            const size_t stop = (next == std::string::npos) ? text.size() : next;
+            append(decodeEntities(text.substr(i, stop - i)));
+            i = stop;
+            continue;
+        }
+        HtmlTag tag;
+        size_t after = i;
+        if (!readTag(text, after, tag)) {
+            // Not a tag after all - a stray '<', which still reads as itself.
+            append(std::string(1, text[i]));
+            ++i;
+            continue;
+        }
+        i = after;
+
+        if (tag.name == "html" || tag.name == "body") continue;
+        if (tag.name == "p" || tag.name == "h1" || tag.name == "h2" ||
+            tag.name == "h3") {
+            flush();
+            if (tag.closing) continue;
+            cur.kind = tag.name == "h1" ? HtmlBlock::Kind::Heading1
+                     : tag.name == "h2" ? HtmlBlock::Kind::Heading2
+                     : tag.name == "h3" ? HtmlBlock::Kind::Heading3
+                                        : HtmlBlock::Kind::Paragraph;
+            if (const std::string* align = tag.attr("align")) {
+                cur.align = upper(trimSpace(*align));
+            }
+            continue;
+        }
+        if (tag.name == "br") {
+            if (inAnchor) anchorText += '\n';
+            else          cur.text += '\n';
+            continue;
+        }
+        if (tag.name == "a") {
+            closeAnchor();
+            if (tag.closing) continue;
+            inAnchor = true;
+            anchorText.clear();
+            if (const std::string* href = tag.attr("href")) anchorHref = *href;
+            continue;
+        }
+        if (tag.name == "img") {
+            const std::string* src = tag.attr("src");
+            if (!src || src->empty()) continue;
+            // |Tpath:height:width|t, the escape the renderer already draws in
+            // the middle of a line. A dimension the markup left out is zero,
+            // which that escape reads as "as tall as the line".
+            const std::string* tall = tag.attr("height");
+            const std::string* wide = tag.attr("width");
+            std::string& dst = inAnchor ? anchorText : cur.text;
+            dst += "|T" + *src + ":" +
+                   (tall ? trimSpace(*tall) : std::string("0")) + ":" +
+                   (wide ? trimSpace(*wide) : std::string("0")) + "|t";
+            continue;
+        }
+        // Anything else is not understood, and its contents still render.
+    }
+    flush();
+    return blocks;
+}
+
+HtmlBlockFont htmlBlockFont(const Widget& w, HtmlBlock::Kind kind) {
+    HtmlBlockFont out;
+    out.face = w.fontFace;
+    out.height = w.fontHeight;
+    out.spacing = w.lineSpacing;
+    for (int i = 0; i < 4; ++i) out.color[i] = w.color[i];
+    const int element = kind == HtmlBlock::Kind::Heading1 ? 0
+                      : kind == HtmlBlock::Kind::Heading2 ? 1
+                      : kind == HtmlBlock::Kind::Heading3 ? 2
+                                                          : -1;
+    if (element < 0) return out;
+    const Widget::HtmlFont& hf = w.htmlFonts[element];
+    // Spacing is read whether or not a font was set, because SetSpacing is its
+    // own call: RealmHelpText declares heading fonts and no spacing at all,
+    // and a frame could as easily declare the gap and inherit the type.
+    if (hf.spacing != 0.0f) out.spacing = hf.spacing;
+    if (!hf.set) return out;
+    if (!hf.face.empty()) out.face = hf.face;
+    if (hf.height > 0.0f) out.height = hf.height;
+    for (int i = 0; i < 4; ++i) out.color[i] = hf.color[i];
+    return out;
 }
 
 } // namespace ui
