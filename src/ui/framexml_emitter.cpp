@@ -623,6 +623,15 @@ struct Emitter {
         } else if (height > 0.0f) {
             line(var + ":SetTextHeight(" + std::to_string(height) + ")");
         }
+        // The gap between this font's lines, which a SimpleHTML's body
+        // declares here and its headings declare on their own elements. Read
+        // as a frame attribute only, the headings got their spacing and the
+        // body got none: GlueDialogHTML says spacing="2" and answered zero,
+        // so the lines of every notice on the glue screens sat tighter than
+        // the headings above them.
+        if (const std::string* sp = node.attr("spacing"); sp && !sp->empty()) {
+            line(var + ":SetSpacing(" + *sp + ")");
+        }
         if (const XmlNode* col = node.child("Color")) {
             line(var + ":SetTextColor(" +
                  std::to_string(col->attrFloat("r", 1.0f)) + ", " +
@@ -1416,6 +1425,15 @@ struct Emitter {
         }
         if (node.attr("numeric")) {
             line(var + ":SetNumeric(" + (node.attrBool("numeric") ? "true" : "false") + ")");
+        }
+        // How a SimpleHTML writes the links in its document. GlueDialogHTML
+        // declares "|cff06ff07|H%s|h[%s]|h|r", so in the original every link
+        // in a glue notice is green and bracketed; unread, they came out in
+        // the body colour under WoW's bare default and looked like ordinary
+        // words that happened to be a URL.
+        if (const std::string* fmt = node.attr("hyperlinkFormat");
+            fmt && !fmt->empty()) {
+            line(var + ":SetHyperlinkFormat(" + quote(*fmt) + ")");
         }
         // A model frame's own markup: the file it shows and the fixed-function
         // effects around it.

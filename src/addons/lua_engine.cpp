@@ -4000,6 +4000,27 @@ int lua_FontString_GetSpacing(lua_State* L) {
 /// Until this took the element form the emitted call fell through to the
 /// no-op, which is the "missing API called: noop:SetSpacing" the login screen
 /// reported.
+/// SetHyperlinkFormat(format) / GetHyperlinkFormat()
+///
+/// How a SimpleHTML writes an <a href> from its document into the markup the
+/// drawing side reads. Two substitutions, the href and the text, in that
+/// order. Empty means WoW's bare default of "|H%s|h%s|h".
+///
+/// GlueDialogHTML declares "|cff06ff07|H%s|h[%s]|h|r" and nothing read it, so
+/// every link in a glue notice drew in the body colour with no brackets -
+/// indistinguishable from the sentence around it, where the original makes it
+/// green and bracketed.
+int lua_SimpleHTML_SetHyperlinkFormat(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->hyperlinkFormat = luaL_optstring(L, 2, "");
+    }
+    return 0;
+}
+int lua_SimpleHTML_GetHyperlinkFormat(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushstring(L, w ? w->hyperlinkFormat.c_str() : "");
+    return 1;
+}
 int lua_FontString_SetSpacing(lua_State* L) {
     auto* w = widgetOf(L, 1);
     if (!w) return 0;
@@ -4387,6 +4408,8 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
         set("GetFont", lua_FontString_GetFont);
         set("GetSpacing", lua_FontString_GetSpacing);
         set("SetSpacing", lua_FontString_SetSpacing);
+        set("SetHyperlinkFormat", lua_SimpleHTML_SetHyperlinkFormat);
+        set("GetHyperlinkFormat", lua_SimpleHTML_GetHyperlinkFormat);
         set("SetFontObject", lua_FontString_SetFontObject);
         set("SetShadowOffset", lua_FontString_SetShadowOffset);
         set("SetShadowColor", lua_FontString_SetShadowColor);
@@ -6323,6 +6346,8 @@ void LuaEngine::registerCoreAPI() {
         // as "missing API called: noop:SetSpacing".
         {"GetSpacing",      lua_FontString_GetSpacing},
         {"SetSpacing",      lua_FontString_SetSpacing},
+        {"SetHyperlinkFormat", lua_SimpleHTML_SetHyperlinkFormat},
+        {"GetHyperlinkFormat", lua_SimpleHTML_GetHyperlinkFormat},
         {"SetTalent",       lua_Tooltip_SetTalent},
         {"SetAuctionItem",  lua_Tooltip_SetAuctionItem},
         {"_WoweeAppendItemEnchants", lua_Tooltip_AppendItemEnchants},

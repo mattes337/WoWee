@@ -2210,7 +2210,8 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                 // downward, each wrapped to the frame and justified by its own
                 // align attribute.
                 float top = y0;
-                for (const HtmlBlock& block : parseSimpleHtml(w->text)) {
+                for (const HtmlBlock& block :
+                         parseSimpleHtml(w->text, w->hyperlinkFormat)) {
                     const HtmlBlockFont bf = htmlBlockFont(*w, block.kind);
                     ImFont* font = interfaceFaceOrDefault(bf.face);
                     const float size = interfaceFontSize(bf.height) * ws;

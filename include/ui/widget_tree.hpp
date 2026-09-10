@@ -459,6 +459,13 @@ struct Widget {
     };
     /// h1, h2 and h3, in that order. Only a SimpleHTML has any use for them.
     HtmlFont htmlFonts[3];
+    /// How this frame writes an <a href> into its markup, from
+    /// hyperlinkFormat in the XML or SetHyperlinkFormat at runtime. Empty
+    /// means WoW's bare default, "|H%s|h%s|h". GlueDialogHTML declares
+    /// "|cff06ff07|H%s|h[%s]|h|r", which is what makes a link in a glue
+    /// notice green and bracketed rather than indistinguishable from the
+    /// sentence around it.
+    std::string hyperlinkFormat;
     /// A scrolling message frame keeps its own lines rather than a single
     /// string: chat is a list that grows at one end and falls off the other,
     /// and the frame draws as many as fit from the bottom up.
