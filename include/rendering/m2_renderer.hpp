@@ -50,6 +50,12 @@ inline constexpr uint32_t kMaxBonesPerInstance = 512;
 struct M2ModelGPU {
     struct BatchGPU {
         VkTexture* texture = nullptr;  // from cache, NOT owned
+        /// The material's second texture layer, where it declares one. Not
+        /// owned. Sampled with the other UV set; see texCombiner.
+        VkTexture* texture2 = nullptr;
+        /// How the two layers combine, from the texture unit's shader id.
+        /// 0 means one layer. Same numbering as the character path.
+        int32_t texCombiner = 0;
         VkDescriptorSet materialSet = VK_NULL_HANDLE;  // set 1
         ::VkBuffer materialUBO = VK_NULL_HANDLE;
         VmaAllocation materialUBOAlloc = VK_NULL_HANDLE;
@@ -364,6 +370,9 @@ struct M2MaterialUBO {
     float tintR;
     float tintG;
     float tintB;
+    /// How a two-layer material combines its layers; 0 for one layer. Matches
+    /// combineLayers() in m2.frag.glsl.
+    int32_t texCombiner;
 };
 
 // M2 params UBO - matches M2Params in m2.vert.glsl (set 1, binding 1)

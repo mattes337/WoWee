@@ -20,6 +20,9 @@ layout(set = 0, binding = 0) uniform PerFrame {
 
 layout(set = 1, binding = 0) uniform sampler2D uTexture;
 
+// The material's second texture layer; a white 1x1 when it has none.
+layout(set = 1, binding = 1) uniform sampler2D uTexture2;
+
 layout(set = 1, binding = 2) uniform M2Material {
     int hasTexture;
     int alphaTest;
@@ -34,6 +37,11 @@ layout(set = 1, binding = 2) uniform M2Material {
     float tintR;
     float tintG;
     float tintB;
+    // How a two-layer material combines its layers, from the texture unit's
+    // shader id; 0 means one layer. Read <layer0 op>_<layer1 op>: "Opaque" on
+    // the first means its alpha is unused, "NA" on the second means the
+    // second's is.
+    int texCombiner;
 };
 
 layout(set = 0, binding = 1) uniform sampler2DShadow uShadowMap;
@@ -44,6 +52,7 @@ layout(location = 2) in vec2 TexCoord;
 layout(location = 3) flat in vec3 InstanceOrigin;
 layout(location = 4) in float ModelHeight;
 layout(location = 5) in float vFadeAlpha;
+layout(location = 8) in vec2 TexCoord2;
 layout(location = 6) flat in int vSkyMode;
 layout(location = 7) flat in float vHighlight;
 
@@ -100,8 +109,24 @@ float bayerDither4x4(ivec2 p) {
     return m[idx];
 }
 
+vec4 combineLayers(vec4 t0, vec4 t1, int mode) {
+    if (mode == 1)  return vec4(t0.rgb * t1.rgb,       t1.a);
+    if (mode == 2)  return vec4(t0.rgb * t1.rgb * 2.0, t1.a);
+    if (mode == 3)  return vec4(t0.rgb * t1.rgb * 2.0, 1.0);
+    if (mode == 4)  return vec4(t0.rgb * t1.rgb,       1.0);
+    if (mode == 5)  return vec4(t0.rgb * t1.rgb,       t0.a * t1.a);
+    if (mode == 6)  return vec4(t0.rgb * t1.rgb * 2.0, t0.a * t1.a);
+    if (mode == 7)  return vec4(t0.rgb + t1.rgb,       t0.a + t1.a);
+    if (mode == 8)  return vec4(t0.rgb * t1.rgb * 2.0, t0.a);
+    if (mode == 9)  return vec4(t0.rgb + t1.rgb,       t0.a);
+    if (mode == 10) return vec4(t0.rgb * t1.rgb,       t0.a);
+    return t0;
+}
+
 void main() {
     vec4 texColor = hasTexture != 0 ? texture(uTexture, TexCoord) : vec4(1.0);
+    if (texCombiner != 0)
+        texColor = combineLayers(texColor, texture(uTexture2, TexCoord2), texCombiner);
     // The batch's authored colour. A glow card is painted white and coloured
     // here - Orgrimmar's bonfire carries (1.0, 0.329, 0.0) - so without it
     // every fire in the world burns white.

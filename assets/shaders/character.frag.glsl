@@ -39,10 +39,17 @@ layout(set = 1, binding = 1) uniform CharMaterial {
     float heightMapVariance;
     float normalMapStrength;
     int hairMaterial;
-    // 0 = one texture layer. 1 = modulate layer 0 by layer 1, which is what a
-    // two-layer M2 material means for the effects that use it: the second
-    // texture carries the falloff. Drawn with layer 0 alone they are hard-edged
-    // rectangles - the login screen's light shafts and aurora were exactly that.
+    // How a two-layer M2 material combines its layers, from the texture unit's
+    // shader id. 0 means one layer and nothing to combine.
+    //
+    // The names are Blizzard's, read <layer0 op>_<layer1 op>. "Opaque" on the
+    // first means its alpha is not used; "NA" on the second means the second's
+    // alpha is not used. Getting this wrong is not subtle on the login screen:
+    // its light shafts and aurora carry their falloff in layer 1, and taking
+    // alpha from the wrong layer leaves their quad edges showing.
+    //   1 Opaque_Mod   2 Opaque_Mod2x  3 Opaque_Mod2xNA  4 Opaque_Opaque
+    //   5 Mod_Mod      6 Mod_Mod2x     7 Mod_Add         8 Mod_Mod2xNA
+    //   9 Mod_AddNA   10 Mod_Opaque
     int texCombiner;
 };
 
@@ -58,6 +65,7 @@ layout(location = 1) in vec3 Normal;
 layout(location = 2) in vec2 TexCoord;
 layout(location = 3) in vec3 Tangent;
 layout(location = 4) in vec3 Bitangent;
+layout(location = 5) in vec2 TexCoord2;
 
 layout(location = 0) out vec4 outColor;
 
@@ -136,6 +144,20 @@ bool isMagentaKeyColor(vec4 color) {
 ivec2 wrapPreviewTexel(ivec2 texel, ivec2 texSize) {
     return ivec2((texel.x % texSize.x + texSize.x) % texSize.x,
                  (texel.y % texSize.y + texSize.y) % texSize.y);
+}
+
+vec4 combineLayers(vec4 t0, vec4 t1, int mode) {
+    if (mode == 1)  return vec4(t0.rgb * t1.rgb,       t1.a);
+    if (mode == 2)  return vec4(t0.rgb * t1.rgb * 2.0, t1.a);
+    if (mode == 3)  return vec4(t0.rgb * t1.rgb * 2.0, 1.0);
+    if (mode == 4)  return vec4(t0.rgb * t1.rgb,       1.0);
+    if (mode == 5)  return vec4(t0.rgb * t1.rgb,       t0.a * t1.a);
+    if (mode == 6)  return vec4(t0.rgb * t1.rgb * 2.0, t0.a * t1.a);
+    if (mode == 7)  return vec4(t0.rgb + t1.rgb,       t0.a + t1.a);
+    if (mode == 8)  return vec4(t0.rgb * t1.rgb * 2.0, t0.a);
+    if (mode == 9)  return vec4(t0.rgb + t1.rgb,       t0.a);
+    if (mode == 10) return vec4(t0.rgb * t1.rgb,       t0.a);
+    return t0;
 }
 
 vec4 samplePreviewTexture(sampler2D tex, vec2 uv) {
@@ -220,7 +242,8 @@ vec2 parallaxOcclusionMap(vec2 uv, vec3 viewDirTS, float lodFactor) {
 void main() {
     if (enablePOM == PREVIEW_SIMPLE_TEXTURE_MODE) {
         vec4 texColor = samplePreviewTexture(uTexture, TexCoord);
-        if (texCombiner == 1) texColor *= samplePreviewTexture(uTexture2, TexCoord);
+        if (texCombiner != 0)
+            texColor = combineLayers(texColor, samplePreviewTexture(uTexture2, TexCoord2), texCombiner);
         if (isMagentaKeyColor(texColor)) {
             discard;
         }
@@ -277,7 +300,8 @@ void main() {
     }
 
     vec4 texColor = textureGrad(uTexture, finalUV, uvDx, uvDy);
-    if (texCombiner == 1) texColor *= textureGrad(uTexture2, finalUV, uvDx, uvDy);
+    if (texCombiner != 0)
+        texColor = combineLayers(texColor, texture(uTexture2, TexCoord2), texCombiner);
     // Repair dark DXT fringes on alpha-cut character textures such as hair.
     // Transparent edge texels can carry black/garbage RGB even when alpha is
     // valid; pull color from a coarser mip and trust the source more as alpha

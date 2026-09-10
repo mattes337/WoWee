@@ -263,6 +263,10 @@ struct CharVertexGPU {
     uint8_t boneIndices[4];  // 4 bytes,  offset 16
     glm::vec3 normal;        // 12 bytes, offset 20
     glm::vec2 texCoords;     // 8 bytes,  offset 32
+    /// The M2's second UV set. A two-layer material's mask is authored against
+    /// this one, and sampling layer 1 with the first set applies the mask at
+    /// the wrong coordinates.
+    glm::vec2 texCoords2;    // 8 bytes,  offset 40
     glm::vec4 tangent;       // 16 bytes, offset 40 (xyz=dir, w=handedness)
 };  // 56 bytes total
 
@@ -299,6 +303,7 @@ void CharacterRenderer::buildMainPassPipelines(VkDevice device, VkRenderPass mai
         {.location = 3, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT,  .offset = static_cast<uint32_t>(offsetof(CharVertexGPU, normal))},
         {.location = 4, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT,     .offset = static_cast<uint32_t>(offsetof(CharVertexGPU, texCoords))},
         {.location = 5, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = static_cast<uint32_t>(offsetof(CharVertexGPU, tangent))},
+        {.location = 6, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT,     .offset = static_cast<uint32_t>(offsetof(CharVertexGPU, texCoords2))},
     };
 
     // --- Build pipelines ---
@@ -1859,7 +1864,8 @@ void CharacterRenderer::setupModelBuffers(M2ModelGPU& gpuModel) {
         std::memcpy(dst.boneWeights, src.boneWeights, 4);
         std::memcpy(dst.boneIndices, src.boneIndices, 4);
         dst.normal = src.normal;
-        dst.texCoords = src.texCoords[0]; // Use first UV set
+        dst.texCoords = src.texCoords[0];
+        dst.texCoords2 = src.texCoords[1];
         dst.tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f); // default
 
         // Diagnostic: check bone indices
@@ -3079,7 +3085,18 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                         if (slot < gpuModel.textureIds.size()) layer2Tex = gpuModel.textureIds[slot];
                     }
                 }
-                matData.texCombiner = (layer2Tex && layer2Tex->isValid()) ? 1 : 0;
+                // The texture unit's shader id says how the two layers combine.
+                // Blizzard's table for a two-texture unit, read
+                // <layer0 op>_<layer1 op>; the shader implements the same
+                // numbering. Anything outside it falls back to Opaque_Mod,
+                // which is the common case and what these scenes use.
+                matData.texCombiner = 0;
+                if (layer2Tex && layer2Tex->isValid()) {
+                    const uint16_t shaderId = batch.shader;
+                    matData.texCombiner = (shaderId <= 10)
+                        ? static_cast<int32_t>(shaderId + 1)
+                        : 1;
+                }
 
                 // Sub-allocate material UBO from ring buffer
                 uint32_t matOffset = materialRingOffset_[frameSlot];

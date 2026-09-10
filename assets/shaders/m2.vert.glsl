@@ -58,6 +58,9 @@ layout(location = 2) out vec2 TexCoord;
 layout(location = 3) flat out vec3 InstanceOrigin;
 layout(location = 4) out float ModelHeight;
 layout(location = 5) out float vFadeAlpha;
+// The UV set the batch did not pick, for a two-layer material's second
+// texture - its mask is authored against the other set.
+layout(location = 8) out vec2 TexCoord2;
 layout(location = 6) flat out int vSkyMode;
 layout(location = 7) flat out float vHighlight;
 
@@ -255,6 +258,7 @@ void main() {
     Normal = mat3(model) * norm.xyz;
 
     TexCoord = (push.texCoordSet == 1 ? aTexCoord2 : aTexCoord) + uvOff;
+    TexCoord2 = (push.texCoordSet == 1 ? aTexCoord : aTexCoord2) + uvOff;
 
     InstanceOrigin = model[3].xyz;
     ModelHeight = pos.z;

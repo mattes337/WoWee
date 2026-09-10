@@ -499,18 +499,25 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
     // Material set layout (set 1): binding 0 = sampler2D, binding 2 = M2Material UBO
     // (M2Params moved to push constants alongside model matrix)
     {
-        VkDescriptorSetLayoutBinding bindings[2] = {};
+        VkDescriptorSetLayoutBinding bindings[3] = {};
         bindings[0].binding = 0;
         bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         bindings[0].descriptorCount = 1;
         bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        // binding 1: the material's second texture layer. Always bound - a
+        // white 1x1 where there is only one - because a descriptor the shader
+        // declares and nothing writes is undefined, not merely unused.
+        bindings[2].binding = 1;
+        bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        bindings[2].descriptorCount = 1;
+        bindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
         bindings[1].binding = 2;
         bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         bindings[1].descriptorCount = 1;
         bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
         VkDescriptorSetLayoutCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-        ci.bindingCount = 2;
+        ci.bindingCount = 3;
         ci.pBindings = bindings;
         vkCreateDescriptorSetLayout(device, &ci, nullptr, &materialSetLayout_);
     }
@@ -560,7 +567,9 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
     // --- Descriptor pools ---
     {
         VkDescriptorPoolSize sizes[] = {
-            {.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_MATERIAL_SETS + 256},
+            // Two samplers per material set now: the batch texture and the
+            // material's second layer.
+            {.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_MATERIAL_SETS * 2 + 256},
             {.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = MAX_MATERIAL_SETS + 256},
         };
         VkDescriptorPoolCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
@@ -1849,6 +1858,21 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                 if (texIdx < model.textures.size()) {
                     bgpu.texFlags = static_cast<uint8_t>(model.textures[texIdx].flags & 0x3);
                 }
+                // A two-layer material's second texture. Drawn without it the
+                // layer that carries the falloff is simply missing, and the
+                // batch shows its own quad edges - the same fault the login
+                // screen's light shafts had in the character path.
+                if (batch.textureCount >= 2) {
+                    const uint16_t lookup2 = static_cast<uint16_t>(batch.textureIndex + 1);
+                    if (lookup2 < model.textureLookup.size()) {
+                        const uint16_t idx2 = model.textureLookup[lookup2];
+                        if (idx2 < allTextures.size()) bgpu.texture2 = allTextures[idx2];
+                    }
+                    if (bgpu.texture2 && bgpu.texture2->isValid()) {
+                        bgpu.texCombiner = (batch.shader <= 10)
+                            ? static_cast<int32_t>(batch.shader + 1) : 1;
+                    }
+                }
             } else if (!allTextures.empty()) {
                 LOG_WARNING("M2 '", model.name, "' batch textureIndex ", batch.textureIndex,
                             " out of range (textureLookup size=", model.textureLookup.size(),
@@ -2132,6 +2156,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             mat.tintR = bgpu.tint.r;
             mat.tintG = bgpu.tint.g;
             mat.tintB = bgpu.tint.b;
+            mat.texCombiner = bgpu.texCombiner;
             mat.colorKeyThreshold = 0.08f;
             mat.unlit = (bgpu.materialFlags & 0x01) ? 1 : 0;
             mat.blendMode = bgpu.blendMode;
@@ -2188,7 +2213,10 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             matBufInfo.offset = 0;
             matBufInfo.range = sizeof(M2MaterialUBO);
 
-            VkWriteDescriptorSet writes[2] = {};
+            VkTexture* batchTex2 = (bgpu.texture2 && bgpu.texture2->isValid())
+                ? bgpu.texture2 : whiteTexture_.get();
+            VkDescriptorImageInfo imgInfo2 = batchTex2->descriptorInfo();
+            VkWriteDescriptorSet writes[3] = {};
             // binding 0: texture
             writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writes[0].dstSet = bgpu.materialSet;
@@ -2203,8 +2231,15 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             writes[1].descriptorCount = 1;
             writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
             writes[1].pBufferInfo = &matBufInfo;
+            // binding 1: second texture layer
+            writes[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writes[2].dstSet = bgpu.materialSet;
+            writes[2].dstBinding = 1;
+            writes[2].descriptorCount = 1;
+            writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            writes[2].pImageInfo = &imgInfo2;
 
-            vkUpdateDescriptorSets(vkCtx_->getDevice(), 2, writes, 0, nullptr);
+            vkUpdateDescriptorSets(vkCtx_->getDevice(), 3, writes, 0, nullptr);
         }
     }
 
