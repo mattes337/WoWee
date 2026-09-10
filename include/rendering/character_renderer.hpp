@@ -374,8 +374,14 @@ private:
     struct MaterialDescriptorKey {
         VkImageView diffuse = VK_NULL_HANDLE;
         VkImageView normal = VK_NULL_HANDLE;
+        /// An M2 material's second texture layer, where it has one. Part of the
+        /// key because two batches sharing a diffuse can differ only in this,
+        /// and a set cached on the first would draw the second with the wrong
+        /// mask.
+        VkImageView layer2 = VK_NULL_HANDLE;
         VkSampler diffuseSampler = VK_NULL_HANDLE;
         VkSampler normalSampler = VK_NULL_HANDLE;
+        VkSampler layer2Sampler = VK_NULL_HANDLE;
         bool operator==(const MaterialDescriptorKey&) const = default;
     };
     struct MaterialDescriptorKeyHash {
@@ -384,7 +390,9 @@ private:
             const size_t b = std::hash<VkImageView>{}(key.normal);
             const size_t c = std::hash<VkSampler>{}(key.diffuseSampler);
             const size_t d = std::hash<VkSampler>{}(key.normalSampler);
-            return a ^ (b << 1) ^ (c << 2) ^ (d << 3);
+            const size_t e = std::hash<VkImageView>{}(key.layer2);
+            const size_t f = std::hash<VkSampler>{}(key.layer2Sampler);
+            return a ^ (b << 1) ^ (c << 2) ^ (d << 3) ^ (e << 4) ^ (f << 5);
         }
     };
     std::unordered_map<MaterialDescriptorKey, VkDescriptorSet, MaterialDescriptorKeyHash>

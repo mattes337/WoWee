@@ -39,9 +39,17 @@ layout(set = 1, binding = 1) uniform CharMaterial {
     float heightMapVariance;
     float normalMapStrength;
     int hairMaterial;
+    // 0 = one texture layer. 1 = modulate layer 0 by layer 1, which is what a
+    // two-layer M2 material means for the effects that use it: the second
+    // texture carries the falloff. Drawn with layer 0 alone they are hard-edged
+    // rectangles - the login screen's light shafts and aurora were exactly that.
+    int texCombiner;
 };
 
 layout(set = 1, binding = 2) uniform sampler2D uNormalHeightMap;
+// The material's second texture layer; a white 1x1 when it has none, so
+// modulating by it is the identity and the branch below stays cheap.
+layout(set = 1, binding = 3) uniform sampler2D uTexture2;
 
 layout(set = 0, binding = 1) uniform sampler2DShadow uShadowMap;
 
@@ -212,6 +220,7 @@ vec2 parallaxOcclusionMap(vec2 uv, vec3 viewDirTS, float lodFactor) {
 void main() {
     if (enablePOM == PREVIEW_SIMPLE_TEXTURE_MODE) {
         vec4 texColor = samplePreviewTexture(uTexture, TexCoord);
+        if (texCombiner == 1) texColor *= samplePreviewTexture(uTexture2, TexCoord);
         if (isMagentaKeyColor(texColor)) {
             discard;
         }
@@ -268,6 +277,7 @@ void main() {
     }
 
     vec4 texColor = textureGrad(uTexture, finalUV, uvDx, uvDy);
+    if (texCombiner == 1) texColor *= textureGrad(uTexture2, finalUV, uvDx, uvDy);
     // Repair dark DXT fringes on alpha-cut character textures such as hair.
     // Transparent edge texels can carry black/garbage RGB even when alpha is
     // valid; pull color from a coarser mip and trust the source more as alpha

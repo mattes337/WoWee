@@ -24,6 +24,8 @@
 #include "core/thread_pool.hpp"
 #include "rendering/vk_context.hpp"
 #include "rendering/bone_slots.hpp"
+#include <set>
+#include <cstdlib>
 #include "rendering/vk_texture.hpp"
 #include "rendering/vk_pipeline.hpp"
 #include "rendering/vk_shader.hpp"
@@ -247,7 +249,11 @@ struct CharMaterialUBO {
     float heightMapVariance;
     float normalMapStrength;
     int32_t hairMaterial;
-    float _pad[1];
+    /// Which of the M2 material's texture layers to combine, and how.
+    /// 0 = one layer, the only thing this ever drew. 1 = modulate layer 0 by
+    /// layer 1, which is what a two-layer material means for the effects that
+    /// use it: the second texture carries the falloff.
+    int32_t texCombiner;
 };
 
 // GPU vertex struct with tangent (expanded from M2Vertex for normal mapping)
@@ -350,7 +356,7 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
 
     // Material set layout (set 1): binding 0 = sampler2D, binding 1 = CharMaterial UBO, binding 2 = normal/height map
     {
-        VkDescriptorSetLayoutBinding bindings[3] = {};
+        VkDescriptorSetLayoutBinding bindings[4] = {};
         bindings[0].binding = 0;
         bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         bindings[0].descriptorCount = 1;
@@ -363,9 +369,16 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
         bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         bindings[2].descriptorCount = 1;
         bindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        // The second texture layer. Always bound - a white 1x1 where the
+        // material has only one - because a descriptor the shader declares and
+        // nothing writes is undefined, not merely unused.
+        bindings[3].binding = 3;
+        bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        bindings[3].descriptorCount = 1;
+        bindings[3].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
         VkDescriptorSetLayoutCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-        ci.bindingCount = 3;
+        ci.bindingCount = 4;
         ci.pBindings = bindings;
         vkCreateDescriptorSetLayout(device, &ci, nullptr, &materialSetLayout_);
     }
@@ -389,7 +402,7 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
     // pools so we can reset safely each frame slot without exhausting descriptors.
     for (auto& materialDescPool : materialDescPools_) {
         VkDescriptorPoolSize sizes[] = {
-            {.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_MATERIAL_SETS * 2},  // diffuse + normal/height
+            {.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_MATERIAL_SETS * 3},  // diffuse + normal/height + layer 2
             {.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = MAX_MATERIAL_SETS},
         };
         VkDescriptorPoolCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
@@ -2510,7 +2523,8 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
     // Pre-compute aligned UBO stride for ring buffer sub-allocation
     const uint32_t uboStride = (sizeof(CharMaterialUBO) + materialUboAlignment_ - 1) & ~(materialUboAlignment_ - 1);
     const uint32_t ringCapacityBytes = uboStride * MATERIAL_RING_CAPACITY;
-    auto getMaterialDescriptorSet = [&](VkTexture* diffuse, VkTexture* normal) -> VkDescriptorSet {
+    auto getMaterialDescriptorSet = [&](VkTexture* diffuse, VkTexture* normal,
+                                       VkTexture* layer2) -> VkDescriptorSet {
         // Valid, not merely non-null. descriptorInfo() hands back whatever the
         // texture holds - VK_NULL_HANDLE for a view and a sampler that were
         // never created - and declares SHADER_READ_ONLY_OPTIMAL either way. A
@@ -2529,10 +2543,15 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
             // binding a null view loses the device.
             return VK_NULL_HANDLE;
         }
+        if (!layer2 || !layer2->isValid()) layer2 = whiteTexture_.get();
+        if (!layer2 || !layer2->isValid()) return VK_NULL_HANDLE;
         const VkDescriptorImageInfo diffuseInfo = diffuse->descriptorInfo();
         const VkDescriptorImageInfo normalInfo = normal->descriptorInfo();
+        const VkDescriptorImageInfo layer2Info = layer2->descriptorInfo();
         const MaterialDescriptorKey key{.diffuse = diffuseInfo.imageView, .normal = normalInfo.imageView,
-                                        .diffuseSampler = diffuseInfo.sampler, .normalSampler = normalInfo.sampler};
+                                        .layer2 = layer2Info.imageView,
+                                        .diffuseSampler = diffuseInfo.sampler, .normalSampler = normalInfo.sampler,
+                                        .layer2Sampler = layer2Info.sampler};
         auto& cache = materialDescriptorCache_[frameSlot];
         if (auto it = cache.find(key); it != cache.end()) return it->second;
 
@@ -2548,14 +2567,16 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
         bufferInfo.buffer = materialRingBuffer_[frameSlot];
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(CharMaterialUBO);
-        VkWriteDescriptorSet writes[3] = {};
+        VkWriteDescriptorSet writes[4] = {};
         writes[0] = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr, .dstSet = set, .dstBinding = 0, .dstArrayElement = 0, .descriptorCount = 1,
                      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .pImageInfo = &diffuseInfo, .pBufferInfo = nullptr, .pTexelBufferView = nullptr};
         writes[1] = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr, .dstSet = set, .dstBinding = 1, .dstArrayElement = 0, .descriptorCount = 1,
                      .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .pImageInfo = nullptr, .pBufferInfo = &bufferInfo, .pTexelBufferView = nullptr};
         writes[2] = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr, .dstSet = set, .dstBinding = 2, .dstArrayElement = 0, .descriptorCount = 1,
                      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .pImageInfo = &normalInfo, .pBufferInfo = nullptr, .pTexelBufferView = nullptr};
-        vkUpdateDescriptorSets(vkCtx_->getDevice(), 3, writes, 0, nullptr);
+        writes[3] = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr, .dstSet = set, .dstBinding = 3, .dstArrayElement = 0, .descriptorCount = 1,
+                     .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .pImageInfo = &layer2Info, .pBufferInfo = nullptr, .pTexelBufferView = nullptr};
+        vkUpdateDescriptorSets(vkCtx_->getDevice(), 4, writes, 0, nullptr);
         cache.emplace(key, set);
         return set;
     };
@@ -3042,6 +3063,24 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                         " tex=", texName);
                 }
 
+                // The material's second texture layer, where it declares one.
+                //
+                // A two-layer material was drawn with layer 0 alone, which for
+                // the effects that use it means drawn without its mask: the
+                // Northrend login scene's light shafts, aurora and snow are all
+                // two-layer, and each came out as a hard-edged rectangle over
+                // the sky where it should have faded out. Nothing reported it -
+                // the batch drew, with a real texture, in the right place.
+                VkTexture* layer2Tex = nullptr;
+                if (batch.textureCount >= 2) {
+                    const uint16_t lookup2 = static_cast<uint16_t>(batch.textureIndex + 1);
+                    if (lookup2 < gpuModel.data.textureLookup.size()) {
+                        const uint16_t slot = gpuModel.data.textureLookup[lookup2];
+                        if (slot < gpuModel.textureIds.size()) layer2Tex = gpuModel.textureIds[slot];
+                    }
+                }
+                matData.texCombiner = (layer2Tex && layer2Tex->isValid()) ? 1 : 0;
+
                 // Sub-allocate material UBO from ring buffer
                 uint32_t matOffset = materialRingOffset_[frameSlot];
                 if (matOffset + uboStride > ringCapacityBytes) continue; // ring exhausted
@@ -3049,7 +3088,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 materialRingOffset_[frameSlot] = matOffset + uboStride;
 
                 VkTexture* bindTex = (texPtr && texPtr->isValid()) ? texPtr : whiteTexture_.get();
-                VkDescriptorSet materialSet = getMaterialDescriptorSet(bindTex, normalMap);
+                VkDescriptorSet materialSet = getMaterialDescriptorSet(bindTex, normalMap, layer2Tex);
                 if (!materialSet) continue;
 
                 // Bind material descriptor set (set 1)
@@ -3113,7 +3152,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
             memcpy(static_cast<char*>(materialRingMapped_[frameSlot]) + matOffset2, &matData, sizeof(CharMaterialUBO));
             materialRingOffset_[frameSlot] = matOffset2 + uboStride;
 
-            VkDescriptorSet materialSet = getMaterialDescriptorSet(texPtr, flatNormalTexture_.get());
+            VkDescriptorSet materialSet = getMaterialDescriptorSet(texPtr, flatNormalTexture_.get(), nullptr);
             if (!materialSet) continue;
 
             const uint32_t dynamicOffset = matOffset2;
