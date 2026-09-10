@@ -15,6 +15,10 @@ backdrop model and its lighting, the glue music, an interface element that had
 been drawing its own HTML markup on screen, and a rule about unanchored frames
 that was hiding a label the markup never meant to hide. 200 tests pass.
 
+The whole login journey now runs end to end against a real server: login
+screen, realm list, character select, world entry, all through the original
+GlueXML, ending in Elwynn Forest. See "Login to world" below.
+
 There is a `wowee.exe` now, built with MSVC and run against the 3.3.5a
 installation on real hardware. Getting there needed four fixes for faults only
 that compiler can see, and the login screen it drew turned out to be missing
@@ -229,10 +233,11 @@ realm selection, Enter World - is stage 3's work and is not there yet.
 
 ### 3. Complete original GlueXML screens
 
-- [ ] Wire original login, realm selection, connection progress, errors,
+- [x] Wire original login, realm selection, connection progress, errors,
   cancellation, and disconnect dialogs to real authentication/network state.
-  The screens load, build and now draw correctly, and most of the vocabulary
-  exists: `DefaultServerLogin`, `CancelLogin`, `SetCurrentScreen`, `QuitGame`,
+  Verified end to end against a local AzerothCore: the original login screen
+  authenticates, the realm list arrives and opens itself, and the connection
+  progress dialogs are the game's own. Most of the vocabulary exists: `DefaultServerLogin`, `CancelLogin`, `SetCurrentScreen`, `QuitGame`,
   `StatusDialogClick`, the account-name and account-list pairs, `PlayGlueMusic`
   and `PlayGlueAmbience`. `StopGlueMusic` and `LaunchURL` are still absent -
   the second is what Manage Account and Community Site call. The native
@@ -243,10 +248,11 @@ realm selection, Enter World - is stage 3's work and is not there yet.
   deletion confirmation, addon selection, and Enter World to real client state.
   `GetNumCharacters` and the two model-frame setters are bound, and something
   draws into them now: the recorded frame gets a rendered scene, framed by the
-  model's own embedded camera. Only the login case has been seen working -
-  character select and character create share the wiring and are unverified,
-  because no auth server was reachable. The character list, Enter World,
-  creation and customization are still unbound.
+  model's own embedded camera. The character list, selection and Enter World
+  are exercised by a real login - character select lists the account's
+  characters and entering the world from it works. Character creation and
+  customization are still unbound, and the deletion confirmation and addon
+  selection are untried.
 - [ ] Render installation-provided loading art and progress through the native
   loading mechanism where the original files do not define a Lua/XML screen.
 - [ ] Verify return journeys: failed login, cancelled connection, failed world
@@ -558,6 +564,59 @@ Left open, deliberately:
   materials and it is demonstrably right here, but M2 can specify other
   operations and those want the material's shader id read properly.
 
+## Login to world, against a real server
+
+The whole journey now runs through the original GlueXML: the login screen, the
+realm list, character select, and world entry. Verified on Windows against a
+local AzerothCore (`docker/docker-compose.server.yml`, account PLAYER), on an
+RTX 2070 SUPER, ending in Elwynn Forest with the world's own HUD up.
+
+That closes stage 3's first bullet in practice and takes the second most of the
+way: the character list, Enter World and the model frames behind character
+select are exercised by this route rather than merely bound.
+
+### The one fault it found
+
+A glue login authenticated and then sat on "Retrieving realm list" forever.
+Nothing ever asked for the list. This client's own realm screen requests it
+from its render, so a login started there is carried the rest of the way by the
+screen that started it - and the glue screens never render that one. The list
+is not something the player asks for either: `RealmList.lua` opens its frame
+when `OPEN_REALM_LIST` arrives, and that event is fired when realms turn up.
+With nobody requesting them, none ever turned up.
+
+It is one call at the point the glue login succeeds. Worth noting how it hid:
+the entire auth flow logs at INFO and the default level is WARN, so a log taken
+at the default level showed the dialog text and nothing else - not the
+challenge, not the proof, not the success. `WOWEE_LOG_LEVEL=debug` shows all of
+it.
+
+### Driving the client without a person at the keyboard
+
+Two things that did not work and are worth not repeating.
+
+Synthetic keystrokes go wherever focus is. `SendKeys` typed the account name
+into whatever window happened to be foreground, and the client sat on an empty
+login form. Driving the interface from its own Lua through the loose-file
+override is deterministic and needs no focus at all: hook `OPEN_REALM_LIST` to
+choose a realm and `CHARACTER_LIST_UPDATE` to enter the world, so each step is
+fired by the event that says the previous one finished and nothing depends on
+timing.
+
+`Graphics.CopyFromScreen` captures whatever is on screen at the window's
+coordinates, which is a browser if one is in front. `PrintWindow` with
+`PW_RENDERFULLCONTENT` asks the window to render itself into a bitmap: it
+captures the client's own pixels, needs no focus, and cannot pick up anything
+sitting on top. `scratchpad/shot.ps1` in the session directory does this.
+
+### Not verified
+
+The second texture layer in the *world* renderer. Entering the world exercises
+that path for the first time and it renders correctly, but no two-layer doodad
+material has been isolated and compared with the layer off, so what is
+confirmed is the absence of a regression rather than the presence of the fix.
+The login scene, where the fault was found, is confirmed both ways.
+
 ## Implementation and evidence rules
 
 - Begin with archive-backed UI loading and GlueXML, then complete FrameXML
@@ -578,11 +637,10 @@ remains open until it is run against real installations and recorded here.
 
 What is left, in the order it unblocks the rest:
 
-1. The glue vocabulary (stage 3). `DefaultServerLogin` and `CancelLogin` now
-   exist; the realm list, the character list, Enter World, creation and
-   customization do not, and neither does `LaunchURL`. Until they do,
-   `WOWEE_LOAD_GLUEXML` is a screen that looks right and cannot yet be logged
-   in from.
+1. The glue vocabulary (stage 3). Login, the realm list, the character list
+   and Enter World all work against a real server. What is left is character
+   creation and customization, `LaunchURL` behind Manage Account and Community
+   Site, and `StopGlueMusic`.
 2. The glue and world lifecycle (stage 2). World entry has to tear glue down
    and logout has to build it again, and the native screens have to stop
    drawing underneath.
