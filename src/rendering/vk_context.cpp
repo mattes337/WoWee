@@ -350,6 +350,34 @@ void VkContext::deferAfterAllFrameFences(std::function<void()>&& fn) {
     }
 }
 
+void VkContext::deferUntilAllFramesIdle(std::function<void()>&& fn) {
+    idleWork_.push_back(std::move(fn));
+}
+
+bool VkContext::waitForAllSubmittedFrames() {
+    if (device == VK_NULL_HANDLE || deviceLost_) return false;
+    if (frameTimeline_ != VK_NULL_HANDLE) {
+        // Every frame submit signals the timeline, so its last value is the
+        // point at which all of them have finished - both slots, not just the
+        // one beginFrame has already waited on.
+        if (frameTimelineValue_ == 0) return true;
+        const uint64_t value = frameTimelineValue_;
+        VkSemaphoreWaitInfo waitInfo{};
+        waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+        waitInfo.semaphoreCount = 1;
+        waitInfo.pSemaphores = &frameTimeline_;
+        waitInfo.pValues = &value;
+        return vkWaitSemaphores(device, &waitInfo, 5000000000ULL) == VK_SUCCESS;
+    }
+    VkFence fences[MAX_FRAMES_IN_FLIGHT];
+    uint32_t count = 0;
+    for (auto& f : frames) {
+        if (f.inFlightFence != VK_NULL_HANDLE) fences[count++] = f.inFlightFence;
+    }
+    if (count == 0) return true;
+    return vkWaitForFences(device, count, fences, VK_TRUE, 5000000000ULL) == VK_SUCCESS;
+}
+
 void VkContext::flushDeferredCleanup() {
     // Run every queued destruction now rather than waiting for the frame slots
     // to come around again. Subsystems defer destruction because in-flight
@@ -363,6 +391,10 @@ void VkContext::flushDeferredCleanup() {
     for (uint32_t fi = 0; fi < MAX_FRAMES_IN_FLIGHT; fi++) {
         runDeferredCleanup(fi);
     }
+    // Dropped rather than run: what is queued here writes descriptors, and the
+    // sets it would write are being torn down by the same shutdown that called
+    // this.
+    idleWork_.clear();
 }
 
 void VkContext::runDeferredCleanup(uint32_t frameIndex) {
@@ -2854,6 +2886,17 @@ VkCommandBuffer VkContext::beginFrame(uint32_t& imageIndex) {
 
     // Any work queued for this frame slot is now guaranteed to be unused by the GPU.
     runDeferredCleanup(currentFrame);
+
+    // And the work that needs *every* submitted frame finished rather than this
+    // slot's. Here, before a command buffer for this frame has been recorded,
+    // is the only point in the loop at which no command buffer names anything.
+    if (!idleWork_.empty() && waitForAllSubmittedFrames()) {
+        std::vector<std::function<void()>> work;
+        work.swap(idleWork_);
+        for (auto& fn : work) {
+            if (fn) fn();
+        }
+    }
 
     // The wait above is what makes this slot's timestamps readable: the submit
     // that wrote them has completed. Read before the pool is reset below.

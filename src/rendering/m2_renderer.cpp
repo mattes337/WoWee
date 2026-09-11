@@ -2416,9 +2416,9 @@ void M2Renderer::bindNormalMap(uint32_t modelId, uint32_t batchIndex,
 
     // The set is already bound by command buffers still in flight, and a
     // descriptor written under one of those is undefined - which on this
-    // renderer has meant a lost device rather than a wrong pixel. Deferred
-    // until every frame slot has been fenced, which is the one point where no
-    // recorded command buffer still names it.
+    // renderer has meant a lost device rather than a wrong pixel. Deferred to
+    // the one point in the loop at which nothing submitted is still running and
+    // this frame has recorded nothing yet.
     //
     // The batch is found again inside rather than captured: the model could be
     // evicted in the two frames this waits, and its descriptor set freed with
@@ -2426,7 +2426,7 @@ void M2Renderer::bindNormalMap(uint32_t modelId, uint32_t batchIndex,
     // the flat fallback for those two frames and the flat fallback is the
     // surface unperturbed, so the worst of the interval is what was already on
     // screen.
-    vkCtx_->deferAfterAllFrameFences([this, modelId, batchIndex]() {
+    vkCtx_->deferUntilAllFramesIdle([this, modelId, batchIndex]() {
         auto modelIt = models.find(modelId);
         if (modelIt == models.end()) return;
         if (batchIndex >= modelIt->second.batches.size()) return;
@@ -2444,6 +2444,15 @@ void M2Renderer::bindNormalMap(uint32_t modelId, uint32_t batchIndex,
         write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         write.pImageInfo = &info;
         vkUpdateDescriptorSets(vkCtx_->getDevice(), 1, &write, 0, nullptr);
+        // Said out loud on the first one and then every 256, because until this
+        // line runs a batch samples the flat fallback and the model is
+        // unbumped: a log with no such line is a cache that filled and a
+        // descriptor that never followed.
+        ++normalMapDescriptorWrites_;
+        if (normalMapDescriptorWrites_ == 1 || normalMapDescriptorWrites_ % 256 == 0) {
+            LOG_INFO("M2Renderer: ", normalMapDescriptorWrites_,
+                     " doodad batch material(s) now sample a generated normal map");
+        }
     });
 }
 

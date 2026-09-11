@@ -127,6 +127,26 @@ public:
     // been fenced - safe for shared resources bound by multiple frames' command
     // buffers (material descriptor sets, vertex/index buffers, etc.).
     void deferAfterAllFrameFences(std::function<void()>&& fn);
+    /// Run @p fn at the top of a later frame, with nothing at all submitted
+    /// still executing.
+    ///
+    /// This is what rewriting a live descriptor set needs, and what
+    /// deferAfterAllFrameFences does not give it. That one queues the callback
+    /// to every slot and runs it when the last slot's fence has been waited on
+    /// - by which time the *other* slot has been recorded and submitted again,
+    /// with the same set bound in it. Destroying an object that way is safe,
+    /// because nothing records it again; writing a descriptor that way is not,
+    /// because every frame records it again. The validation layer says so
+    /// exactly: VUID-vkUpdateDescriptorSets-None-03047, "must not be used by
+    /// any command that was recorded to a command buffer which is in the
+    /// pending state".
+    ///
+    /// So this waits for the whole timeline rather than for one slot: at the
+    /// point the queued work runs, every frame that was ever submitted has
+    /// completed and this frame has recorded nothing yet. The cost is one
+    /// frame's worth of lost overlap, on the frames that have such work - which
+    /// is the first seconds of a zone, where the generated normal maps arrive.
+    void deferUntilAllFramesIdle(std::function<void()>&& fn);
 
     // Accessors
     [[nodiscard]] VkInstance getInstance() const { return instance; }
@@ -492,6 +512,12 @@ public:
     void flushDeferredCleanup();
 private:
     std::vector<std::function<void()>> deferredCleanup_[MAX_FRAMES_IN_FLIGHT];
+    /// Work that needs every submitted frame to have finished - see
+    /// deferUntilAllFramesIdle. Drained at the top of beginFrame.
+    std::vector<std::function<void()>> idleWork_;
+    /// Wait until nothing submitted to the graphics queue for a frame is still
+    /// executing. False when the wait failed, which is a lost or hung device.
+    bool waitForAllSubmittedFrames();
 
     // Depth buffer (shared across all framebuffers)
     VkImage depthImage = VK_NULL_HANDLE;

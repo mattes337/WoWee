@@ -914,6 +914,14 @@ private:
     std::unordered_map<std::string, std::vector<std::pair<uint32_t, uint32_t>>>
         normalMapWaiters_;
     std::vector<std::string> normalMapReadyScratch_;
+    /// How many batch descriptor sets have actually been rewritten to name a
+    /// generated map rather than the flat fallback.
+    ///
+    /// Counted where the write happens - inside the deferred callback, after
+    /// vkUpdateDescriptorSets - rather than where it is asked for, because the
+    /// question this answers is whether the deferral lands at all. A cache that
+    /// fills and a screen that stays flat differ in exactly this number.
+    uint32_t normalMapDescriptorWrites_ = 0;
     /// Upload what the workers finished and rewrite the material sets that were
     /// waiting on it. Once a frame, on the render thread.
     void applyReadyNormalMaps();

@@ -20,6 +20,18 @@
  * interacted with; on a machine with no display at all this tool cannot run,
  * and says so rather than pretending.
  *
+ * WHERE THE ASSETS COME FROM
+ *
+ * Whatever the client reads, because this is the client. -d is WOW_DATA_PATH
+ * and --install is WOW_INSTALL_PATH, and Application::initialize does the rest:
+ * it calls pipeline::detectGameInstall on the install path, hands
+ * AssetManager::setGameArchives the archives it found, and only then calls
+ * AssetManager::initialize on the data path. So a data directory with a
+ * manifest.json is read as an extracted tree, and one without is read out of
+ * the installation's own MPQ archives - "No manifest in <data>; reading the
+ * installation's archives directly" in the log is the second case, and it needs
+ * no extraction step at all.
+ *
  * WHY IT DOES NOT GO THROUGH Application::run()
  *
  * There is no server. Application's own loop starts at the login screen and
@@ -39,9 +51,11 @@
 #include "core/window.hpp"
 #include "core/world_loader.hpp"
 #include "rendering/camera.hpp"
+#include "rendering/character_renderer.hpp"
 #include "rendering/lighting_manager.hpp"
 #include "rendering/renderer.hpp"
 #include "rendering/terrain_manager.hpp"
+#include "rendering/vk_context.hpp"
 #include "ui/game_screen.hpp"
 #include "ui/settings_panel.hpp"
 #include "ui/ui_manager.hpp"
@@ -73,6 +87,26 @@ constexpr int kWarmupFrames = 240;
 /// And how long to wait for the streamers to go quiet before giving up on them.
 constexpr int kMaxSettleFrames = 900;
 
+/// The frame the shot is taken on, counted from the first one drawn after the
+/// world loaded.
+///
+/// Fixed, and that is the whole point. Every animated thing in this client
+/// advances by the delta this tool hands Renderer::update, which is a constant
+/// 1/60 - so the phase of the drifting clouds, the water, the wind in the
+/// foliage and every particle is a function of how many frames have been drawn
+/// and nothing else. The settle loop below stops when the terrain streamer goes
+/// quiet, which is a different count on every run, and a pair of renders that
+/// stopped at different counts is a pair with different clouds in it. That is
+/// not a subtle effect: a camera with sky in it read 94 % of pixels changed and
+/// an SSIM of 0.88 between two renders whose only intended difference was one
+/// setting, because the sky had moved between them.
+///
+/// So the settle loop is followed by however many more frames it takes to reach
+/// this number, and the shot is always frame kShotFrame. Two renders of one
+/// camera are then the same frame with one thing moved, which is the only thing
+/// this tool is for.
+constexpr int kShotFrame = 900;
+
 }  // namespace
 
 class SceneCapture::Impl {
@@ -84,13 +118,35 @@ public:
     /// picture with one thing moved.
     std::vector<std::pair<std::string, std::string>> settings;
     bool wireframe = false;
+    /// Whether the client's own character model is left in the frame.
+    /// Off unless --char asked for one; see drawFrame.
+    bool showCharacterModel = false;
 
-    bool initialize(const std::string& dataPath) {
+    bool initialize(const std::string& dataPath, const std::string& installPath) {
         if (!std::filesystem::exists(dataPath)) {
             error = "data path does not exist: " + dataPath;
             return false;
         }
         core::setEnvVar("WOW_DATA_PATH", dataPath.c_str());
+        // The installation whose archives are read when the data path holds no
+        // extracted tree. Application::initialize already calls
+        // detectGameInstall on WOW_INSTALL_PATH and hands the archives to the
+        // asset manager before it initializes; --install is that environment
+        // variable named on the command line, so a capture can be a single
+        // line rather than a line and a shell export.
+        if (!installPath.empty()) {
+            core::setEnvVar("WOW_INSTALL_PATH", installPath.c_str());
+        }
+        // Nobody is here to click a box. Without this, a start-up failure -
+        // archives that will not open is the common one - stops the tool on a
+        // modal dialog for as long as the run is given, which reads as a hang
+        // rather than as the error it printed.
+        core::setEnvVar("WOWEE_NO_ERROR_DIALOG", "1");
+        // Doodad animation phases are drawn from a random-seeded generator, so
+        // two runs of one camera are two different forests. Pinned here rather
+        // than in the client: a player wants the trees out of step, and a
+        // before and an after have to be the same frame.
+        core::setEnvVar("WOWEE_M2_ANIM_SEED", "20260911");
         // Nothing here is going to log in, and a client that spends its first
         // seconds resolving a realmlist is a client that takes seconds longer
         // to answer.
@@ -151,6 +207,22 @@ public:
         // pass then draws nothing at all - which would make every shadow
         // comparison a pair of identical pictures.
         renderer->getCharacterPosition() = renderPos;
+        // And the model that position also moves is put out of the picture.
+        //
+        // Renderer::update syncs the character instance to characterPosition
+        // every frame, so the line above did not only aim the cascades - it
+        // parked the player model on the lens. Every shot this tool had taken
+        // carried a wall of robe or a forearm across a corner of the frame, at
+        // whatever part of the model the near plane happened to cut, and the
+        // camera positions were being blamed for it. Hidden rather than
+        // removed: the instance is the client's own and the follow target it
+        // feeds is what keeps the shadow fit honest.
+        if (!showCharacterModel) {
+            if (auto* chars = renderer->getCharacterRenderer()) {
+                const uint32_t id = renderer->getCharacterInstanceId();
+                if (id > 0) chars->setInstanceVisible(id, false);
+            }
+        }
         renderer->beginFrame();
         renderer->renderWorld(app->getWorld(), nullptr);
         renderer->endFrame();
@@ -174,6 +246,7 @@ public:
             return result;
         }
 
+        showCharacterModel = config.showCharacter;
         applySettings();
         renderer->setWireframeMode(wireframe);
 
@@ -220,19 +293,26 @@ public:
         // Let it settle. The terrain manager streams tiles in on worker threads
         // and uploads them on the frame after they land, so the number of
         // frames matters more than the wall clock.
+        int framesDrawn = 0;
         for (int i = 0; i < kWarmupFrames; ++i) {
             drawFrame(renderPos, yaw, pitch);
+            ++framesDrawn;
         }
         if (auto* terrain = renderer->getTerrainManager()) {
-            int extra = 0;
-            while (terrain->getRemainingTileCount() > 0 && extra < kMaxSettleFrames - kWarmupFrames) {
+            while (terrain->getRemainingTileCount() > 0 && framesDrawn < kMaxSettleFrames) {
                 drawFrame(renderPos, yaw, pitch);
-                ++extra;
+                ++framesDrawn;
             }
         }
-        // One more after the streamers go quiet, so the shot is of a frame
-        // nothing changed during.
-        drawFrame(renderPos, yaw, pitch);
+        const int settledAt = framesDrawn;
+        // And on to the fixed frame the shot is taken on, so that the animated
+        // half of the scene is at the same phase in both renders of a pair.
+        while (framesDrawn < kShotFrame) {
+            drawFrame(renderPos, yaw, pitch);
+            ++framesDrawn;
+        }
+        LOG_INFO("capture_scene: streamers went quiet at frame ", settledAt,
+                 "; the shot is frame ", framesDrawn);
 
         // The soak, if one was asked for. Frames are timed individually rather
         // than averaged over the wall clock so that a single long frame - a
@@ -245,6 +325,13 @@ public:
                 std::chrono::duration<double>(config.dwellSeconds));
             uint64_t frames = 0;
             double worstMs = 0.0;
+            // Where the GPU spent the frame, as the renderer's own timestamps
+            // report it. A technique that costs a fraction of a millisecond
+            // cannot be measured by differencing two whole-frame means - at
+            // this camera those vary by more than a millisecond between runs -
+            // but the pass's own timestamp reads it directly.
+            std::vector<std::pair<std::string, std::pair<double, uint64_t>>> gpuSums;
+            auto* vkCtx = renderer->getVkContext();
             while (clock::now() < until) {
                 const auto frameStart = clock::now();
                 drawFrame(renderPos, yaw, pitch);
@@ -252,6 +339,19 @@ public:
                     clock::now() - frameStart).count();
                 worstMs = std::max(worstMs, ms);
                 ++frames;
+                if (vkCtx) {
+                    for (const auto& [label, marked] : vkCtx->gpuTimings()) {
+                        if (!label) continue;
+                        auto it = std::find_if(gpuSums.begin(), gpuSums.end(),
+                                               [&](const auto& e) { return e.first == label; });
+                        if (it == gpuSums.end()) {
+                            gpuSums.emplace_back(label, std::make_pair(marked, uint64_t{1}));
+                        } else {
+                            it->second.first += marked;
+                            it->second.second += 1;
+                        }
+                    }
+                }
             }
             const double elapsed = std::chrono::duration<double>(clock::now() - start).count();
             const double meanMs = frames ? (elapsed * 1000.0 / static_cast<double>(frames)) : 0.0;
@@ -259,6 +359,14 @@ public:
                      " frames - mean ", meanMs, "ms, worst ", worstMs, "ms");
             std::cout << "  dwell: " << frames << " frames in " << elapsed
                       << "s - mean " << meanMs << "ms, worst " << worstMs << "ms" << std::endl;
+            for (const auto& [label, acc] : gpuSums) {
+                if (acc.second == 0) continue;
+                const double mean = acc.first / static_cast<double>(acc.second);
+                LOG_INFO("capture_scene: GPU ", label, " ", mean, "ms over ", acc.second,
+                         " frames");
+                std::cout << "  gpu " << label << ": " << mean << "ms over " << acc.second
+                          << " frames" << std::endl;
+            }
         }
 
         std::error_code ec;
@@ -286,8 +394,8 @@ public:
 SceneCapture::SceneCapture() : impl_(std::make_unique<Impl>()) {}
 SceneCapture::~SceneCapture() = default;
 
-bool SceneCapture::initialize(const std::string& dataPath) {
-    return impl_->initialize(dataPath);
+bool SceneCapture::initialize(const std::string& dataPath, const std::string& installPath) {
+    return impl_->initialize(dataPath, installPath);
 }
 
 void SceneCapture::shutdown() { impl_->shutdown(); }

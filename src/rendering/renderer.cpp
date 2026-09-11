@@ -14,6 +14,7 @@
 #include "rendering/terrain_renderer.hpp"
 #include "rendering/terrain_manager.hpp"
 #include "pipeline/custom_zone_discovery.hpp"
+#include "pipeline/game_install.hpp"
 #include "rendering/performance_hud.hpp"
 #include "rendering/water_renderer.hpp"
 #include "rendering/skybox.hpp"
@@ -1143,6 +1144,11 @@ std::string Renderer::normalMapCacheDir() const {
     // Per expansion, because two expansions' trees can hold two different
     // textures under one path and a map is filed under what its source was.
     std::string expansion = assets->getManifest().getExpansion();
+    // An installation read through its own archives has no manifest and so no
+    // expansion in one; the installation itself knows which build it is, and
+    // without asking it every archive-mode run filed its maps under "base" and
+    // a Vanilla and a WotLK folder shared one directory.
+    if (expansion.empty()) expansion = pipeline::activeGameInstall().expansion;
     if (expansion.empty()) expansion = "base";
     return data + "/generated/" + expansion + "/normals";
 }

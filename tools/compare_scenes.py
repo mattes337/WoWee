@@ -91,6 +91,8 @@ def render(exe: str, args: argparse.Namespace, value: str, out_prefix: str) -> N
     cmd += ["-c", args.camera]
     if args.target:
         cmd += ["-t", args.target]
+    if args.angles:
+        cmd += ["--angles", args.angles]
     if args.width:
         cmd += ["--width", str(args.width)]
     if args.height:
@@ -238,6 +240,10 @@ def main() -> int:
     ap.add_argument("--map-id", type=int, default=None)
     ap.add_argument("--camera", help="x,y,z in server coordinates")
     ap.add_argument("--target", help="x,y,z the camera looks at")
+    ap.add_argument("--angles",
+                    help="pitch,yaw,roll in degrees instead of a look-at target. "
+                         "A shot has to face the sun to have sun shafts in it, and "
+                         "where the sun is is an angle rather than a place")
     ap.add_argument("--time", default="12", help="hour of the day, 0-24")
     ap.add_argument("--width", type=int, default=None)
     ap.add_argument("--height", type=int, default=None)

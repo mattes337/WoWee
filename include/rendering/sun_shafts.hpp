@@ -35,14 +35,26 @@
  * blitted nor sampled by an ordinary `sampler2D`. Brightness stands in for
  * distance - see the header of `sunshaft_mask.frag.glsl`.
  *
- * **Five numbers here have never been seen on screen.** The session that wrote
- * this had no assets to render - see docs/evidence/phase-01/README.md - so the
- * mask threshold and its ramp (`MaskPush::threshold`, `softness`), the radius
- * the mask fades over, and the two blur passes' decay and weight are the
- * conventional values for this technique rather than values that were tuned
- * against a picture. They are all in `renderMask()` and in `MaskPush`'s
- * defaults, in one place each, and the first person with a frame to look at
- * should expect to move them.
+ * **Five numbers here were written blind and have now been looked at.** The
+ * session that wrote them had no assets to render, so the mask threshold and
+ * its ramp (`MaskPush::threshold`, `softness`), the radius the mask fades over,
+ * and the two blur passes' decay and weight are the conventional values for
+ * this technique rather than values tuned against a picture. They are all in
+ * `renderMask()` and in `MaskPush`'s defaults, in one place each.
+ *
+ * Against two Elwynn cameras they hold: with the sun in open sky above the
+ * canopy at 07:00 the composite adds 4.5 of 255 over the whole frame and 12
+ * around the sun, taking the fully-white fraction from 0.37 % to 1.71 % - a
+ * halo, not a blown highlight; with the sun behind a ridge at 06:30 the added
+ * light is rays fanning from the skyline, broken by the treeline. With the sun
+ * behind the camera it adds 0.07 of 255 and saturates nothing, because
+ * renderMask returns before it blits. The whole thing costs 0.0898 ms of GPU
+ * time at 1920x1032. See docs/evidence/phase-01/README.md.
+ *
+ * Looked at is not tuned. Two cameras in one zone at one weather is a long way
+ * from a sweep, and anyone who finds a scene where the halo is too broad should
+ * start with the threshold: at 0.72 a bright overcast sky is largely inside the
+ * mask, which is what makes the 07:00 shot a glow rather than shafts.
  */
 
 #include <cstdint>

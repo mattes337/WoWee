@@ -86,6 +86,25 @@ float cascadeHalfExtent(int c) {
     return len > 1e-8 ? 1.0 / len : 1.0;
 }
 
+/// And how deep it reaches, in the same units and read the same way: the ortho
+/// projection scales light-space depth by 1/range, so the length of the
+/// matrix's third row through the rotation is that reciprocal. This is what
+/// turns a difference of two normalized shadow-map depths back into yards.
+float cascadeDepthRange(int c) {
+    vec3 row = vec3(cascadeMatrix[c][0][2], cascadeMatrix[c][1][2], cascadeMatrix[c][2][2]);
+    float len = length(row);
+    return len > 1e-8 ? 1.0 / len : 1.0;
+}
+
+/// Yards of penumbra per yard of separation, per yard of `shadowlightsize`.
+///
+/// The sun's real angular diameter is about half a degree, which puts a
+/// four-centimetre edge under a five-yard eave: true, and invisible at any
+/// resolution this client renders. The setting exists to exaggerate it, and
+/// this is the exaggeration - at the default 1.5 yd, a caster twenty yards up
+/// blurs its edge over one and a half.
+const float kSunPenumbraPerYard = 1.0 / 20.0;
+
 float sampleShadowPCFArray(sampler2DArrayShadow smap, int c, vec3 coords) {
     float shadow = 0.0;
     for (int x = -1; x <= 1; ++x) {
@@ -117,11 +136,14 @@ float sampleShadowPoissonArray(sampler2DArrayShadow smap, int c, vec3 coords, fl
 /// it, which a sampler2DArrayShadow cannot answer - hence uShadowMapDepth,
 /// the same image through an ordinary sampler. It is only ever read here.
 float sampleShadowPCSSArray(sampler2DArrayShadow smap, sampler2DArray depths,
-                            int c, vec3 coords, float lightSizeUV) {
+                            int c, vec3 coords, float lightSizeYards, float halfExtent) {
     mat2 rot = shadowTapRotation();
-    // Search over the light's own width: nothing outside it can cast a
-    // penumbra onto this point.
-    float searchRadius = max(lightSizeUV, shadowTexel());
+    float texel = shadowTexel();
+    // One yard of the world, in this cascade's map coordinates.
+    float worldToUV = 1.0 / max(2.0 * halfExtent, 1e-3);
+    // Search over the widest edge the light can throw, capped so the sixteen
+    // taps stay dense enough to be an average rather than noise.
+    float searchRadius = clamp(lightSizeYards * worldToUV, texel, 32.0 * texel);
     float blockerSum = 0.0;
     float blockerCount = 0.0;
     for (int i = 0; i < 16; ++i) {
@@ -135,11 +157,22 @@ float sampleShadowPCSSArray(sampler2DArrayShadow smap, sampler2DArray depths,
     if (blockerCount < 0.5) return 1.0;  // nothing in front: fully lit
 
     float blockerDepth = blockerSum / blockerCount;
-    // Similar triangles, in the cascade's own depth range. Both depths are
-    // the same normalized units, so the ratio needs no unit conversion.
-    float penumbra = (coords.z - blockerDepth) / max(blockerDepth, 1e-5);
-    float radiusUV = clamp(penumbra * lightSizeUV, shadowTexel(), lightSizeUV * 4.0);
-    return sampleShadowPoissonArray(smap, c, coords, radiusUV / shadowTexel());
+    // How far above this fragment the things casting on it are, in yards.
+    //
+    // This used to be (z - blockerDepth) / blockerDepth - similar triangles for
+    // a point light, in normalized depth. A cascade is orthographic and its
+    // light is directional, so that ratio is neither a length nor a proportion
+    // of one: it is a depth difference over wherever the cascade's near plane
+    // happened to fall. For a cascade a few hundred yards deep it comes out
+    // around a twentieth, the filter widened from two texels to three, and
+    // PCSS rendered as Poisson - measured at 0.04 % of pixels changed between
+    // the two filters, which is this scene's own frame-to-frame noise.
+    // cascadeDepthRange puts the difference back into yards, where the light's
+    // width is also stated, and the two can be multiplied.
+    float separation = max(coords.z - blockerDepth, 0.0) * cascadeDepthRange(c);
+    float penumbraWorld = separation * lightSizeYards * kSunPenumbraPerYard;
+    float radiusUV = clamp(penumbraWorld * worldToUV, texel, 32.0 * texel);
+    return sampleShadowPoissonArray(smap, c, coords, radiusUV / texel);
 }
 
 /// Which cascade covers a fragment this far down the view axis.
@@ -179,8 +212,7 @@ float shadowInCascade(sampler2DArrayShadow smap, sampler2DArray depths,
         // sixteen extra taps; Poisson beyond, where the blocker search would
         // be measuring a shadow four pixels wide.
         if (c <= 1) {
-            float lightSizeUV = shadowParams.w / max(2.0 * halfExtent, 1e-3);
-            return sampleShadowPCSSArray(smap, depths, c, coords, lightSizeUV);
+            return sampleShadowPCSSArray(smap, depths, c, coords, shadowParams.w, halfExtent);
         }
         return sampleShadowPoissonArray(smap, c, coords, 2.0);
     }

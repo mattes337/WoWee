@@ -3161,6 +3161,16 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                     pipelineLayout_, 1, 1, &materialSet, 1, &dynamicOffset);
 
+            // Every character pipeline declares VK_DYNAMIC_STATE_DEPTH_BIAS, so
+            // a draw that never sets it is a draw with undefined depth bias -
+            // which the validation layer says out loud on every frame a
+            // character is on screen. The batched path above sets it per batch;
+            // this whole-model fallback did not, and that single missing call
+            // is the `VK_DYNAMIC_STATE_DEPTH_BIAS ... never called
+            // vkCmdSetDepthBias` error that has been polluting every validation
+            // run. Zero, because there are no coplanar layers to separate here.
+            vkCmdSetDepthBias(cmd, 0.0f, 0.0f, 0.0f);
+
             vkCmdDrawIndexed(cmd, gpuModel.indexCount, 1, 0, 0, 0);
         }
     }

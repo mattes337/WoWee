@@ -49,8 +49,15 @@ void printUsage(const char* progName) {
     std::cout << "Usage: " << progName << " -d <data_path> [options] -o <output_prefix>\n\n";
 
     std::cout << "Required:\n";
-    std::cout << "  -d, --data <path>        WoW data directory (containing manifest.json)\n";
+    std::cout << "  -d, --data <path>        Wowee data directory. An extracted tree with a\n";
+    std::cout << "                           manifest.json, or - with --install - a directory\n";
+    std::cout << "                           that holds only what wowee generates\n";
     std::cout << "  -o, --output <path>      Output file prefix (e.g., output/scene_001)\n\n";
+
+    std::cout << "Reading an installation directly (no extraction):\n";
+    std::cout << "  --install <path>         A game folder, or its Data directory. Its MPQ\n";
+    std::cout << "                           archives answer every asset read, exactly as they\n";
+    std::cout << "                           do for the client. Same as WOW_INSTALL_PATH\n\n";
 
     std::cout << "Map Options:\n";
     std::cout << "  -m, --map <name>         World map name (Azeroth, Kalimdor, Northrend, Outland)\n";
@@ -202,6 +209,7 @@ int main(int argc, char* argv[]) {
     // Default configuration
     CaptureConfig config;
     std::string dataPath;
+    std::string installPath;
     bool verbose = false;
     bool quiet = false;
     bool showCharacter = false;
@@ -228,6 +236,9 @@ int main(int argc, char* argv[]) {
         }
         else if ((arg == "-d" || arg == "--data") && i + 1 < argc) {
             dataPath = argv[++i];
+        }
+        else if (arg == "--install" && i + 1 < argc) {
+            installPath = argv[++i];
         }
         else if ((arg == "-m" || arg == "--map") && i + 1 < argc) {
             config.mapName = argv[++i];
@@ -469,6 +480,9 @@ int main(int argc, char* argv[]) {
         std::cout << "  Output: " << config.outputPath << "\n";
         std::cout << "  Resolution: " << config.width << "x" << config.height << "\n";
         std::cout << "  Data path: " << dataPath << "\n";
+        if (!installPath.empty()) {
+            std::cout << "  Installation: " << installPath << "\n";
+        }
         if (config.isWmoMap) {
             std::cout << "  WMO: " << config.mapName << "\n";
         } else {
@@ -490,7 +504,7 @@ int main(int argc, char* argv[]) {
         capture.addSettingOverride(key, value);
     }
     capture.setWireframe(wireframe);
-    if (!capture.initialize(dataPath)) {
+    if (!capture.initialize(dataPath, installPath)) {
         std::cerr << "Error: " << capture.getLastError() << "\n";
         return 1;
     }

@@ -1953,11 +1953,22 @@ if(STORMLIB_LIBRARY AND STORMLIB_INCLUDE_DIR)
             target_link_libraries(asset_extract PRIVATE ${BZ2_LIB})
         endif()
         if(TOMCRYPT_LIB AND TOMMATH_LIB)
-            # Static StormLib exposes its LibTomCrypt/LibTomMath dependencies.
+            # A StormLib built against the system's LibTomCrypt and LibTomMath
+            # exposes both to whoever links it.
             target_link_libraries(asset_extract PRIVATE ${TOMCRYPT_LIB} ${TOMMATH_LIB})
         else()
-            message(FATAL_ERROR
-                "Static StormLib on Windows requires LibTomCrypt and LibTomMath")
+            # And one built with its own bundled copies - which is what vcpkg's
+            # port produces - carries them inside the archive and needs neither.
+            # This used to be a FATAL_ERROR, which stopped the whole project
+            # configuring on exactly the machines where StormLib had just been
+            # installed and direct MPQ reads had just become possible: the line
+            # above says "wowee direct MPQ reads: ENABLED" and then this one
+            # refused to generate a build system at all. Absence is reported
+            # and left to the linker, the same way wowee_link_stormlib above
+            # already treats it.
+            message(STATUS
+                "  asset_extract: no separate LibTomCrypt/LibTomMath; assuming "
+                "StormLib bundles them")
         endif()
     endif()
     set_target_properties(asset_extract PROPERTIES

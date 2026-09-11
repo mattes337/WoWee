@@ -1368,7 +1368,9 @@ void TerrainRenderer::applyReadyNormalMaps() {
     //
     // The descriptor write is deferred to where no command buffer in flight
     // still names the set - a chunk is drawn every frame, so writing it here
-    // would be writing a descriptor out from under the GPU.
+    // would be writing a descriptor out from under the GPU, and writing it
+    // after both slots have merely been fenced would too: by then the other
+    // slot has been recorded and submitted again with the same set in it.
     for (size_t ci = 0; ci < chunks.size(); ++ci) {
         TerrainChunkGPU& chunk = chunks[ci];
         if (!chunk.normalMapsPending) continue;
@@ -1386,13 +1388,18 @@ void TerrainRenderer::applyReadyNormalMaps() {
         writeChunkNormalMapParams(chunk);
 
         const VkDescriptorSet set = chunk.materialSet;
-        vkCtx->deferAfterAllFrameFences([this, set, ci]() {
+        vkCtx->deferUntilAllFramesIdle([this, set, ci]() {
             // Found again rather than captured: a tile can be removed in the
             // two frames this waits, and its descriptor sets freed with it.
             if (ci >= chunks.size()) return;
             TerrainChunkGPU& c = chunks[ci];
             if (c.materialSet != set || set == VK_NULL_HANDLE) return;
             writeMaterialDescriptors(set, c);
+            ++normalMapDescriptorWrites_;
+            if (normalMapDescriptorWrites_ == 1 || normalMapDescriptorWrites_ % 512 == 0) {
+                LOG_INFO("TerrainRenderer: ", normalMapDescriptorWrites_,
+                         " ground chunk(s) now sample their generated normal maps");
+            }
         });
     }
 }

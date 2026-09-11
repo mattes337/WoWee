@@ -44,17 +44,67 @@ multi-config generator).
 
 ## Prerequisites
 
-A data directory with a `manifest.json`, which `asset_extract` produces from the
-game's MPQ archives:
+**Nothing, if the game is installed.** The tool reads the installation's own MPQ
+archives, exactly as the client does when it is dropped into a game folder:
+point `--install` at the game directory and `-d` at a data directory that holds
+only what wowee generates. No extraction step at all.
+
+The log says which of the two paths a run took, and it is worth reading before
+trusting a picture:
+
+```
+[INFO ] Found game installation: G:\WoW AzerothCore (wotlk, locale enUS, 18 archives)
+[INFO ] No manifest in D:\wowee-phase01\Data; reading the installation's archives directly
+[WARN ] Interface fonts loaded: 5 of 5 from the archives
+[INFO ] Online terrain streaming complete: 49 tiles loaded
+```
+
+`--install` is the same thing as setting `WOW_INSTALL_PATH`, and `-d` the same
+as `WOW_DATA_PATH`; both go through `Application::initialize`, which calls
+`pipeline::detectGameInstall` and hands the archives to the asset manager before
+it initializes. Direct archive reads need StormLib at build time - check the
+CMake line said `wowee direct MPQ reads: ENABLED`, because without it the client
+logs `AssetManager: this build cannot read MPQ archives directly` and then wants
+an extracted tree after all.
+
+An extracted tree still works and is still read in preference to the archives: a
+data directory with a `manifest.json`, which `asset_extract` produces from them.
 
 ```
 ./build/bin/asset_extract /path/to/WoW/Data /path/to/extracted
 ```
 
+## The frame a shot is taken on
+
+Every render draws the same number of frames - `kShotFrame`, 900 - and the shot
+is the last of them. That is not tidiness. The clouds drift, the water moves and
+the trees sway by the fixed 1/60 second this tool hands `Renderer::update`, so
+the phase of all of it is a function of the frame count and nothing else, and
+two renders that stopped at different counts are two different pictures. Before
+this was pinned, a camera with sky in it read 94 % of pixels changed between two
+renders whose only intended difference was one setting. The log says where the
+streamers actually went quiet:
+
+```
+[INFO ] capture_scene: streamers went quiet at frame 406; the shot is frame 900
+```
+
+The doodads' animation phases are pinned too, through `WOWEE_M2_ANIM_SEED`,
+which this tool sets and nothing else does: a player wants a stand of trees out
+of step and a comparison wants them identical.
+
+**There is still a noise floor**, because the number of frames the world loader
+draws before any of this is not fixed. Render the same camera twice with the
+same settings before trusting a small number - `--setting key --off X --on X` in
+`compare_scenes.py` does exactly that. At the Goldshire lake camera that control
+reads 0.2 % of pixels changed; at a camera looking down onto a moving canopy it
+reads 26 %. `docs/evidence/phase-01/README.md` lists the measured floors.
+
 ## One picture
 
 ```
 ./build/bin/capture_scene \
+    --install "G:/WoW AzerothCore" \
     -d Data \
     -m Azeroth \
     -c -9462,-67,70 \
@@ -80,7 +130,22 @@ corner and nothing else in it.
 
 `--dwell <seconds>` keeps drawing the settled frame for that long before taking
 the shot, and prints how many frames it managed, the mean frame time and the
-worst one.
+worst one - and, beside them, the GPU's own timestamps for the passes that carry
+a mark:
+
+```
+  dwell: 1748 frames in 30.0056s - mean 17.1657ms, worst 26.6532ms
+  gpu post-process: 5.88121ms over 1748 frames
+  gpu sun-shafts: 0.0897873ms over 1748 frames
+  gpu interface: 0.024827ms over 1748 frames
+```
+
+Those are the numbers to quote for a pass that costs a fraction of a
+millisecond. Differencing two whole-frame means will not find it: at these
+cameras the mean moves by more than a millisecond between two runs of the same
+configuration, which is ten times the thing being measured. The scene pass
+records into secondary command buffers and cannot be timestamped from the
+primary, so there is no mark inside it.
 
 Two things use it. The first is "does this survive being looked at": a fault
 that needs a few hundred frames to appear does not show up in a tool that draws
@@ -142,7 +207,12 @@ nothing moved and white where it moved most - and prints the fraction of pixels
 that changed, the mean absolute difference, and SSIM.
 
 `--also key=value` applies a setting to **both** renders, for holding something
-steady that is not the thing under test.
+steady that is not the thing under test. `--angles=pitch,yaw,roll` aims the
+camera by direction instead of `--target`, which is what a shot facing the sun
+needs.
+
+The installation is taken from `WOW_INSTALL_PATH`: the script passes no
+`--install` of its own, so export it once for a whole run of comparisons.
 
 Two PNGs that already exist can be compared without rendering anything:
 
@@ -159,10 +229,25 @@ than printing a number that looks like the other one.
 These are the ones phase 01's evidence was rendered from, and they are known to
 put something in frame rather than a wash of fog.
 
-| Name | Camera | Target | Time | For |
-|---|---|---|---|---|
-| goldshire-lake | `-9462,-67,70` | `-9200,-320,50` | 9 | ground, trunks, water and a horizon - shadows and terrain LOD |
-| goldshire-road | `-9462,-67,62` | `-9350,-30,55` | 9 | a road and a building at eye height - shadow edges |
+| Name | Camera | Target or angles | Map | Time | For |
+|---|---|---|---|---|---|
+| goldshire-lake | `-9462,-67,70` | `-9200,-320,50` | Azeroth | 9 | ground, trunks, water and a horizon - shadows and normal maps |
+| goldshire-road | `-9462,-67,62` | `-9350,-30,55` | Azeroth | 9 | a road and a building at eye height - shadow edges |
+| stormwind-gate | `-8950,650,120` | `-8700,650,95` | Azeroth | 9 | stone walls and roofs - the building normal-map path |
+| westfall-sentinel-hill | `-10640,1030,55` | `-10640,1700,20` | Azeroth | 9 | an open horizon over hills - terrain LOD and fog |
+| tanaris-dunes | `-7150,-3780,45` | `-8200,-3900,0` | Kalimdor, `--map-id 1` | 9 | bare dunes to the horizon - terrain LOD with almost nothing animated |
+| duskwood-road | `-10520,-1170,90` | `-11200,-1170,40` | Azeroth | 5.5 | a wooded valley before dawn - height fog |
+| elwynn-sun-0700 | `-9462,-67,120` | `--angles 9.7,129.5,0` | Azeroth | 7 | the sun in open sky over the canopy - sun shafts |
+| elwynn-sun-0630 | `-9462,-67,120` | `--angles 5.05,132.4,0` | Azeroth | 6.5 | the sun behind the ridge - sun shafts with an occluder |
+
+**Where the sun is, is arithmetic rather than a hunt.** `LightingManager` puts
+the sun direction at `-normalize(sin a * 0.6, -0.6 + cos a * 0.4, cos a * 0.6)`
+for `a = 2*pi*hour/24`, in the same axes the camera's yaw and pitch are measured
+in - so a camera facing it at hour `h` has `yaw = atan2(y, x)` and
+`pitch = degrees(asin(z))` of that vector. That is 129.5 and 9.7 degrees at
+07:00, 123 and 17.6 at 08:00, 115.7 and 23.7 at 09:00. Add 180 to the yaw for a
+shot with the sun behind the camera, which is how "this effect costs nothing
+when the sun is not there" gets measured.
 
 A camera whose target differs from it only in z points straight down and renders
 as a flat wash: check a new camera with one shot before rendering a pair from
@@ -170,7 +255,11 @@ it.
 
 ## When it will not run
 
-- **"data path does not exist"** - `-d` is wrong, or is missing `manifest.json`.
+- **"data path does not exist"** - `-d` names a directory that is not there.
+- **An empty grey world, and `manifest.json not found` in the log** - neither
+  source is available: no manifest under `-d`, and no readable installation.
+  Either `--install` is wrong, or this build has no StormLib and cannot open
+  archives at all.
 - **"the client could not initialise"** - no display, no Vulkan device, or the
   usual start-up failure. `logs/wowee.log` says which.
 - **A grey or empty frame** - the world did not finish streaming. The tool draws

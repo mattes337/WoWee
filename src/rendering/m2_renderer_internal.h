@@ -25,7 +25,23 @@ namespace m2_internal {
 
 // ---- RNG helpers ----
 inline std::mt19937& rng() {
-    static std::mt19937 gen(std::random_device{}());
+    // Seeded from the environment when a run has to repeat itself.
+    //
+    // Every doodad's animation starts at a random point in its own idle
+    // sequence, which is what keeps a stand of trees from swaying in unison.
+    // It also means two runs of the same scene are two different pictures: not
+    // subtly, either - a camera facing an Elwynn canopy differed from its own
+    // twin over 55 % of the frame, which is larger than most of the effects
+    // anything would want to measure between a before and an after.
+    // WOWEE_M2_ANIM_SEED pins it; capture_scene sets it, and nothing else does,
+    // so a player's forest is still a forest rather than a metronome.
+    static std::mt19937 gen([]() -> std::mt19937 {
+        const char* seed = std::getenv("WOWEE_M2_ANIM_SEED");
+        if (seed && *seed) {
+            return std::mt19937(static_cast<uint32_t>(std::strtoul(seed, nullptr, 10)));
+        }
+        return std::mt19937(std::random_device{}());
+    }());
     return gen;
 }
 inline uint32_t randRange(uint32_t maxExclusive) {

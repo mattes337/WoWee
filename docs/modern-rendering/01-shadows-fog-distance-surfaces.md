@@ -161,66 +161,78 @@ glm::vec4 skySH[7];
 
 ### Results
 
-Machine: RTX 2070 SUPER, Vulkan SDK 1.4.357.0, Windows 11, 1920x1032. Every
-picture named here is in `docs/evidence/phase-01/img/` as `.before.png`,
-`.after.png` and `.diff.png`, and the numbers are what
-`tools/compare_scenes.py` printed.
+Machine: RTX 2070 SUPER, Vulkan SDK 1.4.357.0, Windows 11. Pictures at
+1280x720, frame times at the resolution each row names. Every asset read
+straight out of `G:\WoW AzerothCore`'s eighteen MPQ archives — there is no
+extracted tree and none is needed. Every picture named here is in
+`docs/evidence/phase-01/img/` as `.before.png`, `.after.png` and `.diff.png`,
+and the numbers are what `tools/compare_scenes.py` printed.
 
-**The third pass — S4 and M3a — has no pictures, and the reason is not a
-judgement.** `Data/extracted`, which is a junction into a checkout this worktree
-does not own, was emptied while that pass was building. Every ADT, M2, WMO and
-BLP the capture tool reads is gone from the machine; the client starts, loads
-FrameXML and draws its interface over an empty grey frame, and
-`asset_extract` cannot rebuild the tree here because StormLib is not in this
-vcpkg install and the target is therefore not built at all. The rows below say
-**not measured, blocked** where that is what happened, and say what was
-measured instead. See `docs/evidence/phase-01/README.md`.
+**Read every row against its camera's noise floor.** Two renders of one camera
+with identical settings are not identical: the world loader draws a
+wall-clock-dependent number of frames before the fixed count starts, so the
+animated half of a scene is not quite in the same place twice. The floor is
+0.214 % of pixels at Goldshire's lake, 5.194 % at Westfall's Sentinel Hill and
+26.6 % at a camera looking down onto a moving Elwynn canopy. It is measured per
+camera in `docs/evidence/phase-01/README.md` and quoted beside each number here.
 
 | Item | Result |
 |---|---|
-| Identity — `shader_offpath_identity` | **pass.** 0 shaders moved; character 1752, m2 806, terrain 454, wmo 731 instructions, the same counts as before the techniques landed — including after M3a put a normal-map path into `m2.frag` and `terrain.frag`, which is what `SPEC_NORMAL_MAP_EVERYWHERE` exists for. It caught two instructions there: `vec2 finalUV = TexCoord` above the branch let the optimizer fold two later loads of `TexCoord` into that one |
-| Identity — a rendered frame at every new key's off value | **pass for the second pass's keys, not measured for the third's.** The same camera rendered from `c00ab904e` in a second worktree was **bit-identical** to this branch at defaults (numpy max abs difference 0 over RGB). `normalmapscope` and `sunshafts` did not exist then and no frame could be rendered after they did; what stands in for it is the SPIR-V identity above, which is the stronger half of the same promise and the half a picture cannot make precise |
-| L1 `stormwind-gate` / `goldshire-inn-morning` / `orgrimmar-drag` / `stranglethorn-canopy` | **partial.** Two Elwynn cameras, not four across three continents: `goldshire-lake` at 09:00, `shadowcascades` 1→3, 35.26 % of pixels changed, SSIM 0.947440. The other three cameras were not rendered |
-| L2 filter 0→1→2 | **pass.** `goldshire-road` 09:00: PCF→Poisson 4.18 % of pixels, SSIM 0.996499; Poisson→PCSS 14.55 %, SSIM 0.977045 |
-| A1 fog cameras | **not measured.** `test_height_fog` pins the calibration arithmetic; no zone was rendered at 06/12/18 |
-| S4 `elwynn-road-sunrise` | **not measured, blocked.** S4 ships. The pair could not be rendered: no world would load. What *was* measured is that a 45-second soak with validation on, `sunshafts=1` and `sunshaftstrength=1`, draws 36 263 frames without a device loss and without a validation message that does not also appear with the same keys off |
-| G1 `westfall-sentinel-hill` / `tanaris-dunes`, + wireframe, Balanced within 0.5 % of Off | **fail on the threshold at the one camera that could be rendered, and still not tested at the two it names.** `goldshire-lake`, Off→Balanced: 28.55 % of pixels changed by more than one code value, against a stated ceiling of 0.5 %. The mean absolute difference over the frame is 1.277 / 255 and SSIM is 0.972705; the camera is under a forest canopy with 8x MSAA, where a mesh change moves almost every ground pixel by a code value or two. The third pass set out to re-run this at Sentinel Hill and the Tanaris dunes, where the threshold was written for an open horizon, and could not: the asset tree was gone. The threshold is still not met and is still not restated as met. Wireframe pair rendered (`terrainlod` Off→Far, 33.08 % of pixels, SSIM 0.961014) |
-| M3a `northshire-abbey` / `stormwind-gate` ground / `kharanos-snow` | **not measured, blocked**, for the same reason. M3a ships: the tangent attribute on both vertex formats, the cache, the two shader paths and the `normalmapscope` row. What is measured is that `m2.frag` and `terrain.frag` are unchanged with the scope constant at its default, and that `test_tangent_frame` pins both frames |
-| Fog calibration, every zone at 06/12/18 | **not measured** |
-| Shadows off: 5 min, no device loss, validation clean | see the row below; measured with `capture_scene --dwell 300` rather than by walking Stormwind |
-| Frame time, preset Medium, lower than pre-phase | **fail as stated, and the measurement says why.** See below |
-| Load time, VRAM | **not measured, blocked.** Both are about the normal-map cache, which ships and which nothing in this session could make generate a single map: they are derived from textures, and there are no textures. The one number that can be stated is static: `sizeof(pipeline::TerrainVertex)` goes from 44 to 60 bytes, so the terrain mega vertex buffer goes from 66 MB to 90 MB, and the M2 vertex from 72 to 88. `NormalMapCache` logs its own map count and megabytes every 256 uploads, so the figure is there to be read the first time a zone loads |
-| Unit tests: splits, snapping, LOD watertightness, tangents | **pass.** `test_terrain_lod` (watertightness, the skirt ring, one-level-apart), `test_tangent_frame` — which now pins the handedness the terrain grid actually has rather than the +1 it was assumed to have — `test_height_fog`, and `test_normal_map_cache` over the hash a generated map is filed under and the box filter that puts an oversized source under the cap |
-| Lint: reserved-code check | **pass.** `reserved_code_check.py`: 15 markers, 0 for a shipped phase, 0 malformed. `shader_feature_check.py`: 7 constants, 0 disagreements |
-| `./test.sh` / `ctest` green | **pass, against the ten failures this machine already had.** 197 of 207; the ten are five "Not Run" targets that need `vulkan.h`, `unicorn_stub_compiles`, `open_formats`, `open_format_emitter`, `cli_paths` and `sweep_guard`, and `sweep_guard` is over its ceiling on the same nine sweeps with the same numbers as before |
+| Identity — `shader_offpath_identity` | **pass.** 0 shaders moved; character 1752, m2 806, terrain 454, wmo 731 instructions — the same counts as before the techniques landed, and the same counts after the PCSS penumbra was rewritten in this pass, because that code is behind `SPEC_SHADOW_FILTER == 2` and the default is 0 |
+| Identity — a rendered frame at every new key's off value | **not measured as a bit comparison, and it cannot be one at these cameras.** A frame of this client is not reproducible to the pixel: drifting cloud, moving water and swaying foliage all advance with the frame count, and the number of frames the world loader draws before the capture's own fixed count begins is wall-clock dependent. Two renders at *identical* settings differ by 0.2 % to 26.6 % of pixels depending on what is in frame. What stands in its place is the SPIR-V identity above, which is exact, and the measured floor beside every number below. The third pass's bit-identical frame against `c00ab904e` was rendered before `normalmapscope` and `sunshafts` existed and is not restated as covering them |
+| L1 `stormwind-gate` / `goldshire-inn-morning` / `orgrimmar-drag` / `stranglethorn-canopy` | **partial.** `goldshire-lake` at 09:00, `shadowcascades` 1 → 3 maps: 1.446 % of pixels changed, mean 0.161 / 255, SSIM 0.996963, against a 0.214 % floor. Two Elwynn cameras and a Stormwind one, not four across three continents; the Orgrimmar and Stranglethorn cameras were not rendered. The third pass's 35.26 % for this pair does not survive: that run had the player's own model parked on the lens and compared frames whose clouds had moved |
+| L2 filter 0→1→2 | **pass for 0→1, and 1→2 is now a statement about the setting rather than about the code.** `goldshire-road` 09:00 at 3 cascades: PCF→Poisson 1.762 % of pixels, SSIM 0.999168. Poisson→PCSS 0.087 %, SSIM 0.999987 — and **PCSS was a no-op until this pass fixed it**: the penumbra was computed as a ratio of normalized shadow-map depths, which for an orthographic cascade is a twentieth and widens a two-texel filter to three. `shadowlightsize` 1.5 → 5 yd moved 0.036 % of pixels before the fix and **12.254 %** after it (SSIM 0.991791). At the default 1.5 yd the penumbra lands close to Poisson's fixed radius, which is why the filter change itself stays small |
+| A1 fog cameras | **partial, and one of the two is outside the rule.** `fogmodel` 0→1 at `duskwood-road` 05:30 and `westfall-sentinel-hill` 09:00. Duskwood: 67.5 % of pixels, mean 1.904 / 255, horizon ΔE76 mean **1.04** — inside the ΔE 3 rule, and the visible change is mist collecting in the valley. Westfall: 67.8 %, mean 13.388 / 255, horizon ΔE76 mean **9.24** — outside it. The rule is stated at `fogEnd` and Westfall's horizon is a line of hills well short of it, which is where the exponential and linear ramps differ most. Not restated as met. `crossroads-plains` and `thunder-bluff-dawn` were not rendered |
+| S4 `elwynn-road-sunrise` | **pass.** `-9462,-67,120` facing the sun. At 07:00 (`--angles 9.7,129.5,0`) `sunshafts` 0→1 adds **+4.54 of 255 over the whole frame** and +12.3 in the square around the sun, taking fully-white pixels from 0.366 % to 1.706 % — a halo, because the sun stands in open sky. At 06:30, with the sun behind the ridge, it is **rays**: the difference fans out from a point on the skyline in streaks broken by the treeline, +1.60 mean. With the sun **behind the camera**, same place and time, yaw turned 180°: **+0.07 of 255 and no saturated pixel at all** — `renderMask` returns before it blits. Not blown out at strength 0.5. The five constants were left where they are; the header's note that they have never been tuned stays, the claim that nobody has looked is gone |
+| S4 cost, ≤ 0.3 ms at 1080p | **pass: 0.0898 ms**, at 1920x1032, read off the pass's own GPU timestamp over 1748 frames (0.128 ms at Westfall). `capture_scene --dwell` reports the GPU marks now, which is the only way to measure this: the two whole-frame means differ by 3.8 ms at that camera, forty times the thing being measured |
+| G1 `westfall-sentinel-hill` / `tanaris-dunes`, + wireframe, Balanced within 0.5 % of Off | **the cameras are rendered at last; the threshold is met at one and not at the other, and at the first it cannot be measured.** Westfall: `terrainlod` Off→Balanced changes **2.854 %** of pixels — *below that camera's own 5.194 % noise floor*, so nothing can be concluded except that it is not large. Tanaris, where the floor is 0.322 %: **4.420 %**, mean 0.270 / 255, SSIM 0.993315 — real, and not under 0.5 %. The pixels that move are dune silhouettes against the sky. Wireframe pairs rendered at both: 13.119 % and 10.709 % of pixels |
+| Fog calibration, every zone at 06/12/18 | **not measured: a per-zone camera catalogue does not exist.** Two zones at two times are in the row above |
+| Shadows off: 5 min, no device loss, validation clean | **pass.** `capture_scene --dwell 300`, validation on, Ultra preset with `shadows=0`: 2690 frames in 300.1 s, no device loss, clean exit, and the only three `[ERROR]` lines are the two FrameXML Lua ones and the pre-existing screenshot-readback layout transition |
+| Frame time, preset Medium, lower than pre-phase | **pass, by 0.6 %.** `goldshire-lake`, 1280x720, `--dwell 30 --setting vsync=0`: every phase-01 key at its pre-phase value 13.629 ms, preset Medium's columns **13.551 ms**, preset Ultra's 17.421 ms. The third pass measured this as 2.6 % slower; that run had no world loaded and drew nothing, and it does not survive. Terrain LOD on its own is −1.3 % at both open-horizon cameras at 1920x1032 |
+| Load time: cold within 15 %, warm within 0 % | **cold passes, warm does not.** `goldshire-lake`, load to shot: no maps at all 25.6 s, **cold 29.0 s (+13.2 %)**, **warm 28.2 s (+10.0 %)**. Cold derives 1278 maps on workers; warm reads 1280 back off disk, and decoding and uploading 202 MB of texture is not free even when nothing is generated. The disk cache after one cold Elwynn load is **1551 files, 198.6 MB**, well under the 2 GB bound |
+| VRAM, under +40 % | **pass at +31.6 %**, with a caveat about the instrument: `nvidia-smi` answers `[N/A]` for per-process memory under WDDM, so this is the whole device's `memory.used` before the process starts against its peak during the run — 1517 MiB without the maps, **1996 MiB** with them. Beside it, two exact figures: the cache reports **1280 maps bound, 202 MB**, and the tangent attribute takes the terrain mega vertex buffer from 66 MB to 90 MB and the M2 vertex from 72 to 88 bytes |
+| Unit tests: splits, snapping, LOD watertightness, tangents | **pass.** `test_terrain_lod`, `test_tangent_frame`, `test_height_fog`, `test_normal_map_cache` |
+| Lint: reserved-code check | **pass.** `reserved_code_check.py`: 15 markers, 0 for a shipped phase, 0 malformed. `shader_feature_check.py`: 7 constants, 0 disagreements. `shader_offpath_check.py`: 0 shaders moved |
+| `./test.sh` / `ctest` green | **pass, against the failures this machine already had.** See `docs/evidence/phase-01/README.md` |
 
-**On the frame time.** Measured with `capture_scene --dwell 60 --setting
-vsync=0` on `goldshire-lake`, which draws the same frame several thousand times
-so the number is not a walk:
+**On the frame time.** Measured with `capture_scene --dwell 30 --setting
+vsync=0` at `goldshire-lake`, 1280x720, which draws the same frame two thousand
+times so the number is not a walk:
 
 | Configuration | Mean | Worst |
 |---|---|---|
-| 1 cascade, PCF, LOD off (what the client did before) | 12.2865 ms | 17.4591 ms |
-| 2 cascades, Poisson, LOD off | 12.2805 ms | 19.5521 ms |
-| 2 cascades, Poisson, LOD Balanced (preset Medium) | 12.6062 ms | 17.2644 ms |
-| 4 cascades, PCSS, LOD Near (preset Ultra's shadow half) | 13.0819 ms | 25.9129 ms |
+| Every phase-01 key at its pre-phase value — 1 cascade, PCF, LOD off, no normal maps, no shafts, linear fog | 13.629 ms | 380.7 ms |
+| 2 cascades, Poisson, LOD Balanced, normal maps everywhere, shafts, height fog — preset Medium's columns | **13.551 ms** | 23.1 ms |
+| 4 cascades, PCSS, LOD Near, all of it — preset Ultra's | 17.421 ms | 64.5 ms |
 
 The phase's claim is that G1 pays for L1 and the frame comes out ahead. At this
-camera it does not: preset Medium is 12.61 ms against 12.29 ms, 2.6 % *slower*,
-and the whole shadow half of preset Ultra costs 6.5 %. Neither is much, and the
-reason both are small is the same reason G1 does not pay for anything here: the
-frame is bound by recording ten thousand terrain chunks and seventy thousand M2
-instances, and terrain LOD does not reduce that - it draws the same number of
-chunks with fewer indices in each. A camera bound by the shadow pass or by
-terrain vertex work would say something different. This one says the techniques
-are close to free and close to worthless, and that what this scene wants is
-fewer draw calls. That is worth knowing and it is not what the phase file
-predicted; the prediction is not restated here as met.
+camera it does, by 0.6 %, and the whole shadow half of preset Ultra costs
+27.8 %. Both are small, and the reason is the same reason terrain LOD wins
+little: the frame is bound by recording ten thousand terrain chunks and seventy
+thousand M2 instances, and a reduced level draws the same number of chunks with
+fewer indices in each. A camera bound by the shadow pass or by terrain vertex
+work would say something different. What this one says is that the techniques
+are close to free, and that what this scene wants is fewer draw calls.
 
-The third pass added two more things to this table and could put neither in it.
-S4 has a stated ceiling of 0.3 ms at 1080p and M3a a stated bound of +40 % video
-memory, and both are measurements of a loaded world; the pass that wrote them had
-none. Neither number is guessed at here.
+**Four things were wrong that only a loaded world could show, and all four are
+fixed.** The deferred descriptor write that binds a generated normal map was
+deferred to the wrong moment and invalidated command buffers on every map that
+landed; the capture tool was parking the player's own model on the lens; two
+renders of one camera were not the same frame, so a sky-facing comparison read
+94 % of pixels changed between two renders of the *same* settings; and PCSS was
+rendering as Poisson. `docs/evidence/phase-01/README.md` has each of them with
+the measurement that found it.
+
+**And one that looked like a fifth and is not this phase's.** Start-up produces
+about a hundred and sixty validation errors on a single frame — descriptor sets
+destroyed or updated under a command buffer that had bound them, on the frame
+the start-up MSAA rebuild resets the frame synchronisation. It reads as the
+cascaded path's doing until the same command is run twice: with every phase-01
+key at its *off* value it gives 3 errors one run and 161 the next. It is
+confined to that one frame, five minutes of rendering afterwards raises nothing,
+and no run lost a device. Recorded in the evidence file with the attempted fix
+that made it worse.
+
 
 ## Cut order if the phase runs long
 

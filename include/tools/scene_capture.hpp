@@ -151,10 +151,22 @@ public:
 
     /**
      * Initialize the capture system (headless Vulkan)
-     * @param dataPath Path to WoW data directory (containing manifest.json)
+     *
+     * @param dataPath    Wowee's data directory. An extracted tree with a
+     *                    `manifest.json` in it, or - with @p installPath - a
+     *                    directory that holds only what wowee generates, in
+     *                    which case every asset is read out of the game's own
+     *                    archives and no extraction is needed.
+     * @param installPath The game installation to read the archives of, or
+     *                    empty to leave `WOW_INSTALL_PATH` as the environment
+     *                    already has it. `detectGameInstall` locates the
+     *                    archives and `AssetManager::setGameArchives` opens
+     *                    them - both inside `Application::initialize`, which is
+     *                    what this drives, so the tool reads a game the same
+     *                    way the client does rather than by a path of its own.
      * @return True if successful
      */
-    bool initialize(const std::string& dataPath);
+    bool initialize(const std::string& dataPath, const std::string& installPath = {});
 
     /**
      * Shutdown and cleanup resources

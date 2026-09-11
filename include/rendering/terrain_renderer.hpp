@@ -288,6 +288,10 @@ private:
     /// chunk until that chunk's own layers have maps.
     std::unique_ptr<VkTexture> flatNormalTexture;
     std::vector<std::string> normalMapReadyScratch_;
+    /// How many chunk material sets have been rewritten to name their generated
+    /// maps. Counted inside the deferred callback for the reason the M2
+    /// renderer's twin is: it is the only evidence that the deferral lands.
+    uint32_t normalMapDescriptorWrites_ = 0;
     static std::string normalizeTextureKey(const std::string& path);
 
     bool wireframe = false;
