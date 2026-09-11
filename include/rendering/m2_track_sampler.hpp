@@ -136,4 +136,38 @@ inline glm::quat sampleQuat(const pipeline::M2AnimationTrack& track,
         : safe(keys.quatValues[lower]);
 }
 
+/// A skin batch's animated opacity: its M2Color alpha times the material's
+/// transparency track, both sampled at the instance's own animation time.
+///
+/// One is not the other. An M2Color alpha gates a batch per animation - the
+/// peasant lumberjack's two wood bundles, only one of which is alpha-1 in any
+/// given one - and a transparency track carries an authored duty cycle, which
+/// is what makes an enchant card pulse. Taking either at rest, as a load-time
+/// constant, both freezes the pulse and shows the batches that are meant to
+/// animate up from nothing: the login scene's snow bursts drew at full
+/// opacity in every frame, a blizzard over the whole picture.
+inline float sampleBatchAlpha(const std::vector<pipeline::M2AnimationTrack>& colorAlphaTracks,
+                              const std::vector<pipeline::M2AnimationTrack>& weightTracks,
+                              const std::vector<uint16_t>& weightLookup,
+                              const std::vector<uint32_t>& globalSequenceDurations,
+                              uint16_t colorIndex, uint16_t transparencyIndex,
+                              int sequenceIndex, float animationTimeMs,
+                              float globalTimeMs) {
+    float alpha = 1.0f;
+    if (colorIndex != 0xFFFF && colorIndex < colorAlphaTracks.size()) {
+        alpha *= sampleFloat(colorAlphaTracks[colorIndex], sequenceIndex,
+                             animationTimeMs, globalTimeMs,
+                             globalSequenceDurations, 1.0f);
+    }
+    if (transparencyIndex != 0xFFFF && transparencyIndex < weightLookup.size()) {
+        const uint16_t track = weightLookup[transparencyIndex];
+        if (track != 0xFFFF && track < weightTracks.size()) {
+            alpha *= sampleFloat(weightTracks[track], sequenceIndex,
+                                 animationTimeMs, globalTimeMs,
+                                 globalSequenceDurations, 1.0f);
+        }
+    }
+    return alpha;
+}
+
 } // namespace wowee::rendering::m2_track

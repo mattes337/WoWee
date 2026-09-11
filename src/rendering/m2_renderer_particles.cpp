@@ -8,6 +8,8 @@
 #include "rendering/vk_shader.hpp"
 #include "rendering/vk_utils.hpp"
 #include "rendering/camera.hpp"
+
+#include <set>
 #include "pipeline/asset_manager.hpp"
 #include "core/logger.hpp"
 #include <glm/gtc/matrix_transform.hpp>
@@ -121,6 +123,27 @@ void M2Renderer::emitParticles(M2Instance& inst, const M2ModelGPU& gpu, float dt
             (gpu.isLanternLike || gpu.isTorch || gpu.isBrazierOrFire || gpu.isKoboldFlame)) {
             constexpr float kMinLiveParticles = 15.0f;
             rate = std::max(rate, kMinLiveParticles / std::max(life, 0.1f));
+        }
+
+        // WOWEE_SCENE_DIAG=1 says what each emitter of a model is actually
+        // being asked for, once per emitter. A scene whose glow is missing is
+        // either not emitting or not drawing, and nothing else tells them apart.
+        static const bool kEmitterDiag = envFlagEnabled("WOWEE_SCENE_DIAG");
+        if (kEmitterDiag) {
+            static std::set<std::pair<std::string, size_t>> saidEmitter;
+            if (saidEmitter.insert({gpu.name, ei}).second) {
+                LOG_WARNING("EMITTER ", gpu.name, " #", ei,
+                            " rate=", rate, " life=", life,
+                            " enabled=", em.enabled ? 1 : 0,
+                            " tex=", (ei < gpu.particleTextures.size() && gpu.particleTextures[ei])
+                                         ? "yes" : "NO",
+                            " bone=", em.bone,
+                            " scaleKeys=", em.particleScale.floatValues.size(),
+                            " scale0=", em.particleScale.floatValues.empty() ? -1.0f : em.particleScale.floatValues[0],
+                            " alphaKeys=", em.particleAlpha.floatValues.size(),
+                            " alpha0=", em.particleAlpha.floatValues.empty() ? -1.0f : em.particleAlpha.floatValues[0],
+                            " live=", inst.particles.size());
+            }
         }
 
         if (rate <= 0.0f || life <= 0.0f) {
@@ -631,8 +654,13 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
             float alpha = std::min(interpFBlockFloat(em.particleAlpha, lifeRatio), 1.0f);
             float rawScale = interpFBlockFloat(em.particleScale, lifeRatio);
 
-            if (!gpu.isSpellEffect && !gpu.isFireflyEffect && !gpu.isLanternLike &&
-                !gpu.isTorch && !gpu.isBrazierOrFire && !gpu.isKoboldFlame) {
+            // The world's dampeners, and not a scene's. See setSceneMode: an
+            // authored set piece is not a field of doodads to be tamed, and a
+            // twentieth of the alpha is the difference between a frost wyrm
+            // wreathed in light and a bare skeleton.
+            if (!sceneMode_ && !gpu.isSpellEffect && !gpu.isFireflyEffect &&
+                !gpu.isLanternLike && !gpu.isTorch && !gpu.isBrazierOrFire &&
+                !gpu.isKoboldFlame) {
                 color = glm::mix(color, glm::vec3(1.0f), 0.7f);
                 if (rawScale > 2.0f) alpha *= 0.02f;
                 if (cachedBlendType == 3 || cachedBlendType == 4) alpha *= 0.05f;

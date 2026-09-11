@@ -8,7 +8,8 @@
 #include "pipeline/m2_loader.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/character_preview.hpp"
-#include "rendering/character_renderer.hpp"
+#include "rendering/m2_renderer.hpp"
+#include "rendering/vk_shader.hpp"
 #include "rendering/imgui_texture.hpp"
 #include "rendering/renderer.hpp"
 #include "rendering/vk_context.hpp"
@@ -282,7 +283,17 @@ struct GlueBackdrop::View {
     pipeline::AssetManager* assets = nullptr;
     rendering::VkContext* ctx = nullptr;
 
-    std::unique_ptr<rendering::CharacterRenderer> models;
+    /// The renderer for this scene.
+    ///
+    /// M2Renderer rather than CharacterRenderer: a glue backdrop is an M2
+    /// scene, not a figure. The login screen's model carries forty particle
+    /// emitters and that is what its glow is made of - the frost on the wyrm's
+    /// body, the burst over the citadel's spire - and only this renderer
+    /// simulates and draws them.
+    std::unique_ptr<rendering::M2Renderer> models;
+    /// The loaded model, kept here because M2Renderer hands back no view of
+    /// what it uploaded and frameThrough needs the cameras.
+    pipeline::M2Model modelData;
     std::unique_ptr<rendering::Camera> camera;
     std::unique_ptr<rendering::VkRenderTarget> target;
 
@@ -446,7 +457,10 @@ bool GlueBackdrop::View::build(int w, int h, rendering::Renderer* renderer) {
         rendering::cmdPipelineBarrier2(cmd, dep);
     });
 
-    models = std::make_unique<rendering::CharacterRenderer>();
+    models = std::make_unique<rendering::M2Renderer>();
+    // Before initialize, as setSkyMode wants: this is one authored scene, not
+    // a field of world doodads, so its particles are not damped.
+    models->setSceneMode(true);
     if (!models->initialize(ctx, perFrameLayout, assets, target->getRenderPass(),
                             target->getSampleCount())) {
         LOG_WARNING("GlueBackdrop: could not build the model renderer");
@@ -876,13 +890,13 @@ bool GlueBackdrop::View::loadScene(const std::string& rawPath, const GlueSceneSt
     appliedCamera = -1;
     appliedSequence = -1;
 
-    pipeline::M2Model model;
-    if (!pipeline::loadM2WithSkin(*assets, m2Path, model)) {
+    modelData = pipeline::M2Model{};
+    if (!pipeline::loadM2WithSkin(*assets, m2Path, modelData)) {
         LOG_WARNING("GlueBackdrop: no model at ", m2Path);
         return false;
     }
 
-    if (!models->loadModel(model, kBackdropModelId)) {
+    if (!models->loadModel(modelData, kBackdropModelId)) {
         LOG_WARNING("GlueBackdrop: could not upload ", m2Path);
         return false;
     }
@@ -898,9 +912,6 @@ bool GlueBackdrop::View::loadScene(const std::string& rawPath, const GlueSceneSt
         LOG_WARNING("GlueBackdrop: could not place ", m2Path);
         return false;
     }
-    // A whole scene rather than a figure: no distance culling, no stand mark.
-    models->setInstanceSceneModel(instanceId, true);
-
     // The camera is what decides whether this is drawn at all, so it is asked
     // for after the model is up but before anything says the scene is placed.
     if (!frameThrough(scene.cameraIndex)) return false;
@@ -909,8 +920,8 @@ bool GlueBackdrop::View::loadScene(const std::string& rawPath, const GlueSceneSt
 }
 
 bool GlueBackdrop::View::frameThrough(int index) {
-    const pipeline::M2Model* model = models ? models->getModelData(kBackdropModelId) : nullptr;
-    if (model == nullptr || camera == nullptr) return false;
+    const pipeline::M2Model* model = models ? &modelData : nullptr;
+    if (model == nullptr || model->cameras.empty() || camera == nullptr) return false;
 
     const int pick = glueCameraIndex(index, static_cast<int>(model->cameras.size()));
     if (pick < 0) {
@@ -974,7 +985,6 @@ void GlueBackdrop::View::applyScene(const GlueSceneState& scene) {
             placed = false;
             return;
         }
-        models->setInstanceSceneModel(instanceId, true);
         appliedSequence = -1;
     }
 
@@ -1002,7 +1012,7 @@ void GlueBackdrop::View::applyScene(const GlueSceneState& scene) {
         // has to be careful not to do, because a glue backdrop's animation is
         // its snow and its light shafts and nothing announces their absence.
         const uint32_t want = scene.sequence < 0 ? 0u : static_cast<uint32_t>(scene.sequence);
-        models->playAnimation(instanceId, want, true);
+        models->setInstanceAnimation(instanceId, want, true);
         appliedSequence = scene.sequence;
     }
 }
@@ -1013,14 +1023,14 @@ void GlueBackdrop::View::composite() {
 
     // Bone buffers and descriptors, allocated before anything is recorded.
     //
-    // For the context's own frame slot, not a fixed one: CharacterRenderer's
-    // draw loop reads the slot back out of the context rather than taking the
-    // one it was prepared for, so preparing slot 0 every time leaves every
-    // frame that lands on slot 1 with no bone descriptor and nothing drawn.
+    // For the context's own frame slot, not a fixed one: the draw loop reads
+    // the slot back out of the context rather than taking the one it was
+    // prepared for, so preparing slot 0 every time leaves every frame that
+    // lands on slot 1 with no bone descriptor and nothing drawn.
     // Half the frames rendered the scene and half rendered the clear colour,
     // which on a screenshot reads as "the backdrop does not work" about as
     // often as it reads as "it does".
-    models->prepareRender(ctx->getCurrentFrame());
+    models->prepareRender(ctx->getCurrentFrame(), *camera);
 
     rendering::GPUPerFrameData ubo{};
     ubo.view = camera->getViewMatrix();
@@ -1070,6 +1080,14 @@ void GlueBackdrop::View::composite() {
         // are the same size and nothing is resampled on the way to the screen.
         setUsedViewport(cmd, usedWidth(), usedHeight());
         models->render(cmd, perFrameSet, *camera);
+        // And what the model emits. These two are not part of render(): the
+        // world calls them itself, from the frame that owns the pass. A glue
+        // backdrop owns its own pass, so it calls them itself as well - and
+        // without them the Northrend login scene draws none of its forty
+        // emitters, which is the snow, the frost on the wyrm and the light
+        // over the citadel's spire.
+        models->renderM2Particles(cmd, perFrameSet);
+        models->renderM2Ribbons(cmd, perFrameSet);
         target->endPass(cmd);
         // The glow, from the scene that was just drawn. Inside the same submit
         // so it reads the target in the layout endPass left it in.
@@ -1202,7 +1220,11 @@ bool GlueBackdrop::update(const GlueSceneState& scene, int width, int height,
     view_->applyScene(scene);
     if (!view_->placed) return false;
 
-    view_->models->update(deltaTime, view_->camera->getPosition());
+    // The view-projection is what this renderer culls against. A glue scene is
+    // one instance and the camera stands inside it, so this is the camera's own.
+    view_->models->update(deltaTime, view_->camera->getPosition(),
+                          view_->camera->getProjectionMatrix() *
+                              view_->camera->getViewMatrix());
     view_->composite();
     return view_->everComposited;
 }

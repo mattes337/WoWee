@@ -1795,7 +1795,10 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
         const bool particleDominantEffect = model.isSpellEffect &&
             !model.particleEmitters.empty() && model.batches.size() <= 2;
 
-        for (const auto& batch : model.batches) {
+        // In the order the model authored, not the order the batches happen
+        // to sit in. See M2ModelGPU::sortedBatchIndices.
+        for (const uint32_t batchIndex : model.sortedBatchIndices) {
+            const auto& batch = model.batches[batchIndex];
             if (batch.indexCount == 0) continue;
             if (!model.isGroundDetail && batch.submeshLevel != targetLOD) continue;
             if (batch.batchOpacity < 0.01f) continue;
@@ -1875,13 +1878,25 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                                      -lavaAnimSeconds * 0.08f);
             }
 
+            // What this batch's own tracks say it is worth right now. A batch
+            // whose alpha animates to nothing is not drawn at all: an opaque
+            // one cannot express it in the shader, and a blended one would
+            // still pay for itself.
+            const float batchAlpha = m2_track::sampleBatchAlpha(
+                model.colorAlphaTracks, model.textureWeightTracks,
+                model.textureWeightLookup, model.globalSequenceDurations,
+                batch.colorIndex, batch.transparencyIndex,
+                instance.currentSequenceIndex, instance.animTime,
+                instance.globalSequenceTime);
+            if (batchAlpha <= 0.01f) continue;
+
             // Write single instance entry to SSBO
             if (instanceDataCount_ >= MAX_INSTANCE_DATA) continue;
             uint32_t drawOffset = instanceDataCount_;
             auto& e = instSSBO[instanceDataCount_];
             e.model = instance.modelMatrix;
             e.uvOffset = uvOffset;
-            e.fadeAlpha = instanceFadeAlpha;
+            e.fadeAlpha = instanceFadeAlpha * batchAlpha;
             e.useBones = (needsBones && !kM2NoSkinning) ? 1 : 0;
             e.boneBase = needsBones ? static_cast<int32_t>(instance.megaBoneOffset) : 0;
             e.boneCount = static_cast<int32_t>(instance.boneMatrices.size());

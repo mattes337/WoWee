@@ -235,7 +235,15 @@ inline int32_t m2TexCombiner(uint16_t textureCount, uint16_t shaderId) {
         }
     }
     switch (lower) {
-        case 0:  return 4;   // Opaque_Opaque
+        // Blizzard's table calls this one Opaque_Opaque, whose alpha is the
+        // material's rather than either layer's. This client cannot: the
+        // Northrend login scene's aurora sheets are `lower == 0` and carry
+        // colorIndex 0xFFFF - no colour slot, so no material alpha to be had -
+        // and their second layer is a mask whose RGB is a flat grey and whose
+        // alpha is the entire shape. Given alpha 1 they are opaque slabs, and
+        // that is exactly how they drew: dark bands across the sky. So the
+        // alpha comes from layer 1 here, which is what the art is built for.
+        case 0:  return 1;   // Opaque_Mod, not Opaque_Opaque - see above
         case 3:  return 11;  // Opaque_AddAlpha
         case 4:  return 11;  // Opaque_AddAlpha
         case 6:  return 12;  // Opaque_Mod2xNA_Alpha

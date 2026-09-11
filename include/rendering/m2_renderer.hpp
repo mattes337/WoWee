@@ -84,6 +84,18 @@ struct M2ModelGPU {
         bool starLayer = false;
         uint8_t glowTint = 0; // 0=warm, 1=cool, 2=red
         float batchOpacity = 1.0f; // Resolved texture weight opacity (0=transparent, skip batch)
+        /// The batch's colour and transparency slots, so its opacity can be
+        /// sampled per frame rather than baked at load. See
+        /// m2_track::sampleBatchAlpha.
+        uint16_t colorIndex = 0xFFFF;
+        uint16_t transparencyIndex = 0xFFFF;
+        /// The authored draw order. Ascending, and it is not the batch order:
+        /// the Northrend login scene's bright sky dome is plane 0 and its
+        /// clouds and aurora are 1 to 4, so drawn by index the dome lands last
+        /// and paints over all of them - a flat cyan sky with the weather
+        /// underneath it.
+        int16_t priorityPlane = 0;
+        uint16_t materialLayer = 0;
         glm::vec3 center = glm::vec3(0.0f); // Center of batch geometry (model space)
         float glowSize = 1.0f;              // Approx radius of batch geometry
 
@@ -185,6 +197,17 @@ struct M2ModelGPU {
     bool hasTextureAnimation = false; // True if any batch has UV animation
     bool hasTransparentBatches = false; // True if any batch uses alpha-blend or additive (blendMode >= 2)
     uint8_t availableLODs = 0;  // Bitmask: bit N set if any batch has submeshLevel==N
+
+    /// batches, in the order they are meant to be drawn: by priority plane,
+    /// then by material layer, both authored. Only the transparent pass walks
+    /// it - opaque geometry sorts by depth and does not care.
+    std::vector<uint32_t> sortedBatchIndices;
+
+    /// The animated alpha tracks, kept so a batch's opacity can be sampled at
+    /// the instance's own animation time.
+    std::vector<pipeline::M2AnimationTrack> colorAlphaTracks;
+    std::vector<pipeline::M2AnimationTrack> textureWeightTracks;
+    std::vector<uint16_t> textureWeightLookup;
 
     // Particle emitter data (kept from M2Model)
     std::vector<pipeline::M2ParticleEmitter> particleEmitters;
@@ -393,10 +416,30 @@ public:
     M2Renderer();
     ~M2Renderer();
 
+    /// Build the renderer's pipelines.
+    ///
+    /// `renderPassOverride` and `msaaSamples` name a pass other than the
+    /// frame's own, the way CharacterRenderer's have since the character
+    /// preview needed one: a glue backdrop is an M2 scene drawn into an
+    /// off-screen target, and it wants this renderer rather than the one for
+    /// characters - the scene carries particle emitters, and that is what the
+    /// login screen's glow is made of.
     [[nodiscard]] bool initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout,
-                    pipeline::AssetManager* assets);
+                    pipeline::AssetManager* assets,
+                    VkRenderPass renderPassOverride = VK_NULL_HANDLE,
+                    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT);
     /** Configure this renderer for camera-centered sky M2s before initialize(). */
     void setSkyMode(bool enabled) { skyMode_ = enabled; }
+
+    /// Configure this renderer for an authored scene rather than the world.
+    ///
+    /// The world's particles are damped: a doodad's additive particles are cut
+    /// to a twentieth and their colour pulled most of the way to white, which
+    /// keeps a field of torches and campfires from washing the frame out. A
+    /// glue backdrop is not a field of anything - it is one set piece an artist
+    /// composed, and its emitters are the picture. Damped, the Northrend login
+    /// screen loses the frost on its wyrm and the light over its spire.
+    void setSceneMode(bool enabled) { sceneMode_ = enabled; }
     void shutdown();
 
     [[nodiscard]] bool hasModel(uint32_t modelId) const;
@@ -540,6 +583,12 @@ public:
     /// recreatePipelines() after a device loss, which is the reason it exists:
     /// the two used to be separate copies of the same 190 lines.
     bool buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout);
+    /// The pass these pipelines are built against, when it is not the frame's
+    /// own. Remembered because they are rebuilt on a swapchain change, and a
+    /// rebuild that forgot would put an off-screen renderer's pipelines on the
+    /// frame's pass and draw nothing.
+    VkRenderPass renderPassOverride_ = VK_NULL_HANDLE;
+    VkSampleCountFlagBits passSamplesOverride_ = VK_SAMPLE_COUNT_1_BIT;
 
     // Stats
     [[nodiscard]] bool isInitialized() const { return initialized_; }
@@ -966,6 +1015,8 @@ private:
     static constexpr size_t MAX_M2_PARTICLES = 4000;
     std::mt19937 particleRng_{123};
     bool skyMode_ = false;
+    /// True when this renderer draws an authored scene - see setSceneMode.
+    bool sceneMode_ = false;
     // What the sky-model clock diagnostic last reported, so it prints on a
     // restart or once a second rather than every frame. See M2Renderer::update.
     uint32_t skyDiagInstanceId_ = 0;

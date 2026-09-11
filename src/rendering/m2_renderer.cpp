@@ -28,6 +28,7 @@
 #include <unordered_set>
 #include <functional>
 #include <algorithm>
+#include <numeric>
 #include <cmath>
 #include <cstdlib>
 #include <random>
@@ -278,7 +279,15 @@ bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
         return false;
     }
 
-    VkRenderPass mainPass = vkCtx_->getImGuiRenderPass();
+    // The frame's own pass unless the caller named one. A pipeline is only
+    // valid against a compatible pass, and an off-screen target's is not the
+    // frame's.
+    const VkRenderPass mainPass = renderPassOverride_ != VK_NULL_HANDLE
+                                      ? renderPassOverride_
+                                      : vkCtx_->getImGuiRenderPass();
+    const VkSampleCountFlagBits passSamples = renderPassOverride_ != VK_NULL_HANDLE
+                                                  ? passSamplesOverride_
+                                                  : vkCtx_->getMsaaSamples();
 
     // --- Build M2 model pipelines ---
     // Vertex input: 18 floats = 72 bytes stride
@@ -314,7 +323,7 @@ bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
             // everything drawn after.
             .setDepthTest(true, skyMode_ ? false : depthWrite, VK_COMPARE_OP_LESS_OR_EQUAL)
             .setColorBlendAttachment(blendState)
-            .setMultisample(vkCtx_->getMsaaSamples());
+            .setMultisample(passSamples);
         // MSAA alpha-to-coverage dithers the shader's sharpened cutout alpha
         // across samples for smooth foliage/leaf silhouettes.
         if (alphaToCoverage) builder.setAlphaToCoverage(true);
@@ -360,7 +369,7 @@ bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
                 .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
                 .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
                 .setColorBlendAttachment(blend)
-                .setMultisample(vkCtx_->getMsaaSamples())
+                .setMultisample(passSamples)
                 .setLayout(particlePipelineLayout_)
                 .setRenderPass(mainPass)
                 .setDynamicStates(viewportAndScissorDynamic())
@@ -393,7 +402,7 @@ bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
             .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
             .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
             .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx_->getMsaaSamples())
+            .setMultisample(passSamples)
             .setLayout(smokePipelineLayout_)
             .setRenderPass(mainPass)
             .setDynamicStates(viewportAndScissorDynamic())
@@ -442,7 +451,7 @@ bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
                     .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
                     .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
                     .setColorBlendAttachment(blend)
-                    .setMultisample(vkCtx_->getMsaaSamples())
+                    .setMultisample(passSamples)
                     .setLayout(ribbonPipelineLayout_)
                     .setRenderPass(mainPass)
                     .setDynamicStates(viewportAndScissorDynamic())
@@ -464,10 +473,15 @@ bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
 }
 
 bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout,
-                            pipeline::AssetManager* assets) {
+                            pipeline::AssetManager* assets,
+                            VkRenderPass renderPassOverride,
+                            VkSampleCountFlagBits msaaSamples) {
+
     if (initialized_) { assetManager = assets; return true; }
     vkCtx_ = ctx;
     assetManager = assets;
+    renderPassOverride_ = renderPassOverride;
+    passSamplesOverride_ = msaaSamples;
 
     // Announce the renderer diagnostics this build understands, and which of
     // them are active. A run that logs this line is definitely a build that has
@@ -1552,6 +1566,9 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
     gpuModel.bones = model.bones;
     gpuModel.sequences = model.sequences;
     gpuModel.globalSequenceDurations = model.globalSequenceDurations;
+    gpuModel.colorAlphaTracks = model.colorAlphaTracks;
+    gpuModel.textureWeightTracks = model.textureWeightTracks;
+    gpuModel.textureWeightLookup = model.textureWeightLookup;
     gpuModel.hasAnimation = false;
     for (const auto& bone : model.bones) {
         if (bone.translation.hasData() || bone.rotation.hasData() || bone.scale.hasData()) {
@@ -1954,28 +1971,22 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             // Start at full opacity; hide only if texture failed to load.
             bgpu.batchOpacity = (texFailed && !groundDetailModel) ? 0.0f : 1.0f;
 
-            // Apply at-rest transparency and color alpha from the M2 animation tracks.
-            // These provide per-batch opacity for ghosts, ethereal effects, fading doodads, etc.
-            // Skip zero values: some animated tracks start at 0 and animate up, and baking
-            // that first keyframe would make the entire batch permanently invisible.
-            if (bgpu.batchOpacity > 0.0f) {
-                float animAlpha = 1.0f;
-                if (batch.colorIndex < model.colorRGB.size()) {
-                    // The batch's authored colour. A glow card is painted
-                    // white and coloured here, so without it every fire in the
-                    // world burns white: Orgrimmar's carries (1.0, 0.329, 0.0).
-                    bgpu.tint = model.colorRGB[batch.colorIndex];
-                }
-                if (batch.colorIndex < model.colorAlphas.size()) {
-                    float ca = model.colorAlphas[batch.colorIndex];
-                    if (ca > 0.001f) animAlpha *= ca;
-                }
-                if (batch.transparencyIndex < model.textureWeights.size()) {
-                    float tw = model.textureWeights[batch.transparencyIndex];
-                    if (tw > 0.001f) animAlpha *= tw;
-                }
-                bgpu.batchOpacity *= animAlpha;
+            if (batch.colorIndex < model.colorRGB.size()) {
+                // The batch's authored colour. A glow card is painted white and
+                // coloured here, so without it every fire in the world burns
+                // white: Orgrimmar's carries (1.0, 0.329, 0.0).
+                bgpu.tint = model.colorRGB[batch.colorIndex];
             }
+            // The slots its opacity is animated through, sampled per frame at
+            // the instance's own animation time rather than baked here. Baking
+            // it froze every authored pulse and, because a track that starts at
+            // zero had to be ignored to avoid hiding the batch for good, drew
+            // everything that animates up from nothing at full strength - the
+            // login scene's snow bursts as a blizzard over the whole picture.
+            bgpu.colorIndex = batch.colorIndex;
+            bgpu.transparencyIndex = batch.transparencyIndex;
+            bgpu.priorityPlane = batch.priorityPlane;
+            bgpu.materialLayer = batch.materialLayer;
 
             // Compute batch center and radius for glow sprite positioning
             if ((bgpu.blendMode >= 3 || bgpu.colorKeyBlack || bgpu.glowCardLike) && batch.indexCount > 0) {
@@ -2252,6 +2263,19 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
     for (const auto& b : gpuModel.batches) {
         if (b.submeshLevel < 8) gpuModel.availableLODs |= (1u << b.submeshLevel);
     }
+
+    // The order the transparent pass walks: by authored priority plane, then
+    // by material layer. Drawing by batch index instead puts the login scene's
+    // sky dome - plane 0 - after the clouds and aurora that belong in front of
+    // it, and the sky comes out a flat sheet with the weather behind it.
+    gpuModel.sortedBatchIndices.resize(gpuModel.batches.size());
+    std::iota(gpuModel.sortedBatchIndices.begin(), gpuModel.sortedBatchIndices.end(), 0u);
+    std::stable_sort(gpuModel.sortedBatchIndices.begin(), gpuModel.sortedBatchIndices.end(),
+                     [&batches = gpuModel.batches](uint32_t a, uint32_t b) {
+                         if (batches[a].priorityPlane != batches[b].priorityPlane)
+                             return batches[a].priorityPlane < batches[b].priorityPlane;
+                         return batches[a].materialLayer < batches[b].materialLayer;
+                     });
 
     models[modelId] = std::move(gpuModel);
     spatialIndexDirty_ = true;  // Map may have rehashed - refresh cachedModel pointers
