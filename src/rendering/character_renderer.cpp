@@ -3306,6 +3306,26 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
     return true;
 }
 
+void CharacterRenderer::beginShadowFrame() {
+    if (!vkCtx_) return;
+    // This frame slot's fence was waited on in beginFrame, so last time's sets
+    // are finished with and the pool can be handed back whole.
+    //
+    // Once per frame, from the shadow pass, rather than at the top of
+    // renderShadow: the cascades are separate render passes recorded into one
+    // command buffer, and renderShadow is called once per cascade. Resetting
+    // there frees, on the second cascade, the sets the first cascade has
+    // already bound into that command buffer - which invalidates it, so every
+    // command recorded after it is recorded into a command buffer validation
+    // has marked invalid.
+    const uint32_t frameIndex = vkCtx_->getCurrentFrame();
+    if (frameIndex >= kShadowTexPoolFrames) return;
+    if (shadowTexPool_[frameIndex]) {
+        vkResetDescriptorPool(vkCtx_->getDevice(), shadowTexPool_[frameIndex], 0);
+    }
+    shadowTexSetCache_.clear();
+}
+
 void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMatrix,
                                      const glm::vec3& shadowCenter, float shadowRadius) {
     if (!shadowPipeline_ || !shadowParams_.set) return;
@@ -3315,13 +3335,6 @@ void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& light
     uint32_t frameIndex = vkCtx_->getCurrentFrame();
     if (frameIndex >= 2) return;
     VkDevice device = vkCtx_->getDevice();
-
-    // This frame slot's fence was waited on in beginFrame, so last time's sets
-    // are finished with and the pool can be handed back whole.
-    if (frameIndex < kShadowTexPoolFrames && shadowTexPool_[frameIndex]) {
-        vkResetDescriptorPool(device, shadowTexPool_[frameIndex], 0);
-    }
-    shadowTexSetCache_.clear();
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_);
 

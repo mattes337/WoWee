@@ -223,15 +223,19 @@ renders of one camera were not the same frame, so a sky-facing comparison read
 rendering as Poisson. `docs/evidence/phase-01/README.md` has each of them with
 the measurement that found it.
 
-**And one that looked like a fifth and is not this phase's.** Start-up produces
-about a hundred and sixty validation errors on a single frame — descriptor sets
-destroyed or updated under a command buffer that had bound them, on the frame
-the start-up MSAA rebuild resets the frame synchronisation. It reads as the
-cascaded path's doing until the same command is run twice: with every phase-01
-key at its *off* value it gives 3 errors one run and 161 the next. It is
-confined to that one frame, five minutes of rendering afterwards raises nothing,
-and no run lost a device. Recorded in the evidence file with the attempted fix
-that made it worse.
+**And a fifth, which is this phase's.** With more than one cascade the shadow
+pass freed the descriptor sets it had already bound: `M2Renderer::renderShadow`
+and `CharacterRenderer::renderShadow` reset this frame slot's caster-texture
+descriptor pool on entry and are called once per cascade into one command
+buffer, so the second cascade invalidated what the first had recorded and every
+command after it was refused
+(`VUID-vkCmdBindPipeline-commandBuffer-recording`, and the same VUID for fifteen
+other commands). It looked like about a hundred and sixty errors on the one
+start-up frame that resets the frame synchronisation — the cascade count is
+applied at start-up, and the layer stops reporting each VUID after ten — and was
+in fact every frame at more than one cascade. The pools are reset once a frame
+now, from `renderShadowPass` before the loop. The evidence file has the bisect
+and the ten-run proof.
 
 
 ## Cut order if the phase runs long

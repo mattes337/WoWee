@@ -248,12 +248,13 @@ declares `VK_DYNAMIC_STATE_DEPTH_BIAS` and its whole-model fallback path never
 called `vkCmdSetDepthBias`**, which is the error the third pass recorded as
 pre-existing and left alone. It is one line, and it is set now.
 
-**And one thing that looked like a fifth and is not this phase's**: start-up
-raises about a hundred and sixty validation errors on the frame the MSAA rebuild
-resets the frame synchronisation. It reads as the cascaded shadow path's doing
-until the same command is run twice - with every phase-01 key at its off value
-it gives 3 one run and 161 the next. See "Five minutes in it" below, which has
-the numbers and the attempted fix that made it worse.
+**And a fifth, which the fourth pass found and which is this phase's after
+all**: with more than one cascade, **the shadow pass freed the descriptor sets
+it had already bound**, once per cascade, so every command recorded after the
+second cascade went into a command buffer the layer had marked invalid. It
+presented as about a hundred and sixty errors on one start-up frame and was
+neither confined to start-up nor to one frame. See "Five minutes in it" below,
+which has the bisect, the VUID and the ten-run proof.
 
 ---
 
@@ -561,44 +562,139 @@ recorded, and they are the whole of what the shadows-off run produces:
   readback, which changes the client's screenshot path and belongs with whoever
   owns it.
 
-**The Ultra run produces a hundred and fifty-odd more, and every one of them is
-on one frame during start-up.** They begin on the line after
-`Frame synchronisation reset after a rebuild` - the start-up MSAA rebuild, which
-recreates the swapchain, every render pass and every pipeline - and stop three
-seconds later, before the world has finished streaming; nothing is raised for
-the five minutes after. Each is a `VkDescriptorSet ... was destroyed or updated
-without UPDATE_AFTER_BIND` reaching a command buffer that had bound it, reported
-once per command recorded into that buffer.
+**The Ultra run produced a hundred and fifty-odd more, and they were the
+cascaded shadow pass freeing descriptor sets it had already bound.** They begin
+just after `Frame synchronisation reset after a rebuild`, which is why the third
+pass read them as the start-up MSAA rebuild's doing, and they are not that. Each
+one is
 
-**It is not this phase's, and the number is not reproducible.** Chasing it by
-configuration looked conclusive and was not:
+```
+vkCmdBindPipeline(): was called in VkCommandBuffer 0x2215f373ef0 which is now in
+an invalid state (instead of recording state) because the following objects bound
+to the command buffer were invalidated
+ VkDescriptorSet 0x275510000027551 was destroyed or updated without UPDATE_AFTER_BIND
+ ... six more, consecutive handles ...
+The Vulkan spec states: commandBuffer must be in the recording state
+(VUID-vkCmdBindPipeline-commandBuffer-recording)
+```
 
-| Run, validation on, 10 s dwell | `[ERROR]` lines |
-|---|---|
-| every phase-01 key at its off value | **3**, then **161** on the next run of the same command |
-| `shadows=1`, cascade count moved to 1, every other key moved too | **3**, then **157** |
-| `shadows=1`, cascade count left at its default of 3 | **157**, then **161** |
+and the same for `vkCmdBindDescriptorSets`, `vkCmdBindVertexBuffers`,
+`vkCmdBindIndexBuffer`, `vkCmdPushConstants`, `vkCmdDrawIndexed`,
+`vkCmdSetViewport`, `vkCmdSetScissor`, `vkCmdBeginRenderPass`,
+`vkCmdEndRenderPass`, `vkCmdPipelineBarrier`, `vkCmdSetCheckpointNV`,
+`vkCmdWriteTimestamp`, `vkCmdExecuteCommands` and `vkEndCommandBuffer` - one
+VUID each, because the layer reports the invalid command buffer once per command
+recorded into it.
 
-The same command twice gives 3 one time and 161 the next, with every phase-01
-key at its *off* value, so what decides it is where the start-up rebuild falls
-relative to the frames already recorded rather than any setting. The first
-sample of each row is what made it look like the cascaded path's doing; the
-second is what says it is not.
+**Where it came from.** `renderShadowPass` draws one render pass per cascade
+into the frame's one command buffer. `M2Renderer::renderShadow` and
+`CharacterRenderer::renderShadow` are called inside that loop, and each opened
+by handing this frame slot's shadow-texture descriptor pool back whole with
+`vkResetDescriptorPool` - correct while the pass ran once a frame, and wrong the
+moment it ran once a cascade: on the second cascade that freed the sets the
+first cascade had already bound into the command buffer being recorded. The
+handles in the message are consecutive and grow from frame to frame because they
+are exactly that pool's per-caster-texture sets, reallocated after every reset.
 
-**An attempted fix is recorded here so the next reader does not repeat it.**
-Calling `VkContext::resetFrameSyncState()` after `applyShadowCascadeChange`,
-which is what the MSAA rebuild beside it does and which the comment there says
-is exactly for command buffers a rebuild left mid-cycle, took a run that had
-read 3 to **161**. Reverted.
+**The bisect.** Ten-second dwell at `goldshire-lake`, validation on, one thing
+moved per run:
 
-What is known: it is confined to start-up, it is a hundred and sixty lines on
-one frame and none afterwards, five minutes of rendering with validation on
-raises nothing beyond the three ordinary lines, and no run in this session lost
-a device. It belongs to whoever owns the start-up rebuild order, not to this
-phase.
+| Run | cascades | start-up MSAA rebuild | `[ERROR]` | invalid command buffer |
+|---|---|---|---|---|
+| no `--setting` at all - the saved config, which has no cascade key | 1 | yes | **3**, **3**, **3** | **0** |
+| `shadows=1 shadowcascades=2 normalmapscope=1` | 3 | yes | 157, 161, 158 | 146, 148, 146 |
+| `shadows=1 shadowcascades=2` | 3 | yes | 155 | 143 |
+| `shadows=1 normalmapscope=1` - any `--setting` applies the cascade default of 3 | 3 | yes | 154 | 141 |
+| `shadows=1 shadowcascades=2 antialiasing=0` - which did not in fact stop the rebuild; the log still says `MSAA 2x` | 3 | yes | 167 | 146 |
 
+The rebuild happens in every row, including the clean one, so it is not the
+rebuild; the cascade count is the only thing that moves the number. The third
+pass's "3 one run and 161 the next from the same command" was the same mistake
+read from the other end: a run with no `--setting` draws one cascade and a run
+with any `--setting` draws three, and those two commands are not the same
+command.
 
+**It was never confined to one frame either.** The errors span about 2.8
+seconds and then stop, which is not the fault stopping - it is the layer's
+`duplicate_message_limit` of 10 being reached on each of the sixteen VUIDs
+involved. It was every frame, for as long as the client drew more than one
+cascade.
 
+**The fix** is `Renderer::renderShadowPass` resetting both pools once, before
+the cascade loop, through a new `beginShadowFrame()` on each renderer; the
+cascades after the first reuse the sets the first allocated instead of
+reallocating them. Afterwards, the same command that produced 157/161/158
+produces 3 - the two FrameXML Lua lines and the screenshot readback - with the
+cascade change, the shader-variant rebuild and the MSAA rebuild all still
+happening at start-up.
+
+**Ten consecutive runs, validation on, `--dwell 300` each**, at
+`goldshire-lake` with `shadows=1 shadowcascades=2` - three cascades, the
+configuration that read 155 errors and 143 invalid command buffers before the
+fix. Every one of the ten logs `Sun shadows now use 3 cascade(s)` and
+`Frame synchronisation reset after a rebuild`, so the cascade change and the
+MSAA rebuild both still happen:
+
+| Run | `[ERROR]` | invalid command buffer | dwell |
+|---|---|---|---|
+| 1 | 3 | **0** | 1944 frames in 300.06 s, mean 154.4 ms |
+| 2 | 3 | **0** | 1987 frames in 300.11 s, mean 151.0 ms |
+| 3 | 3 | **0** | 2021 frames in 300.06 s, mean 148.5 ms |
+| 4 | 3 | **0** | 1811 frames in 300.02 s, mean 165.7 ms |
+| 5 | 3 | **0** | 2059 frames in 300.03 s, mean 145.7 ms |
+| 6 | 3 | **0** | 2060 frames in 300.02 s, mean 145.6 ms |
+| 7 | 3 | **0** | 2089 frames in 300.10 s, mean 143.7 ms |
+| 8 | 3 | **0** | 2091 frames in 300.10 s, mean 143.5 ms |
+| 9 | 3 | **0** | 2088 frames in 300.14 s, mean 143.7 ms |
+| 10 | 3 | **0** | 2074 frames in 300.08 s, mean 144.7 ms |
+
+The three are the two FrameXML Lua lines and the one screenshot readback
+described above; there is no Vulkan error during any of the ten. That is about
+twenty thousand in-world frames at three cascades with the layer checking every
+draw.
+
+A first attempt at these ten ran the full Ultra configuration - three cascades
+*and* normal maps everywhere - and two of its runs were closed by Windows'
+`AppHangB1` handler partway through, with the log cut off mid-line and no error
+of any kind in it. That is this machine refusing to let an unattended window go
+five minutes without pumping messages at 170 ms a frame, not the client; the
+one run of that pair that did finish was also clean (3 errors, 0 invalid). The
+ten above use the lighter of the two reproducing configurations for that reason.
+
+**Pixels.** The change moves a `vkResetDescriptorPool` and lets the later
+cascades reuse the sets the first allocated, so it should not be visible, and it
+is not - but "bit-identical" cannot be measured at this camera any more, and
+that is worth stating plainly rather than asserting the stronger claim:
+
+| Comparison, `goldshire-lake`, frame 900, no dwell | mean abs | pixels changed |
+|---|---|---|
+| the fixed build against itself, twice | 0.0050 / 255 | 0.077 % |
+| `e8d4af002` rebuilt today against itself, twice, 1 cascade | 0.0090 / 255 | 0.448 % |
+| `e8d4af002` rebuilt today against itself, twice, 3 cascades | 0.0076 / 255 | 0.435 % |
+| **the fix against `e8d4af002`, 1 cascade** - where the change cannot act at all | 0.0111 / 255 | 0.508 % |
+| **the fix against `e8d4af002`, 3 cascades** | 0.0102 / 255 | 0.499 % |
+
+The last two are the same size as the third, and the one at a single cascade -
+where the reset has moved by a few instructions and nothing else - is the same
+size as the one at three. The difference is the binary's own run-to-run spread,
+not the change.
+
+**And one thing this turned up: the committed goldens no longer reproduce on
+this machine.** `e8d4af002`, rebuilt from its own tree today and run with the
+command that made them, differs from
+`img/goldshire-lake-cascades.after.png` by **8.41 / 255 over 93.5 % of pixels**,
+and from `.before.png` by 8.38 over 93.4 %. It is a flat colour shift - red
++8.8, green +5.6, blue −5.8 on the signed mean - across the whole frame rather
+than anything local. Whatever moved is outside this repository (the graphics
+driver on this machine is 32.0.15.9186 and the images do not say which one made
+them). The numbers in the tables above are therefore quoted against renders made
+today rather than against the PNGs, and the PNGs should be re-rendered by
+whoever next needs them to be authoritative.
+
+**Also seen, and not chased:** the `antialiasing=0` row above ends in an access
+violation at shutdown and carries five `vkCreateGraphicsPipelines():
+pCreateInfos[0].renderPass is NULL` lines of its own. That is the
+anti-aliasing-off path, not this, and it is not what this branch changed.
 
 ---
 

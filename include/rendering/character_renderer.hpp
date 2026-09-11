@@ -96,6 +96,11 @@ public:
                                 wowee::rendering::VkShaderModule& charVert,
                                 wowee::rendering::VkShaderModule& charFrag);
     [[nodiscard]] bool initializeShadow(VkRenderPass shadowRenderPass);
+    /// Hand this frame slot's shadow-texture descriptor pool back whole.
+    /// Called once per frame by the shadow pass, before the first cascade -
+    /// renderShadow runs once per cascade and must not free sets the earlier
+    /// cascades have already bound into the same command buffer.
+    void beginShadowFrame();
     void renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMatrix,
                       const glm::vec3& shadowCenter = glm::vec3(0), float shadowRadius = 1e9f);
 

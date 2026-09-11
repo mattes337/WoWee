@@ -4435,6 +4435,18 @@ void Renderer::renderShadowPass() {
     b1Dep.pImageMemoryBarriers = &b1;
     cmdPipelineBarrier2(currentCmd, b1Dep);
 
+    // The two caster renderers that allocate a descriptor set per caster
+    // texture hand this frame slot's pool back here, once, before any cascade
+    // has bound anything out of it. They used to do it at the top of their own
+    // renderShadow, which is called once per cascade: from the second cascade
+    // on, that freed the sets the first had already bound into this very
+    // command buffer, and a command buffer whose bound descriptor sets have
+    // been freed is invalid for every command recorded into it afterwards.
+    if (drawCasters) {
+        if (m2Renderer) m2Renderer->beginShadowFrame();
+        if (characterRenderer) characterRenderer->beginShadowFrame();
+    }
+
     // One render pass per cascade. They are separate framebuffers over separate
     // layers of the same image, so this is a begin/end per cascade rather than
     // a layered draw: the caster renderers push one light-space matrix and cull

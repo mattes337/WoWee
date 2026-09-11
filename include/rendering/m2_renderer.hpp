@@ -485,6 +485,15 @@ public:
     [[nodiscard]] bool hasShadowPipeline() const { return shadowPipeline_ != VK_NULL_HANDLE; }
 
     /**
+     * Hand this frame slot's shadow-texture descriptor pool back whole.
+     *
+     * Called once per frame by the shadow pass, before the first cascade -
+     * renderShadow runs once per cascade and must not free sets the earlier
+     * cascades have already bound into the same command buffer.
+     */
+    void beginShadowFrame();
+
+    /**
      * Render depth-only pass for shadow casting
      */
     void renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMatrix, float globalTime = 0.0f,

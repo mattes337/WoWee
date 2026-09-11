@@ -2105,20 +2105,36 @@ bool M2Renderer::initializeShadow(VkRenderPass shadowRenderPass) {
     return true;
 }
 
+void M2Renderer::beginShadowFrame() {
+    if (!vkCtx_) return;
+    // Reset this frame slot's texture descriptor pool (safe: fence was waited
+    // on in beginFrame).
+    //
+    // Once per frame, from the shadow pass, rather than at the top of
+    // renderShadow: the cascades are separate render passes recorded into one
+    // command buffer, and renderShadow is called once per cascade. Resetting
+    // there frees, on the second cascade, the sets the first cascade has
+    // already bound into that command buffer - which invalidates it, so every
+    // command recorded after it is recorded into a command buffer validation
+    // has marked invalid.
+    const uint32_t frameIdx = vkCtx_->getCurrentFrame();
+    if (frameIdx >= kShadowTexPoolFrames) return;
+    if (VkDescriptorPool pool = shadowTexPool_[frameIdx]) {
+        vkResetDescriptorPool(vkCtx_->getDevice(), pool, 0);
+    }
+    // Cache: texture imageView -> allocated descriptor set (avoids duplicates within frame)
+    // Reuse persistent map - pool reset already invalidated the sets.
+    shadowTexSetCache_.clear();
+}
+
 void M2Renderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMatrix, float globalTime,
                               const glm::vec3& /*shadowCenter*/, float shadowRadius) {
     if (!shadowPipeline_ || !shadowParams_.set) return;
     if (instances.empty() || models.empty()) return;
 
-    // Reset this frame slot's texture descriptor pool (safe: fence was waited on in beginFrame)
     const uint32_t frameIdx = vkCtx_->getCurrentFrame();
-    VkDescriptorPool curShadowTexPool = shadowTexPool_[frameIdx];
-    if (curShadowTexPool) {
-        vkResetDescriptorPool(vkCtx_->getDevice(), curShadowTexPool, 0);
-    }
-    // Cache: texture imageView -> allocated descriptor set (avoids duplicates within frame)
-    // Reuse persistent map - pool reset already invalidated the sets.
-    shadowTexSetCache_.clear();
+    VkDescriptorPool curShadowTexPool = frameIdx < kShadowTexPoolFrames
+        ? shadowTexPool_[frameIdx] : VK_NULL_HANDLE;
     auto& texSetCache = shadowTexSetCache_;
 
     auto getTexDescSet = [&](VkTexture* tex) -> VkDescriptorSet {
@@ -2126,6 +2142,7 @@ void M2Renderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMa
         auto cacheIt = texSetCache.find(iv);
         if (cacheIt != texSetCache.end()) return cacheIt->second;
 
+        if (curShadowTexPool == VK_NULL_HANDLE) return shadowParams_.set;
         VkDescriptorSet set = VK_NULL_HANDLE;
         VkDescriptorSetAllocateInfo ai{};
         ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
