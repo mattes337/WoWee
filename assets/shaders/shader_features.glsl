@@ -41,17 +41,14 @@ layout(constant_id = 2) const bool SPEC_SHADOWS = true;
 // ---- small integers: not bits ----
 
 /// How many cascades the shadow map holds. 1 is the single orthographic map
-/// the client has always drawn.
-///
-/// RESERVED(phase-01b, L1-csm): declared with the rest of the feature set so
-/// the ids are settled and the C++ half is written once. No shader reads it
-/// yet; shadow_common.glsl gains the cascade select when 01b lands.
+/// the client has always drawn, and it is the default: at 1 the cascade select
+/// in shadow_common.glsl folds away entirely and the module is the one that
+/// shipped.
 layout(constant_id = 16) const int SPEC_SHADOW_CASCADES = 1;
 
-/// 0 = 3x3 PCF (what shipped), 1 = 16-tap Poisson, 2 = PCSS.
-///
-/// RESERVED(phase-01b, L2-soft-shadows): as above - the id is settled and the
-/// filter it selects is written in 01b.
+/// 0 = 3x3 PCF (what shipped), 1 = 16-tap rotated Poisson, 2 = PCSS on the two
+/// near cascades and Poisson beyond. Only read on the cascaded path: the single
+/// map keeps its 3x3, which is what makes one cascade byte-identical.
 layout(constant_id = 17) const int SPEC_SHADOW_FILTER = 0;
 
 /// 0 = the linear start/end ramp (what shipped), 1 = exponential height fog

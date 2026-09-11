@@ -2131,15 +2131,22 @@ void Application::run() {
                         LOG_INFO("Performance HUD: ", enabled ? "ON" : "OFF");
                     }
                 }
-                // No F4 shadow toggle.
+                // F4: Toggle sun shadows.
                 //
-                // setShadowsEnabled ignores what it is passed and holds
-                // shadows on, because turning them off loses the device -
-                // which is why the settings panel has no control for it
-                // either. So the key did nothing, and said the opposite in
-                // the log every time: it read the flag back to decide what
-                // to print, the flag never moved, and every press logged
-                // "Shadows: OFF" while they stayed on.
+                // The key was taken out when setShadowsEnabled held shadows on
+                // regardless of what it was passed, because turning them off
+                // was believed to lose the device. It does not - see
+                // docs/evidence/phase-01/README.md - and the setter stores the
+                // value again, so the key works again. It reads the flag back
+                // rather than the argument, which is what caught the old one
+                // lying.
+                if (event.key.keysym.scancode == SDL_SCANCODE_F4 && event.key.repeat == 0) {
+                    if (renderer) {
+                        renderer->setShadowsEnabled(!renderer->areShadowsEnabled());
+                        LOG_INFO("Shadows: ",
+                                 renderer->areShadowsEnabled() ? "ON" : "OFF");
+                    }
+                }
 #endif
                 // F8: Debug WMO floor at current position
                 if (event.key.keysym.scancode == SDL_SCANCODE_F8 && event.key.repeat == 0) {

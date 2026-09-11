@@ -7,6 +7,7 @@
 #include "ui/graphics_choices.hpp"
 #include "ui/graphics_presets.hpp"
 #include "ui/settings_panel.hpp"
+#include "rendering/terrain_renderer.hpp"
 #include "addons/addon_manager.hpp"
 #include "ui/settings_schema.hpp"
 #include "addons/lua_api_registrations.hpp"
@@ -527,6 +528,13 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
                 // panels the FrameXML interface builds are generated from the
                 // schema and nothing else, and that is the screen it was
                 // missing from. Ground clutter followed it there.
+                // Its own heading because it is its own page in the
+                // interface's options: five shadow rows outgrew the Graphics
+                // panel's two columns.
+                ImGui::Spacing();
+                ImGui::SeparatorText("Shadows");
+                drawSchemaCategory("Shadows", saveCallback);
+
                 ImGui::Spacing();
                 ImGui::SeparatorText("Detail");
                 drawSchemaCategory("Detail", saveCallback);
@@ -813,7 +821,7 @@ constexpr const char* kGraphicsPresetKeys[] = {
     "normalmapping", "normalmapstrength", "parallax", "parallaxquality",
     "groundclutter",
     "grassenabled", "grassdensity", "grassheight", "grassdistance",
-    "fogmodel",
+    "fogmodel", "shadowcascades", "shadowfilter", "terrainlod",
 };
 
 /// Every graphics setting that has to reach something when it is loaded.
@@ -836,6 +844,7 @@ constexpr const char* kGraphicsApplyKeys[] = {
     "fsrsharpness", "framegen", "brightness", "uiopacity", "minimapsquare",
     "minimapnpcdots", "minimapclock", "minimapcoords", "minimaprotate", "latencymeter",
     "fogskyblend", "fogstrength", "fogmodel", "fogaerial", "sharpstars",
+    "shadowcascades", "shadowfilter", "shadowlightsize", "terrainlod",
     // Moved off the game's own Effects panel, so this list is now what
     // applies them at startup; the cvar store used to do it.
     "groundclutterdistance", "particledensity", "weatherdetail",
@@ -890,6 +899,9 @@ void SettingsPanel::applyGraphicsPreset(GraphicsPreset preset) {
         pendingGrassHeight       = p.grassHeight;
         pendingGrassDistance     = p.grassDistance;
         pendingFogModel          = p.fogModel;
+        pendingShadowCascades    = p.shadowCascades;
+        pendingShadowFilter      = p.shadowFilter;
+        pendingTerrainLod        = p.terrainLod;
         // Each one goes to the thing it affects through the one function that
         // knows where that is, rather than through a second copy of the same
         // renderer calls written out here.
@@ -922,6 +934,11 @@ void SettingsPanel::updateGraphicsPresetFromCurrentSettings() {
             std::abs(pendingGroundClutterDensity - p.groundClutter) <= 10 &&
             pendingGrassEnabled == p.grass &&
             pendingFogModel == p.fogModel &&
+            // As with the shadow distance: a preset that casts no shadows says
+            // nothing about how many cascades it would have used.
+            (!p.shadows || (pendingShadowCascades == p.shadowCascades &&
+                            pendingShadowFilter == p.shadowFilter)) &&
+            pendingTerrainLod == p.terrainLod &&
             // As with shadows: a preset that grows no grass says nothing about
             // how dense, how tall or how far it would have been.
             (!p.grass || (std::abs(pendingGrassDensity - p.grassDensity) <= 5 &&
@@ -1008,6 +1025,10 @@ constexpr FieldBinding kFieldBindings[] = {
     // --- Graphics ---
     {.key = "shadows",           .asBool  = &SettingsPanel::pendingShadows},
     {.key = "shadowdistance",    .asFloat = &SettingsPanel::pendingShadowDistance},
+    {.key = "shadowcascades",    .asInt   = &SettingsPanel::pendingShadowCascades},
+    {.key = "shadowfilter",      .asInt   = &SettingsPanel::pendingShadowFilter},
+    {.key = "shadowlightsize",   .asFloat = &SettingsPanel::pendingShadowLightSize},
+    {.key = "terrainlod",        .asInt   = &SettingsPanel::pendingTerrainLod},
     {.key = "waterrefraction",   .asBool  = &SettingsPanel::pendingWaterRefraction},
     {.key = "antialiasing",      .asInt   = &SettingsPanel::pendingAntiAliasing},
     {.key = "fxaa",              .asBool  = &SettingsPanel::pendingFXAA},
@@ -1191,6 +1212,18 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
         if (renderer) renderer->setShadowsEnabled(pendingShadows);
     } else if (key == "shadowdistance") {
         if (renderer) renderer->setShadowDistance(pendingShadowDistance);
+    } else if (key == "shadowcascades") {
+        // The index is one less than the count: the row reads 1|2|3|4 and the
+        // value written to the file is 0..3.
+        if (renderer) renderer->setShadowCascades(pendingShadowCascades + 1);
+    } else if (key == "shadowfilter") {
+        if (renderer) renderer->setShadowFilter(pendingShadowFilter);
+    } else if (key == "shadowlightsize") {
+        if (renderer) renderer->setShadowLightSize(pendingShadowLightSize);
+    } else if (key == "terrainlod") {
+        // Nothing is re-uploaded: the reduced index sets are shared and the
+        // level a chunk draws at is decided per frame from its distance.
+        if (renderer) renderer->setTerrainLodLevel(pendingTerrainLod);
     } else if (key == "waterrefraction") {
         if (renderer) renderer->setWaterRefractionEnabled(pendingWaterRefraction);
     } else if (key == "groundclutter") {

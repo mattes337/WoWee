@@ -296,6 +296,9 @@ struct GlueBackdrop::View {
     // in the way" - the same stand-in CharacterPreview uses.
     VkImage shadowImage = VK_NULL_HANDLE;
     VkImageView shadowView = VK_NULL_HANDLE;
+    /// The same 1x1 image as a one-layer array, because the renderer's layout
+    /// declares the cascade bindings whether or not this pass reads them.
+    VkImageView shadowArrayView = VK_NULL_HANDLE;
     VmaAllocation shadowAlloc = VK_NULL_HANDLE;
 
     VkDescriptorSet imguiTexture = VK_NULL_HANDLE;
@@ -410,6 +413,11 @@ bool GlueBackdrop::View::build(int w, int h, rendering::Renderer* renderer) {
             LOG_WARNING("GlueBackdrop: could not create the shadow stand-in view");
             return false;
         }
+        viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        if (vkCreateImageView(device, &viewCI, nullptr, &shadowArrayView) != VK_SUCCESS) {
+            LOG_WARNING("GlueBackdrop: could not create the shadow stand-in array view");
+            return false;
+        }
         ctx->immediateSubmit([&](VkCommandBuffer cmd) {
             const VkImageSubresourceRange range{.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
                                                 .baseMipLevel = 0, .levelCount = 1,
@@ -457,7 +465,10 @@ bool GlueBackdrop::View::build(int w, int h, rendering::Renderer* renderer) {
         sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         sizes[0].descriptorCount = 1;
         sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        sizes[1].descriptorCount = 1;
+        // Three image bindings in the renderer's per-frame layout now: the
+        // single shadow map, the cascade array, and the array again without the
+        // comparison sampler.
+        sizes[1].descriptorCount = 3;
         VkDescriptorPoolCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
         ci.maxSets = 1;
         ci.poolSizeCount = 2;
@@ -500,7 +511,19 @@ bool GlueBackdrop::View::build(int w, int h, rendering::Renderer* renderer) {
         shadowImg.imageView = shadowView;
         shadowImg.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        VkWriteDescriptorSet writes[2]{};
+        VkDescriptorImageInfo shadowArrayImg{};
+        shadowArrayImg.imageView = shadowArrayView;
+        shadowArrayImg.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        VkWriteDescriptorSet writes[4]{};
+        for (uint32_t b = 2; b < 4; ++b) {
+            writes[b].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writes[b].dstSet = perFrameSet;
+            writes[b].dstBinding = b;
+            writes[b].descriptorCount = 1;
+            writes[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            writes[b].pImageInfo = &shadowArrayImg;
+        }
         writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writes[0].dstSet = perFrameSet;
         writes[0].dstBinding = 0;
@@ -513,7 +536,7 @@ bool GlueBackdrop::View::build(int w, int h, rendering::Renderer* renderer) {
         writes[1].descriptorCount = 1;
         writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         writes[1].pImageInfo = &shadowImg;
-        vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
+        vkUpdateDescriptorSets(device, 4, writes, 0, nullptr);
     }
 
     camera = std::make_unique<rendering::Camera>();
@@ -542,6 +565,10 @@ void GlueBackdrop::View::destroy() {
     uboMapped = nullptr;
     perFrameSet = VK_NULL_HANDLE;
     if (descPool != VK_NULL_HANDLE) rendering::destroy(device, descPool);
+    if (shadowArrayView != VK_NULL_HANDLE) {
+        vkDestroyImageView(device, shadowArrayView, nullptr);
+        shadowArrayView = VK_NULL_HANDLE;
+    }
     if (shadowView != VK_NULL_HANDLE) {
         vkDestroyImageView(device, shadowView, nullptr);
         shadowView = VK_NULL_HANDLE;

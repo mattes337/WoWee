@@ -116,8 +116,20 @@ namespace rendering {
 Renderer::Renderer() = default;
 Renderer::~Renderer() = default;
 
-bool Renderer::createPerFrameResources() {
+// The sun shadow's depth images, views, samplers, render pass and
+// framebuffers - everything that has to be remade when the cascade count
+// changes, and nothing that does not.
+//
+// The image is a depth array of `shadowCascadeLayers_` layers. At one cascade
+// that is a one-layer array, which is the same image the renderer has always
+// allocated: a VkImage with arrayLayers = 1 and a VK_IMAGE_VIEW_TYPE_2D view
+// over it is bit for bit what was there before, so the single-map path did not
+// move to make room for the other three.
+bool Renderer::createShadowResources() {
     VkDevice device = vkCtx->getDevice();
+
+    shadowCascadeLayers_ = static_cast<uint32_t>(std::clamp(shadowCascades_, 1, 4));
+    shadowCascadeSide_ = shadowCascadeSide();
 
     // --- Create per-frame shadow depth images (one per in-flight frame) ---
     // Each frame slot has its own depth image so that frame N's shadow read and
@@ -126,9 +138,9 @@ bool Renderer::createPerFrameResources() {
     imgCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imgCI.imageType = VK_IMAGE_TYPE_2D;
     imgCI.format = VK_FORMAT_D32_SFLOAT;
-    imgCI.extent = {.width = SHADOW_MAP_SIZE, .height = SHADOW_MAP_SIZE, .depth = 1};
+    imgCI.extent = {.width = shadowCascadeSide_, .height = shadowCascadeSide_, .depth = 1};
     imgCI.mipLevels = 1;
-    imgCI.arrayLayers = 1;
+    imgCI.arrayLayers = shadowCascadeLayers_;
     imgCI.samples = VK_SAMPLE_COUNT_1_BIT;
     imgCI.tiling = VK_IMAGE_TILING_OPTIMAL;
     imgCI.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -144,6 +156,10 @@ bool Renderer::createPerFrameResources() {
     }
 
     // --- Create per-frame shadow depth image views ---
+    //
+    // Three shapes over the same image: a 2D view of layer 0 for the single
+    // map every lit shader has always sampled, one 2D view per layer for the
+    // framebuffers to render into, and one array view for the cascaded read.
     VkImageViewCreateInfo viewCI{};
     viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -151,8 +167,25 @@ bool Renderer::createPerFrameResources() {
     viewCI.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
     for (uint32_t i = 0; i < MAX_FRAMES; i++) {
         viewCI.image = shadowDepthImage[i];
+        viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewCI.subresourceRange.baseArrayLayer = 0;
+        viewCI.subresourceRange.layerCount = 1;
         if (vkCreateImageView(device, &viewCI, nullptr, &shadowDepthView[i]) != VK_SUCCESS) {
             LOG_ERROR("Failed to create shadow depth image view [", i, "]");
+            return false;
+        }
+        for (uint32_t c = 0; c < shadowCascadeLayers_; ++c) {
+            viewCI.subresourceRange.baseArrayLayer = c;
+            if (vkCreateImageView(device, &viewCI, nullptr, &shadowLayerView[i][c]) != VK_SUCCESS) {
+                LOG_ERROR("Failed to create shadow cascade view [", i, "][", c, "]");
+                return false;
+            }
+        }
+        viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        viewCI.subresourceRange.baseArrayLayer = 0;
+        viewCI.subresourceRange.layerCount = shadowCascadeLayers_;
+        if (vkCreateImageView(device, &viewCI, nullptr, &shadowArrayView[i]) != VK_SUCCESS) {
+            LOG_ERROR("Failed to create shadow array view [", i, "]");
             return false;
         }
     }
@@ -174,83 +207,246 @@ bool Renderer::createPerFrameResources() {
         LOG_ERROR("Failed to create shadow sampler");
         return false;
     }
-
-    // --- Create shadow render pass (depth-only) ---
-    VkAttachmentDescription depthAtt{};
-    depthAtt.format = VK_FORMAT_D32_SFLOAT;
-    depthAtt.samples = VK_SAMPLE_COUNT_1_BIT;
-    depthAtt.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAtt.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAtt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    depthAtt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAtt.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    depthAtt.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference depthRef{};
-    depthRef.attachment = 0;
-    depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    VkSubpassDescription subpass{};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.pDepthStencilAttachment = &depthRef;
-
-    VkSubpassDependency dep{};
-    dep.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dep.dstSubpass = 0;
-    dep.srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    dep.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dep.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    dep.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-    VkRenderPassCreateInfo rpCI{};
-    rpCI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    rpCI.attachmentCount = 1;
-    rpCI.pAttachments = &depthAtt;
-    rpCI.subpassCount = 1;
-    rpCI.pSubpasses = &subpass;
-    rpCI.dependencyCount = 1;
-    rpCI.pDependencies = &dep;
-    if (vkCreateRenderPass(device, &rpCI, nullptr, &shadowRenderPass) != VK_SUCCESS) {
-        LOG_ERROR("Failed to create shadow render pass");
+    // And the same thing without the comparison. PCSS has to know how far in
+    // front of a fragment its blockers are, which is the depth itself; a
+    // comparison sampler can only answer whether something is in front.
+    // Nearest, because a filtered average of two depths is a depth nothing is
+    // at. The border is 1.0 - the far plane - so a tap off the edge of a
+    // cascade finds no blocker rather than a very near one.
+    sampCI.compareEnable = VK_FALSE;
+    sampCI.magFilter = VK_FILTER_NEAREST;
+    sampCI.minFilter = VK_FILTER_NEAREST;
+    shadowDepthSampler = vkCtx->getOrCreateSampler(sampCI);
+    if (shadowDepthSampler == VK_NULL_HANDLE) {
+        LOG_ERROR("Failed to create shadow depth sampler");
         return false;
     }
 
-    // --- Create per-frame shadow framebuffers ---
-    VkFramebufferCreateInfo fbCI{};
-    fbCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    fbCI.renderPass = shadowRenderPass;
-    fbCI.attachmentCount = 1;
-    fbCI.width = SHADOW_MAP_SIZE;
-    fbCI.height = SHADOW_MAP_SIZE;
-    fbCI.layers = 1;
-    for (uint32_t i = 0; i < MAX_FRAMES; i++) {
-        fbCI.pAttachments = &shadowDepthView[i];
-        if (vkCreateFramebuffer(device, &fbCI, nullptr, &shadowFramebuffer[i]) != VK_SUCCESS) {
-            LOG_ERROR("Failed to create shadow framebuffer [", i, "]");
+    // --- Create shadow render pass (depth-only) ---
+    if (shadowRenderPass == VK_NULL_HANDLE) {
+        VkAttachmentDescription depthAtt{};
+        depthAtt.format = VK_FORMAT_D32_SFLOAT;
+        depthAtt.samples = VK_SAMPLE_COUNT_1_BIT;
+        depthAtt.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthAtt.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        depthAtt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        depthAtt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAtt.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthAtt.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        VkAttachmentReference depthRef{};
+        depthRef.attachment = 0;
+        depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        VkSubpassDescription subpass{};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.pDepthStencilAttachment = &depthRef;
+
+        VkSubpassDependency dep{};
+        dep.srcSubpass = VK_SUBPASS_EXTERNAL;
+        dep.dstSubpass = 0;
+        dep.srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dep.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        dep.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        dep.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        VkRenderPassCreateInfo rpCI{};
+        rpCI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        rpCI.attachmentCount = 1;
+        rpCI.pAttachments = &depthAtt;
+        rpCI.subpassCount = 1;
+        rpCI.pSubpasses = &subpass;
+        rpCI.dependencyCount = 1;
+        rpCI.pDependencies = &dep;
+        if (vkCreateRenderPass(device, &rpCI, nullptr, &shadowRenderPass) != VK_SUCCESS) {
+            LOG_ERROR("Failed to create shadow render pass");
             return false;
         }
     }
 
-    // --- Create descriptor set layout for set 0 (per-frame UBO + shadow sampler) ---
-    VkDescriptorSetLayoutBinding bindings[2]{};
+    // --- Create per-frame, per-cascade shadow framebuffers ---
+    VkFramebufferCreateInfo fbCI{};
+    fbCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    fbCI.renderPass = shadowRenderPass;
+    fbCI.attachmentCount = 1;
+    fbCI.width = shadowCascadeSide_;
+    fbCI.height = shadowCascadeSide_;
+    fbCI.layers = 1;
+    for (uint32_t i = 0; i < MAX_FRAMES; i++) {
+        for (uint32_t c = 0; c < shadowCascadeLayers_; ++c) {
+            fbCI.pAttachments = &shadowLayerView[i][c];
+            if (vkCreateFramebuffer(device, &fbCI, nullptr, &shadowFramebuffer[i][c]) != VK_SUCCESS) {
+                LOG_ERROR("Failed to create shadow framebuffer [", i, "][", c, "]");
+                return false;
+            }
+        }
+    }
+    LOG_INFO("Shadow map: ", shadowCascadeLayers_, " cascade(s) at ", shadowCascadeSide_,
+             "x", shadowCascadeSide_);
+    return true;
+}
+
+void Renderer::destroyShadowResources() {
+    if (!vkCtx) return;
+    VkDevice device = vkCtx->getDevice();
+    for (uint32_t i = 0; i < MAX_FRAMES; i++) {
+        for (uint32_t c = 0; c < kMaxShadowCascades; ++c) {
+            if (shadowFramebuffer[i][c]) {
+                vkDestroyFramebuffer(device, shadowFramebuffer[i][c], nullptr);
+                shadowFramebuffer[i][c] = VK_NULL_HANDLE;
+            }
+            if (shadowLayerView[i][c]) {
+                vkDestroyImageView(device, shadowLayerView[i][c], nullptr);
+                shadowLayerView[i][c] = VK_NULL_HANDLE;
+            }
+        }
+        if (shadowArrayView[i]) { vkDestroyImageView(device, shadowArrayView[i], nullptr); shadowArrayView[i] = VK_NULL_HANDLE; }
+        if (shadowDepthView[i]) { vkDestroyImageView(device, shadowDepthView[i], nullptr); shadowDepthView[i] = VK_NULL_HANDLE; }
+        if (shadowDepthImage[i]) { vmaDestroyImage(vkCtx->getAllocator(), shadowDepthImage[i], shadowDepthAlloc[i]); shadowDepthImage[i] = VK_NULL_HANDLE; shadowDepthAlloc[i] = VK_NULL_HANDLE; }
+        shadowDepthLayout_[i] = VK_IMAGE_LAYOUT_UNDEFINED;
+    }
+    // The samplers are owned by VkContext's cache, and the render pass outlives
+    // a cascade-count change - it describes a format and a load op, neither of
+    // which the count touches.
+    shadowSampler = VK_NULL_HANDLE;
+    shadowDepthSampler = VK_NULL_HANDLE;
+}
+
+/// Bindings 1, 2 and 3 of every per-frame set: the single map, the cascade
+/// array, and the cascade array again through a plain sampler.
+///
+/// Written here rather than inline where the sets are allocated because the
+/// depth array is reallocated whenever the cascade count changes, and the sets
+/// that name it have to be told. The UBO at binding 0 does not move, so it is
+/// not rewritten.
+void Renderer::writeShadowDescriptors() {
+    if (!vkCtx) return;
+    VkDevice device = vkCtx->getDevice();
+
+    auto writeSet = [&](VkDescriptorSet set, uint32_t frame) {
+        if (set == VK_NULL_HANDLE) return;
+        VkDescriptorImageInfo single{};
+        // sampler is ignored: binding 1 declares it immutable in the layout.
+        single.imageView = shadowDepthView[frame];
+        single.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkDescriptorImageInfo array{};
+        array.imageView = shadowArrayView[frame];
+        array.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkDescriptorImageInfo arrayDepth{};
+        arrayDepth.imageView = shadowArrayView[frame];
+        arrayDepth.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        VkWriteDescriptorSet writes[3]{};
+        const VkDescriptorImageInfo* infos[3] = {&single, &array, &arrayDepth};
+        for (uint32_t b = 0; b < 3; ++b) {
+            writes[b].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writes[b].dstSet = set;
+            writes[b].dstBinding = b + 1;
+            writes[b].descriptorCount = 1;
+            writes[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            writes[b].pImageInfo = infos[b];
+        }
+        vkUpdateDescriptorSets(device, 3, writes, 0, nullptr);
+    };
+
+    for (uint32_t i = 0; i < MAX_FRAMES; i++) {
+        writeSet(perFrameDescSets[i], i);
+        writeSet(reflPerFrameDescSet[i], i);
+    }
+}
+
+void Renderer::setShadowsEnabled(bool enabled) {
+    if (enabled == shadowsEnabled) return;
+    shadowsEnabled = enabled;
+    // Going off, the map is cleared and transitioned one last time so that
+    // every descriptor naming it is naming an image in the layout it says.
+    if (!enabled) shadowOffFlushPending_ = true;
+    LOG_INFO("Sun shadows ", enabled ? "on" : "off");
+}
+
+void Renderer::setShadowCascades(int count) {
+    const int wanted = std::clamp(count, 1, 4);
+    if (wanted == shadowCascades_) return;
+
+    // Two deferred pieces of work, both for the reason the MSAA change is
+    // deferred: a pipeline or an image a recorded command buffer still names
+    // must not be destroyed under it.
+    pendingShadowCascades_ = wanted;
+    shadowCascadeChangePending_ = true;
+
+    ShaderFeatures features = activeShaderFeatures();
+    features.shadowCascades = wanted;
+    if (setActiveShaderFeatures(features)) shaderFeatureChangePending_ = true;
+}
+
+void Renderer::setShadowFilter(int filter) {
+    const int wanted = std::clamp(filter, 0, 2);
+    if (wanted == shadowFilter_) return;
+    shadowFilter_ = wanted;
+
+    ShaderFeatures features = activeShaderFeatures();
+    features.shadowFilter = wanted;
+    if (setActiveShaderFeatures(features)) shaderFeatureChangePending_ = true;
+}
+
+void Renderer::applyShadowCascadeChange() {
+    shadowCascadeChangePending_ = false;
+    if (!vkCtx) return;
+    if (pendingShadowCascades_ == shadowCascades_) return;
+
+    vkDeviceWaitIdle(vkCtx->getDevice());
+    destroyShadowResources();
+    shadowCascades_ = pendingShadowCascades_;
+    if (!createShadowResources()) {
+        LOG_ERROR("Shadow cascade change failed - falling back to a single map");
+        shadowCascades_ = 1;
+        destroyShadowResources();
+        if (!createShadowResources()) return;
+    }
+    writeShadowDescriptors();
+    // The four caster renderers each hold a framebuffer-independent pipeline
+    // against shadowRenderPass, which did not change; nothing of theirs needs
+    // rebuilding here. The lit pipelines do, and setShadowCascades has already
+    // queued that.
+    LOG_INFO("Sun shadows now use ", shadowCascades_, " cascade(s)");
+}
+
+bool Renderer::createPerFrameResources() {
+    VkDevice device = vkCtx->getDevice();
+
+    if (!createShadowResources()) return false;
+
+    // --- Create descriptor set layout for set 0 (per-frame UBO + shadow samplers) ---
+    VkDescriptorSetLayoutBinding bindings[4]{};
     bindings[0].binding = 0;
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     bindings[0].descriptorCount = 1;
     bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    bindings[1].binding = 1;
-    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    bindings[1].descriptorCount = 1;
-    bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    // Immutable, because this one compares. Portability implementations may
+    for (uint32_t b = 1; b < 4; ++b) {
+        bindings[b].binding = b;
+        bindings[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        bindings[b].descriptorCount = 1;
+        bindings[b].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    }
+    // Immutable, because two of these compare. Portability implementations may
     // report VkPhysicalDevicePortabilitySubsetFeaturesKHR::mutableComparisonSamplers
     // as false -- MoltenVK does -- and then a sampler with compareEnable set is
     // only legal here, baked into the layout, rather than written into the
-    // descriptor per frame. shadowSampler is created above this point.
+    // descriptor per frame. Both samplers are created above this point.
+    //
+    // Binding 1 is the single map every lit shader has always sampled, 2 the
+    // cascade array through the same comparison sampler, and 3 the same array
+    // through a plain one, which is the only way PCSS can read a blocker
+    // depth rather than compare against it. A shader that reads none of the
+    // last two still has them in its layout, which Vulkan allows and which
+    // costs nothing.
     bindings[1].pImmutableSamplers = &shadowSampler;
+    bindings[2].pImmutableSamplers = &shadowSampler;
+    bindings[3].pImmutableSamplers = &shadowDepthSampler;
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 2;
+    layoutInfo.bindingCount = 4;
     layoutInfo.pBindings = bindings;
 
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &perFrameSetLayout) != VK_SUCCESS) {
@@ -263,7 +459,9 @@ bool Renderer::createPerFrameResources() {
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = MAX_FRAMES * 2; // normal frames + reflection frames
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = MAX_FRAMES * 2;
+    // Three image bindings per set now, not one: the single map, the cascade
+    // array, and the cascade array without the comparison.
+    poolSizes[1].descriptorCount = MAX_FRAMES * 2 * 3;
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -308,32 +506,23 @@ bool Renderer::createPerFrameResources() {
             return false;
         }
 
-        // Write binding 0 (UBO) and binding 1 (shadow sampler)
+        // Binding 0, the UBO. The three shadow bindings are written by
+        // writeShadowDescriptors() once every set exists, because they are
+        // written again whenever the depth array is reallocated.
         VkDescriptorBufferInfo descBuf{};
         descBuf.buffer = perFrameUBOs[i];
         descBuf.offset = 0;
         descBuf.range = sizeof(GPUPerFrameData);
 
-        VkDescriptorImageInfo shadowImgInfo{};
-        // sampler is ignored: binding 1 declares it immutable in the layout.
-        shadowImgInfo.imageView = shadowDepthView[i];
-        shadowImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = perFrameDescSets[i];
+        write.dstBinding = 0;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        write.pBufferInfo = &descBuf;
 
-        VkWriteDescriptorSet writes[2]{};
-        writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[0].dstSet = perFrameDescSets[i];
-        writes[0].dstBinding = 0;
-        writes[0].descriptorCount = 1;
-        writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        writes[0].pBufferInfo = &descBuf;
-        writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[1].dstSet = perFrameDescSets[i];
-        writes[1].dstBinding = 1;
-        writes[1].descriptorCount = 1;
-        writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writes[1].pImageInfo = &shadowImgInfo;
-
-        vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
+        vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
     }
 
     // --- Create reflection per-frame UBO and descriptor set ---
@@ -369,35 +558,27 @@ bool Renderer::createPerFrameResources() {
             return false;
         }
 
-        // Bind each reflection descriptor to the same UBO but its own frame's shadow view
+        // Bind each reflection descriptor to the same UBO; its own frame's
+        // shadow views follow from writeShadowDescriptors() below.
         for (uint32_t i = 0; i < MAX_FRAMES; i++) {
             VkDescriptorBufferInfo descBuf{};
             descBuf.buffer = reflPerFrameUBO;
             descBuf.offset = 0;
             descBuf.range = sizeof(GPUPerFrameData);
 
-            VkDescriptorImageInfo shadowImgInfo{};
-            // sampler is ignored: binding 1 declares it immutable in the layout.
-            shadowImgInfo.imageView = shadowDepthView[i];
-            shadowImgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            VkWriteDescriptorSet write{};
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstSet = reflPerFrameDescSet[i];
+            write.dstBinding = 0;
+            write.descriptorCount = 1;
+            write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            write.pBufferInfo = &descBuf;
 
-            VkWriteDescriptorSet writes[2]{};
-            writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            writes[0].dstSet = reflPerFrameDescSet[i];
-            writes[0].dstBinding = 0;
-            writes[0].descriptorCount = 1;
-            writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            writes[0].pBufferInfo = &descBuf;
-            writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            writes[1].dstSet = reflPerFrameDescSet[i];
-            writes[1].dstBinding = 1;
-            writes[1].descriptorCount = 1;
-            writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            writes[1].pImageInfo = &shadowImgInfo;
-
-            vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
+            vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
         }
     }
+
+    writeShadowDescriptors();
 
     LOG_INFO("Per-frame Vulkan resources created (shadow map ", SHADOW_MAP_SIZE, "x", SHADOW_MAP_SIZE, ")");
     return true;
@@ -420,14 +601,8 @@ void Renderer::destroyPerFrameResources() {
     destroy(device, perFrameSetLayout);
 
     // Destroy per-frame shadow resources
-    for (uint32_t i = 0; i < MAX_FRAMES; i++) {
-        if (shadowFramebuffer[i]) { vkDestroyFramebuffer(device, shadowFramebuffer[i], nullptr); shadowFramebuffer[i] = VK_NULL_HANDLE; }
-        if (shadowDepthView[i]) { vkDestroyImageView(device, shadowDepthView[i], nullptr); shadowDepthView[i] = VK_NULL_HANDLE; }
-        if (shadowDepthImage[i]) { vmaDestroyImage(vkCtx->getAllocator(), shadowDepthImage[i], shadowDepthAlloc[i]); shadowDepthImage[i] = VK_NULL_HANDLE; shadowDepthAlloc[i] = VK_NULL_HANDLE; }
-        shadowDepthLayout_[i] = VK_IMAGE_LAYOUT_UNDEFINED;
-    }
+    destroyShadowResources();
     if (shadowRenderPass) { vkDestroyRenderPass(device, shadowRenderPass, nullptr); shadowRenderPass = VK_NULL_HANDLE; }
-    shadowSampler = VK_NULL_HANDLE; // Owned by VkContext sampler cache
 }
 
 void Renderer::updatePerFrameUBO() {
@@ -485,18 +660,31 @@ void Renderer::updatePerFrameUBO() {
     }
 
     currentFrameData.lightSpaceMatrix = lightSpaceMatrix;
-    // RESERVED(phase-01b, L1-csm): one cascade, and it is the map that already
-    // exists. Filled rather than left zero so the slot is never a stale matrix
-    // from a previous frame if a shader starts reading it before the cascade
-    // pass does; shadowMeta.x says how many of the four mean anything.
-    currentFrameData.cascadeMatrix[0] = lightSpaceMatrix;
-    currentFrameData.shadowMeta.x = 1;
+    // The cascade set. cascadeMatrix[0] is lightSpaceMatrix by construction, so
+    // a shader on either path agrees about the nearest cascade; the slots past
+    // the active count are zero and shadowMeta.x says how many mean anything.
+    const int activeCascades = std::max(effectiveShadowCascades(), 1);
+    for (int c = 0; c < static_cast<int>(kMaxShadowCascades); ++c) {
+        currentFrameData.cascadeMatrix[c] = cascadeMatrices_[c];
+        currentFrameData.shadowSplits[c] = cascadeSplits_[c];
+    }
+    currentFrameData.shadowMeta.x = activeCascades;
+    // The blend band, in yards. A twentieth of the shadow distance is wide
+    // enough that the change of resolution is a gradient rather than a line and
+    // narrow enough that the second cascade is sampled for very few pixels.
+    currentFrameData.shadowMeta.y = static_cast<int>(std::max(shadowDistance_ * 0.05f, 1.0f));
+    currentFrameData.shadowMeta.z = shadowFilter_;
     // Scale shadow bias proportionally to ortho extent to avoid acne at close range / gaps at far range
     float shadowBias = glm::clamp(0.8f * (shadowDistance_ / 300.0f), 0.0f, 1.0f);
     // z carries one texel of the shadow map. The shaders used to hold that as
     // a constant for 4096, and the map is 512 to 4096 by the quality level.
+    // z is one texel of whatever map is bound, which is the cascade side once
+    // there is more than one cascade and SHADOW_MAP_SIZE when there is not.
+    // w is the sun's width in yards, which is what a PCSS penumbra is measured
+    // against.
     currentFrameData.shadowParams = glm::vec4(shadowsEnabled ? 1.0f : 0.0f, shadowBias,
-                                              1.0f / static_cast<float>(SHADOW_MAP_SIZE), 0.0f);
+                                              1.0f / static_cast<float>(shadowCascadeSide_),
+                                              shadowLightSize_);
 
     for (uint32_t i = 0; i < MAX_LOCAL_LIGHTS; ++i) {
         currentFrameData.localLightPosRadius[i] = glm::vec4(0.0f);
@@ -1070,6 +1258,13 @@ void Renderer::beginFrame() {
         applyShaderFeatureChange();
     }
 
+    // And the depth array behind the cascades, which changes shape with the
+    // count. Before the pipelines rather than after: the pass that reads it is
+    // recorded this frame.
+    if (shadowCascadeChangePending_) {
+        applyShadowCascadeChange();
+    }
+
     // Apply deferred MSAA change between frames (before any rendering state is used)
     if (msaaChangePending_) {
         applyMsaaChange();
@@ -1138,7 +1333,7 @@ void Renderer::beginFrame() {
     if (postProcessPipeline_ && camera) postProcessPipeline_->applyJitter(camera.get());
 
     // Compute fresh shadow matrix BEFORE UBO update so shaders get current-frame data.
-    lightSpaceMatrix = computeLightSpaceMatrix();
+    lightSpaceMatrix = computeCascadeMatrices();
 
     // Update per-frame UBO with current camera/lighting state
     updatePerFrameUBO();
@@ -3182,6 +3377,8 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
             terrainRenderer.reset();
             return false;
         }
+        terrainRenderer->setWireframe(wireframeMode_);
+        terrainRenderer->setTerrainLodLevel(terrainLodLevel_);
         if (shadowRenderPass != VK_NULL_HANDLE) {
             terrainRenderer->initializeShadow(shadowRenderPass);
         }
@@ -3501,9 +3698,24 @@ bool Renderer::loadTestTerrain(pipeline::AssetManager* assetManager, const std::
     return true;
 }
 
+// Remembered, not only forwarded.
+//
+// The terrain renderer is made when the world is, so anything that asked for
+// wireframe before the first zone loaded - capture_scene does, it parses its
+// arguments and applies them before it loads anything - reached a null pointer
+// and was silently dropped. The flag is kept here and applied again where the
+// terrain renderer is created.
 void Renderer::setWireframeMode(bool enabled) {
+    wireframeMode_ = enabled;
     if (terrainRenderer) {
         terrainRenderer->setWireframe(enabled);
+    }
+}
+
+void Renderer::setTerrainLodLevel(int level) {
+    terrainLodLevel_ = std::clamp(level, 0, 3);
+    if (terrainRenderer) {
+        terrainRenderer->setTerrainLodLevel(terrainLodLevel_);
     }
 }
 
@@ -3656,6 +3868,160 @@ glm::mat4 Renderer::computeLightSpaceMatrix() {
     lightProj[1][1] *= -1.0f; // Vulkan Y-flip for shadow pass
 
     return lightProj * lightView;
+}
+
+// Where the sun is, on the terms computeLightSpaceMatrix settled: pointing
+// down-range, never quite horizontal, and never the direction the shading uses
+// unnegated. Split out because the cascade fit needs the same answer and a
+// second derivation of it would be a second place for the shadow to disagree
+// with the light.
+static glm::vec3 shadowSunDirection(const LightingManager* lightingManager) {
+    glm::vec3 sunDir = glm::normalize(glm::vec3(-0.3f, -0.7f, -0.6f));
+    if (lightingManager) {
+        const auto& lighting = lightingManager->getLightingParams();
+        float ldirLenSq = glm::dot(lighting.directionalDir, lighting.directionalDir);
+        if (ldirLenSq > 1e-6f) {
+            sunDir = -lighting.directionalDir * glm::inversesqrt(ldirLenSq);
+        }
+    }
+    if (sunDir.z > 0.0f) sunDir = -sunDir;
+    if (sunDir.z > -0.15f) {
+        sunDir.z = -0.15f;
+        sunDir = glm::normalize(sunDir);
+    }
+    return sunDir;
+}
+
+// One orthographic box per cascade, each fitted to its own slice of the view
+// frustum and snapped to its own texel grid.
+//
+// The split distances are the practical scheme with lambda = 0.7: seven parts
+// of a logarithmic series, which puts texels where perspective needs them, to
+// three parts of a uniform one, which keeps the near cascade from collapsing
+// onto the camera. The box is the bounding sphere of the slice rather than the
+// slice itself, because a sphere does not change size as the camera turns -
+// fitting the corners directly makes the whole cascade swim while you look
+// around, which is worse than the resolution it saves.
+//
+// Snapping is the same code the single map has always used, per cascade: the
+// centre is quantized along the light's own right and up axes to whole texels
+// of that cascade, so translating the camera moves the shadow by whole texels
+// and the edges do not crawl.
+//
+// Answers cascade 0's matrix, which the caller keeps in lightSpaceMatrix so
+// that the single-map path and the cascaded path agree about the nearest one.
+glm::mat4 Renderer::computeCascadeMatrices() {
+    const int count = std::clamp(shadowCascades_, 1, 4);
+
+    // One cascade is the map the client always drew, unchanged - not a
+    // one-element special case of the code below, which would round the extent
+    // differently and make "off" a different picture.
+    if (count <= 1) {
+        const glm::mat4 m = computeLightSpaceMatrix();
+        cascadeMatrices_[0] = m;
+        cascadeCenters_[0] = shadowCenter;
+        cascadeRadii_[0] = shadowDistance_;
+        cascadeSplits_[0] = shadowDistance_;
+        for (int c = 1; c < static_cast<int>(kMaxShadowCascades); ++c) {
+            cascadeMatrices_[c] = glm::mat4(0.0f);
+            cascadeCenters_[c] = glm::vec3(0.0f);
+            cascadeRadii_[c] = 0.0f;
+            cascadeSplits_[c] = shadowDistance_;
+        }
+        return m;
+    }
+
+    if (!camera) return glm::mat4(0.0f);
+    // The same gate the single map has: nothing to centre on before the player
+    // is placed, and a zero matrix is what renderShadowPass reads as "not yet".
+    if (!shadowCenterInitialized && glm::dot(characterPosition, characterPosition) < 1.0f) {
+        return glm::mat4(0.0f);
+    }
+    shadowCenterInitialized = true;
+
+    const glm::vec3 sunDir = shadowSunDirection(lightingManager.get());
+    glm::vec3 up(0.0f, 0.0f, 1.0f);
+    if (std::abs(glm::dot(sunDir, up)) > 0.99f) up = glm::vec3(0.0f, 1.0f, 0.0f);
+    const glm::vec3 lightRight = glm::normalize(glm::cross(sunDir, up));
+    const glm::vec3 lightUp = glm::normalize(glm::cross(lightRight, sunDir));
+
+    // The view frustum's eight corners in world space. The slice corners are
+    // interpolated along the edges, which is exact: an edge is a straight line
+    // and the fraction along it is the fraction of view depth.
+    const glm::mat4 invViewProj =
+        glm::inverse(camera->getProjectionMatrix() * camera->getViewMatrix());
+    glm::vec3 frustum[8];
+    int n = 0;
+    for (int z = 0; z < 2; ++z) {
+        for (int y = 0; y < 2; ++y) {
+            for (int x = 0; x < 2; ++x) {
+                glm::vec4 pt = invViewProj * glm::vec4(x * 2.0f - 1.0f, y * 2.0f - 1.0f,
+                                                       static_cast<float>(z), 1.0f);
+                frustum[n++] = glm::vec3(pt) / pt.w;
+            }
+        }
+    }
+    const float cameraFar = std::max(camera->getFarPlane(), 1.0f);
+    const float cameraNear = std::max(camera->getNearPlane(), 0.1f);
+    const float shadowFar = shadowDistance_;
+
+    constexpr float kSplitLambda = 0.7f;
+    float sliceNear = cameraNear;
+    for (int c = 0; c < count; ++c) {
+        const float f = static_cast<float>(c + 1) / static_cast<float>(count);
+        const float logSplit = cameraNear * std::pow(shadowFar / cameraNear, f);
+        const float uniformSplit = cameraNear + (shadowFar - cameraNear) * f;
+        const float sliceFar = kSplitLambda * logSplit + (1.0f - kSplitLambda) * uniformSplit;
+        cascadeSplits_[c] = sliceFar;
+
+        const float tNear = sliceNear / cameraFar;
+        const float tFar = sliceFar / cameraFar;
+        glm::vec3 corners[8];
+        for (int i = 0; i < 4; ++i) {
+            const glm::vec3 ray = frustum[i + 4] - frustum[i];
+            corners[i] = frustum[i] + ray * tNear;
+            corners[i + 4] = frustum[i] + ray * tFar;
+        }
+
+        glm::vec3 center(0.0f);
+        for (const auto& corner : corners) center += corner;
+        center /= 8.0f;
+        float radius = 0.0f;
+        for (const auto& corner : corners) {
+            radius = std::max(radius, glm::length(corner - center));
+        }
+        // Quantized, so a fractional change in radius from one frame to the
+        // next does not rescale the whole map and undo the snapping below.
+        radius = std::ceil(radius * 16.0f) / 16.0f;
+        radius = std::max(radius, 1.0f);
+
+        const float texelWorld = (2.0f * radius) / static_cast<float>(shadowCascadeSide_);
+        float dotR = std::floor(glm::dot(center, lightRight) / texelWorld) * texelWorld;
+        float dotU = std::floor(glm::dot(center, lightUp) / texelWorld) * texelWorld;
+        const float dotD = glm::dot(center, sunDir);
+        center = lightRight * dotR + lightUp * dotU + sunDir * dotD;
+
+        // Far enough back that a tall caster outside the slice still casts into
+        // it, and a depth range wide enough to hold both it and the ground.
+        const float pullBack = radius * 3.0f + 200.0f;
+        glm::mat4 lightView = glm::lookAt(center - sunDir * pullBack, center, up);
+        glm::mat4 lightProj = glm::ortho(-radius, radius, -radius, radius,
+                                         1.0f, pullBack + radius * 3.0f + 200.0f);
+        lightProj[1][1] *= -1.0f;  // Vulkan Y-flip for shadow pass
+
+        cascadeMatrices_[c] = lightProj * lightView;
+        cascadeCenters_[c] = center;
+        cascadeRadii_[c] = radius;
+        sliceNear = sliceFar;
+    }
+    for (int c = count; c < static_cast<int>(kMaxShadowCascades); ++c) {
+        cascadeMatrices_[c] = glm::mat4(0.0f);
+        cascadeCenters_[c] = glm::vec3(0.0f);
+        cascadeRadii_[c] = 0.0f;
+        cascadeSplits_[c] = shadowFar;
+    }
+    shadowCenter = cascadeCenters_[0];
+    return cascadeMatrices_[0];
 }
 
 void Renderer::setupWater1xPass() {
@@ -3915,21 +4281,39 @@ void Renderer::renderShadowPass() {
     if (skipShadows) return;
     if (shadowDepthImage[0] == VK_NULL_HANDLE) return;
     if (currentCmd == VK_NULL_HANDLE) return;
-    // Shadows off still runs the pass, and the pass still clears the map and
-    // leaves it in the layout its readers expect - it simply draws nothing
-    // into it. Returning here instead left the image untransitioned while it
-    // stayed bound for sampling, which is the shape of fault that takes the
-    // device down rather than drawing something wrong.
-    const bool drawCasters = shadowsEnabled;
 
-    // Shadows render every frame - throttling causes visible flicker on player/NPCs
+    const int cascadeCount = effectiveShadowCascades();
+    // Shadows off. The pass is skipped - but not before the map has been left
+    // once in the layout every lit descriptor set says it is in, cleared to the
+    // far plane so that anything which does sample it finds nothing occluding.
+    //
+    // The pass used to return here outright, which left the depth image in
+    // whatever layout the last frame that drew put it in while three descriptor
+    // sets went on naming it as SHADER_READ_ONLY_OPTIMAL. That is wrong on its
+    // own terms and this settles it for a millisecond, once, on the frame the
+    // switch flips.
+    //
+    // It is not, as an earlier note here claimed, what took the device down
+    // when shadows were turned off. Nothing measured that: the machine it was
+    // investigated on was running without validation layers at all, because the
+    // loader had a registry entry for an uninstalled SDK. See
+    // docs/evidence/phase-01/README.md.
+    if (cascadeCount == 0 && !shadowOffFlushPending_) return;
 
     // lightSpaceMatrix was already computed at frame start (before updatePerFrameUBO).
     // Zero matrix means character position isn't set yet - skip shadow pass entirely.
     if (lightSpaceMatrix == glm::mat4(0.0f)) return;
+    // With shadows off the pass still begins and ends, so the map is cleared
+    // and left where its readers expect it; only the casters are skipped.
+    const bool drawCasters = cascadeCount > 0;
+    const uint32_t passes = drawCasters ? static_cast<uint32_t>(cascadeCount)
+                                        : shadowCascadeLayers_;
     uint32_t frame = vkCtx->getCurrentFrame();
 
     // Barrier 1: transition this frame's shadow map into writable depth layout.
+    // Every layer at once: the cascades are layers of one image and the barrier
+    // that covers one has to cover all, or the layers the loop does not reach
+    // this frame keep a layout nothing agrees with.
     VkImageMemoryBarrier2 b1{};
     b1.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
     b1.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
@@ -3943,7 +4327,7 @@ void Renderer::renderShadowPass() {
     b1.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
                        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     b1.image = shadowDepthImage[frame];
-    b1.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
+    b1.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = shadowCascadeLayers_};
     VkPipelineStageFlags srcStage = (shadowDepthLayout_[frame] == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
         ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
         : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -3954,45 +4338,56 @@ void Renderer::renderShadowPass() {
     b1Dep.pImageMemoryBarriers = &b1;
     cmdPipelineBarrier2(currentCmd, b1Dep);
 
-    // Begin shadow render pass
-    VkRenderPassBeginInfo rpInfo{};
-    rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rpInfo.renderPass = shadowRenderPass;
-    rpInfo.framebuffer = shadowFramebuffer[frame];
-    rpInfo.renderArea = {.offset = {.x = 0, .y = 0}, .extent = {.width = SHADOW_MAP_SIZE, .height = SHADOW_MAP_SIZE}};
-    VkClearValue clear{};
-    clear.depthStencil = {.depth = 1.0f, .stencil = 0};
-    rpInfo.clearValueCount = 1;
-    rpInfo.pClearValues = &clear;
-    vkCmdBeginRenderPass(currentCmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+    // One render pass per cascade. They are separate framebuffers over separate
+    // layers of the same image, so this is a begin/end per cascade rather than
+    // a layered draw: the caster renderers push one light-space matrix and cull
+    // against one sphere, and multiview would mean four of each in a shader
+    // that is otherwise the depth-only pass the client already had.
+    for (uint32_t c = 0; c < passes; ++c) {
+        VkRenderPassBeginInfo rpInfo{};
+        rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        rpInfo.renderPass = shadowRenderPass;
+        rpInfo.framebuffer = shadowFramebuffer[frame][c];
+        rpInfo.renderArea = {.offset = {.x = 0, .y = 0}, .extent = {.width = shadowCascadeSide_, .height = shadowCascadeSide_}};
+        VkClearValue clear{};
+        clear.depthStencil = {.depth = 1.0f, .stencil = 0};
+        rpInfo.clearValueCount = 1;
+        rpInfo.pClearValues = &clear;
+        vkCmdBeginRenderPass(currentCmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    VkViewport vp{.x = 0, .y = 0, .width = static_cast<float>(SHADOW_MAP_SIZE), .height = static_cast<float>(SHADOW_MAP_SIZE), .minDepth = 0.0f, .maxDepth = 1.0f};
-    vkCmdSetViewport(currentCmd, 0, 1, &vp);
-    VkRect2D sc{.offset = {.x = 0, .y = 0}, .extent = {.width = SHADOW_MAP_SIZE, .height = SHADOW_MAP_SIZE}};
-    vkCmdSetScissor(currentCmd, 0, 1, &sc);
+        VkViewport vp{.x = 0, .y = 0, .width = static_cast<float>(shadowCascadeSide_), .height = static_cast<float>(shadowCascadeSide_), .minDepth = 0.0f, .maxDepth = 1.0f};
+        vkCmdSetViewport(currentCmd, 0, 1, &vp);
+        VkRect2D sc{.offset = {.x = 0, .y = 0}, .extent = {.width = shadowCascadeSide_, .height = shadowCascadeSide_}};
+        vkCmdSetScissor(currentCmd, 0, 1, &sc);
 
-    // Phase 7/8: render shadow casters
-    const float shadowCullRadius = shadowDistance_ * 1.35f;
-    // With shadows off the pass still begins and ends, so the map is cleared
-    // and left where its readers expect it; only the casters are skipped.
-    if (drawCasters) {
-    if (terrainRenderer) {
-        terrainRenderer->renderShadow(currentCmd, lightSpaceMatrix, shadowCenter, shadowCullRadius);
-    }
-    if (wmoRenderer) {
-        wmoRenderer->renderShadow(currentCmd, lightSpaceMatrix, shadowCenter, shadowCullRadius);
-    }
-    if (m2Renderer) {
-        m2Renderer->renderShadow(currentCmd, lightSpaceMatrix, globalTime, shadowCenter, shadowCullRadius);
-    }
-    if (characterRenderer) {
-        characterRenderer->renderShadow(currentCmd, lightSpaceMatrix, shadowCenter, shadowCullRadius);
-    }
-    }  // drawCasters
+        if (drawCasters) {
+            // Each cascade culls against its own sphere rather than against one
+            // radius for all of them: the near cascade is a few tens of yards
+            // across, and drawing the whole shadow distance into it four times
+            // over is what a cascaded pass costs if the cull is not per cascade.
+            const glm::mat4& cascadeVP = cascadeMatrices_[c];
+            const glm::vec3& cascadeCenter = cascadeCenters_[c];
+            const float shadowCullRadius = (cascadeCount > 1)
+                ? cascadeRadii_[c] * 1.35f
+                : shadowDistance_ * 1.35f;
+            if (terrainRenderer) {
+                terrainRenderer->renderShadow(currentCmd, cascadeVP, cascadeCenter, shadowCullRadius);
+            }
+            if (wmoRenderer) {
+                wmoRenderer->renderShadow(currentCmd, cascadeVP, cascadeCenter, shadowCullRadius);
+            }
+            if (m2Renderer) {
+                m2Renderer->renderShadow(currentCmd, cascadeVP, globalTime, cascadeCenter, shadowCullRadius);
+            }
+            if (characterRenderer) {
+                characterRenderer->renderShadow(currentCmd, cascadeVP, cascadeCenter, shadowCullRadius);
+            }
+        }
 
-    vkCmdEndRenderPass(currentCmd);
+        vkCmdEndRenderPass(currentCmd);
+    }
 
-    // Barrier 2: DEPTH_STENCIL_ATTACHMENT_OPTIMAL → SHADER_READ_ONLY_OPTIMAL
+    // Barrier 2: DEPTH_STENCIL_ATTACHMENT_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL
     VkImageMemoryBarrier2 b2{};
     b2.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
     b2.srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
@@ -4004,7 +4399,7 @@ void Renderer::renderShadowPass() {
     b2.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     b2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     b2.image = shadowDepthImage[frame];
-    b2.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
+    b2.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = shadowCascadeLayers_};
     VkDependencyInfo b2Dep{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
     b2Dep.dependencyFlags = 0;
     b2Dep.imageMemoryBarrierCount = 1;
@@ -4012,6 +4407,16 @@ void Renderer::renderShadowPass() {
     cmdPipelineBarrier2(currentCmd, b2Dep);
     shadowDepthLayout_[frame] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     if (vkCtx) vkCtx->gpuMark(currentCmd, "shadows");
+
+    // Both in-flight frames have to be flushed before the pass really stops,
+    // and each one gets its turn here because getCurrentFrame() alternates.
+    if (!drawCasters) {
+        shadowOffFlushFrames_++;
+        if (shadowOffFlushFrames_ >= static_cast<int>(MAX_FRAMES)) {
+            shadowOffFlushPending_ = false;
+            shadowOffFlushFrames_ = 0;
+        }
+    }
 }
 
 // Build the per-frame render graph for off-screen pre-passes.

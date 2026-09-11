@@ -3,6 +3,7 @@
 #include <SDL2/SDL_vulkan.h>
 #include "rendering/vk_context.hpp"
 #include "core/logger.hpp"
+#include "rendering/imgui_texture.hpp"
 #include "core/config_paths.hpp"
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -41,10 +42,12 @@ void LoadingScreen::shutdown() {
         VkDevice device = vkCtx->getDevice();
         vkDeviceWaitIdle(device);
 
-        if (bgDescriptorSet) {
-            // ImGui manages descriptor set lifetime
-            bgDescriptorSet = VK_NULL_HANDLE;
-        }
+        // Handed back rather than dropped. ImGui allocates one descriptor set
+        // per AddTexture out of its own pool and frees it only when told; a
+        // loading screen per zone that only nulled the handle leaked a set per
+        // load, and left a set in the pool still naming an image view this is
+        // about to destroy - which is what a stale ImDrawData would then sample.
+        removeImGuiTexture(bgDescriptorSet);
         bgSampler = VK_NULL_HANDLE; // Owned by VkContext sampler cache
         if (bgImageView) {
             vkDestroyImageView(device, bgImageView, nullptr);
@@ -98,10 +101,10 @@ bool LoadingScreen::loadImage(const std::string& path) {
         VkDevice device = vkCtx->getDevice();
         vkDeviceWaitIdle(device);
         bgSampler = VK_NULL_HANDLE; // Owned by VkContext sampler cache
+        removeImGuiTexture(bgDescriptorSet);
         if (bgImageView) { vkDestroyImageView(device, bgImageView, nullptr); bgImageView = VK_NULL_HANDLE; }
         if (bgImage) { vkDestroyImage(device, bgImage, nullptr); bgImage = VK_NULL_HANDLE; }
         if (bgMemory) { vkFreeMemory(device, bgMemory, nullptr); bgMemory = VK_NULL_HANDLE; }
-        bgDescriptorSet = VK_NULL_HANDLE;
     }
 
     int channels;

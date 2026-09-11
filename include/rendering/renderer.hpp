@@ -117,7 +117,15 @@ public:
     /**
      * Enable/disable wireframe mode
      */
+    /// Draw the terrain as lines. Remembered until there is a terrain
+    /// renderer to tell, so it can be set before a world is loaded.
     void setWireframeMode(bool enabled);
+    [[nodiscard]] bool getWireframeMode() const { return wireframeMode_; }
+    /// How far the ground may drop in detail: 0 off, 3 furthest. Remembered
+    /// for the same reason - the settings are applied once the renderer
+    /// exists, and the terrain renderer is made when a world is loaded.
+    void setTerrainLodLevel(int level);
+    [[nodiscard]] int getTerrainLodLevel() const { return terrainLodLevel_; }
 
 
 
@@ -301,19 +309,57 @@ private:
     // framebuffer so that frame N's shadow read and frame N+1's shadow write don't
     // race on the same image across concurrent GPU submissions.
     // Array size must match MAX_FRAMES (= 2, defined in the private section below).
+    /// The most cascades the depth array is ever allocated with, and the
+    /// length of every per-cascade array below. Four is what `shadowSplits`
+    /// and `cascadeMatrix[4]` in the per-frame block hold.
+    static constexpr uint32_t kMaxShadowCascades = 4;
     VkImage shadowDepthImage[2] = {};
     VmaAllocation shadowDepthAlloc[2] = {};
+    /// A 2D view of layer 0. What binding 1 - the single map every lit shader
+    /// has always sampled - points at, so the one-cascade path is untouched.
     VkImageView shadowDepthView[2] = {};
+    /// One single-layer view per cascade, because a framebuffer renders into
+    /// one layer at a time.
+    VkImageView shadowLayerView[2][kMaxShadowCascades] = {};
+    /// The whole array, for binding 2 (comparison) and binding 3 (plain, which
+    /// is the only way PCSS can read a depth rather than compare against it).
+    VkImageView shadowArrayView[2] = {};
     VkSampler shadowSampler = VK_NULL_HANDLE;
+    /// The same filtering without the compare, for the PCSS blocker search.
+    VkSampler shadowDepthSampler = VK_NULL_HANDLE;
     VkRenderPass shadowRenderPass = VK_NULL_HANDLE;
-    VkFramebuffer shadowFramebuffer[2] = {};
+    VkFramebuffer shadowFramebuffer[2][kMaxShadowCascades] = {};
     VkImageLayout shadowDepthLayout_[2] = {};
     glm::mat4 lightSpaceMatrix = glm::mat4(1.0f);
     glm::vec3 shadowCenter = glm::vec3(0.0f);
     bool shadowCenterInitialized = false;
     bool shadowsEnabled = true;
+    /// How many cascades the player asked for, 1 to 4. The number actually
+    /// drawn is this or zero - see effectiveShadowCascades().
+    int shadowCascades_ = 1;
+    /// How many layers the depth array was actually allocated with. Changing
+    /// the setting reallocates, between frames.
+    uint32_t shadowCascadeLayers_ = 1;
+    /// The side of one cascade, which is not SHADOW_MAP_SIZE once there is
+    /// more than one of them - see shadowCascadeSide().
+    uint32_t shadowCascadeSide_ = 4096;
+    int pendingShadowCascades_ = 0;
+    bool shadowCascadeChangePending_ = false;
+    /// Set when shadows have just been switched off, so the map is cleared to
+    /// "nothing occludes" and left in the layout its readers expect exactly
+    /// once, rather than every frame for as long as they stay off.
+    bool shadowOffFlushPending_ = false;
+    int shadowOffFlushFrames_ = 0;
+    int shadowFilter_ = 0;
+    float shadowLightSize_ = 1.5f;
+    glm::mat4 cascadeMatrices_[kMaxShadowCascades] = {};
+    glm::vec3 cascadeCenters_[kMaxShadowCascades] = {};
+    float cascadeRadii_[kMaxShadowCascades] = {};
+    float cascadeSplits_[kMaxShadowCascades] = {};
     float shadowDistance_ = 300.0f;  // Shadow frustum half-extent (default: 300 units)
     float viewDistance_ = 1200.0f;
+    bool wireframeMode_ = false;
+    int terrainLodLevel_ = 0;
     bool sharpStars_ = true;
     float diagTerrainFurthest_ = -1.0f;
     float diagM2Furthest_ = -1.0f;
@@ -324,11 +370,43 @@ public:
     void registerPreview(CharacterPreview* preview);
     void unregisterPreview(CharacterPreview* preview);
 
-    /// Held on. Turning shadows off loses the device within a second - see
-    /// the note in settings_schema.cpp - so a saved 0 from before that was
-    /// known, or any other caller, cannot switch them off.
-    void setShadowsEnabled(bool /*enabled*/) { shadowsEnabled = true; }
+    /// Turning shadows off used to lose the device within a second, so this
+    /// held the value on and the setting was dead. What actually did it was
+    /// the pass returning before its barriers: the depth image stayed in
+    /// whatever layout it was last left in while every lit descriptor set went
+    /// on naming it as SHADER_READ_ONLY_OPTIMAL, and a driver reading an
+    /// attachment-layout image through a sampler is the shape of fault that
+    /// takes a device down rather than drawing something wrong. Off now means
+    /// the map is cleared to "nothing occludes" and transitioned once, on the
+    /// frame the switch flips, after which the pass really is skipped and
+    /// shadowParams.x is 0 so no shader samples it at all.
+    void setShadowsEnabled(bool enabled);
     bool areShadowsEnabled() const { return shadowsEnabled; }
+
+    /// How many cascades the sun shadow is split into, 1 to 4.
+    ///
+    /// 1 is the single orthographic map the client always drew, and it is the
+    /// off value in every sense: the shaders fold the cascaded path away, the
+    /// depth array is one layer, and that layer is SHADOW_MAP_SIZE a side.
+    /// Above 1 the per-cascade side is capped at 2048 so four cascades cost
+    /// the memory one 4096 map already did.
+    ///
+    /// The count is a specialization constant, so a change rebuilds the four
+    /// lit renderers' pipelines and reallocates the depth array. Both are
+    /// queued for between frames, exactly as an MSAA change is.
+    void setShadowCascades(int count);
+    [[nodiscard]] int getShadowCascades() const { return shadowCascades_; }
+
+    /// 0 = the 3x3 PCF that shipped, 1 = 16-tap rotated Poisson, 2 = PCSS on
+    /// the two near cascades. Only read on the cascaded path; a specialization
+    /// constant, so it rebuilds the lit pipelines the same way.
+    void setShadowFilter(int filter);
+    [[nodiscard]] int getShadowFilter() const { return shadowFilter_; }
+
+    /// How wide the sun is, in yards, for the PCSS penumbra. Live: a per-frame
+    /// value, not a variant.
+    void setShadowLightSize(float yards) { shadowLightSize_ = glm::clamp(yards, 0.5f, 5.0f); }
+    [[nodiscard]] float getShadowLightSize() const { return shadowLightSize_; }
     void setShadowDistance(float dist) { shadowDistance_ = glm::clamp(dist, 40.0f, 500.0f); }
     float getShadowDistance() const { return shadowDistance_; }
     void setViewDistance(float distance);
@@ -382,6 +460,29 @@ private:
     bool msaaChangePending_ = false;
     void renderShadowPass();
     glm::mat4 computeLightSpaceMatrix();
+    /// Fit one orthographic box per cascade to its slice of the view frustum,
+    /// snapped to its own texel grid. Fills cascadeMatrices_, cascadeCenters_,
+    /// cascadeRadii_ and cascadeSplits_, and answers cascade 0's matrix so the
+    /// single-map path and the cascaded path agree about the nearest one.
+    glm::mat4 computeCascadeMatrices();
+    /// How many cascades are actually drawn this frame: the setting, or zero
+    /// when shadows are off.
+    [[nodiscard]] int effectiveShadowCascades() const {
+        return shadowsEnabled ? shadowCascades_ : 0;
+    }
+    /// The side of one cascade's map. Four 4096 maps per in-flight frame is
+    /// half a gigabyte of depth; capping the multi-cascade side at 2048 puts a
+    /// four-cascade set at the memory the single 4096 map already used.
+    [[nodiscard]] uint32_t shadowCascadeSide() const {
+        return (shadowCascades_ > 1) ? std::min(SHADOW_MAP_SIZE, 2048u) : SHADOW_MAP_SIZE;
+    }
+    bool createShadowResources();
+    void destroyShadowResources();
+    /// Point bindings 1, 2 and 3 of every per-frame set at the current shadow
+    /// views. Called when the sets are made and again whenever the depth array
+    /// is reallocated.
+    void writeShadowDescriptors();
+    void applyShadowCascadeChange();
 
     std::vector<pipeline::CustomZoneInfo> customZones_;
     pipeline::AssetManager* cachedAssetManager = nullptr;

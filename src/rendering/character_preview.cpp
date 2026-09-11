@@ -316,6 +316,11 @@ void CharacterPreview::createFBO() {
             LOG_ERROR("CharacterPreview: failed to create dummy shadow image view");
             return;
         }
+        viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        if (vkCreateImageView(device, &viewCI, nullptr, &dummyShadowArrayView_) != VK_SUCCESS) {
+            LOG_ERROR("CharacterPreview: failed to create dummy shadow array view");
+            return;
+        }
         // Clear to depth 1.0 and transition to shader-read layout
         vkCtx_->immediateSubmit([&](VkCommandBuffer cmd) {
             VkImageMemoryBarrier2 toTransfer{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
@@ -355,13 +360,15 @@ void CharacterPreview::createFBO() {
         });
     }
 
-    // 3. Create descriptor pool for per-frame sets (2 UBO + 2 sampler)
+    // 3. Create descriptor pool for per-frame sets (one UBO and three image
+    //    bindings per frame: the single shadow map, the cascade array, and the
+    //    array again without the comparison sampler)
     {
         VkDescriptorPoolSize sizes[2]{};
         sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         sizes[0].descriptorCount = MAX_FRAMES;
         sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        sizes[1].descriptorCount = MAX_FRAMES;
+        sizes[1].descriptorCount = MAX_FRAMES * 3;
 
         VkDescriptorPoolCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
         ci.maxSets = MAX_FRAMES;
@@ -417,13 +424,28 @@ void CharacterPreview::createFBO() {
         shadowImg.imageView = dummyShadowView_;
         shadowImg.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        VkWriteDescriptorSet writes[2]{};
+        VkDescriptorImageInfo shadowArrayImg{};
+        shadowArrayImg.imageView = dummyShadowArrayView_;
+        shadowArrayImg.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        VkWriteDescriptorSet writes[4]{};
         writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writes[0].dstSet = previewPerFrameSet_[i];
         writes[0].dstBinding = 0;
         writes[0].descriptorCount = 1;
         writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         writes[0].pBufferInfo = &descBuf;
+        // Bindings 2 and 3 are the cascade array and the same array without the
+        // comparison. The preview draws at one cascade and reads neither, but
+        // the layout declares them.
+        for (uint32_t b = 2; b < 4; ++b) {
+            writes[b].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writes[b].dstSet = previewPerFrameSet_[i];
+            writes[b].dstBinding = b;
+            writes[b].descriptorCount = 1;
+            writes[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            writes[b].pImageInfo = &shadowArrayImg;
+        }
         writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writes[1].dstSet = previewPerFrameSet_[i];
         writes[1].dstBinding = 1;
@@ -431,7 +453,7 @@ void CharacterPreview::createFBO() {
         writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         writes[1].pImageInfo = &shadowImg;
 
-        vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
+        vkUpdateDescriptorSets(device, 4, writes, 0, nullptr);
     }
 
     // 5. Register the color attachment as an ImGui texture
@@ -459,6 +481,7 @@ void CharacterPreview::destroyFBO() {
 
     destroy(device, previewDescPool_);
 
+    if (dummyShadowArrayView_) { vkDestroyImageView(device, dummyShadowArrayView_, nullptr); dummyShadowArrayView_ = VK_NULL_HANDLE; }
     if (dummyShadowView_) { vkDestroyImageView(device, dummyShadowView_, nullptr); dummyShadowView_ = VK_NULL_HANDLE; }
     if (dummyShadowImage_) { vmaDestroyImage(allocator, dummyShadowImage_, dummyShadowAlloc_); dummyShadowImage_ = VK_NULL_HANDLE; dummyShadowAlloc_ = VK_NULL_HANDLE; }
 

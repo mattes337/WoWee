@@ -56,7 +56,19 @@ public:
     bool displaySettingsLoaded_ = false;
     bool pendingShadows = true;
     float pendingShadowDistance = 300.0f;
+    /// The chosen index, not the count: 0 means one cascade. One cascade is
+    /// the single map the client always drew, and the shader compiled for it
+    /// is the pre-phase-01 shader exactly.
+    int pendingShadowCascades = 2;
+    /// 0 = 3x3 PCF, 1 = rotated Poisson, 2 = PCSS. A shader variant, so a
+    /// change rebuilds the four lit renderers' pipelines between frames.
+    int pendingShadowFilter = 1;
+    /// How wide the sun is, in yards, for the PCSS penumbra.
+    float pendingShadowLightSize = 1.5f;
     float pendingViewDistance = kDefaultViewDistance;
+    /// 0 = Off (every chunk at full detail), 3 = Far. See
+    /// TerrainRenderer::setTerrainLodLevel.
+    int pendingTerrainLod = 2;
     /// How far the distance fog takes the sky's colour. See
     /// LightingManager::setFogSkyBlend.
     float pendingFogSkyBlend = 0.7f;

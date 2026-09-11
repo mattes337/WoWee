@@ -17,6 +17,7 @@
 #include <atomic>
 #include "rendering/shader_features.hpp"
 #include "rendering/character_renderer.hpp"
+#include "rendering/tangent_frame.hpp"
 #include "rendering/pom_quality.hpp"
 #include "rendering/shadow_params.hpp"
 #include "rendering/normal_map.hpp"
@@ -1855,10 +1856,10 @@ void CharacterRenderer::setupModelBuffers(M2ModelGPU& gpuModel) {
     const size_t vertCount = model.vertices.size();
     const size_t idxCount = model.indices.size();
 
-    // Build expanded GPU vertex buffer with tangents (Lengyel's method)
+    // Build expanded GPU vertex buffer with tangents (Lengyel's method, in
+    // rendering/tangent_frame.hpp - the doodads and the terrain need the same
+    // frame and none of the three may derive it differently).
     std::vector<CharVertexGPU> gpuVerts(vertCount);
-    std::vector<glm::vec3> tanAccum(vertCount, glm::vec3(0.0f));
-    std::vector<glm::vec3> bitanAccum(vertCount, glm::vec3(0.0f));
 
     // Copy base vertex data
     size_t numBones = model.bones.size();
@@ -1899,46 +1900,24 @@ void CharacterRenderer::setupModelBuffers(M2ModelGPU& gpuModel) {
                     " - those vertices skin to nothing and collapse to the origin");
     }
 
-    // Accumulate tangent/bitangent per triangle
-    for (size_t i = 0; i + 2 < idxCount; i += 3) {
-        uint16_t i0 = model.indices[i], i1 = model.indices[i+1], i2 = model.indices[i+2];
-        if (i0 >= vertCount || i1 >= vertCount || i2 >= vertCount) continue;
-
-        const glm::vec3& p0 = gpuVerts[i0].position;
-        const glm::vec3& p1 = gpuVerts[i1].position;
-        const glm::vec3& p2 = gpuVerts[i2].position;
-        const glm::vec2& uv0 = gpuVerts[i0].texCoords;
-        const glm::vec2& uv1 = gpuVerts[i1].texCoords;
-        const glm::vec2& uv2 = gpuVerts[i2].texCoords;
-
-        glm::vec3 edge1 = p1 - p0;
-        glm::vec3 edge2 = p2 - p0;
-        glm::vec2 duv1 = uv1 - uv0;
-        glm::vec2 duv2 = uv2 - uv0;
-
-        float det = duv1.x * duv2.y - duv2.x * duv1.y;
-        if (std::abs(det) < 1e-8f) continue;
-        float invDet = 1.0f / det;
-
-        glm::vec3 t = (edge1 * duv2.y - edge2 * duv1.y) * invDet;
-        glm::vec3 b = (edge2 * duv1.x - edge1 * duv2.x) * invDet;
-
-        tanAccum[i0] += t; tanAccum[i1] += t; tanAccum[i2] += t;
-        bitanAccum[i0] += b; bitanAccum[i1] += b; bitanAccum[i2] += b;
-    }
-
-    // Orthogonalize and compute handedness
-    for (size_t i = 0; i < vertCount; i++) {
-        const glm::vec3& n = gpuVerts[i].normal;
-        const glm::vec3& t = tanAccum[i];
-        if (glm::dot(t, t) < 1e-8f) {
-            gpuVerts[i].tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-            continue;
+    // The tangent frame, from the vertices as they will be uploaded. Position,
+    // the first texture coordinate set - not the second, which is the
+    // environment-map coordinate - and the normal, which is what the frame is
+    // orthogonalized against.
+    {
+        std::vector<glm::vec3> positions(vertCount);
+        std::vector<glm::vec2> uvs(vertCount);
+        std::vector<glm::vec3> normals(vertCount);
+        for (size_t i = 0; i < vertCount; ++i) {
+            positions[i] = gpuVerts[i].position;
+            uvs[i] = gpuVerts[i].texCoords;
+            normals[i] = gpuVerts[i].normal;
         }
-        // Gram-Schmidt orthogonalize
-        glm::vec3 tOrtho = glm::normalize(t - n * glm::dot(n, t));
-        float w = (glm::dot(glm::cross(n, t), bitanAccum[i]) < 0.0f) ? -1.0f : 1.0f;
-        gpuVerts[i].tangent = glm::vec4(tOrtho, w);
+        const TangentFrames frames =
+            computeTangentFrames(positions, uvs, normals, model.indices);
+        for (size_t i = 0; i < vertCount; ++i) {
+            gpuVerts[i].tangent = frames.tangents[i];
+        }
     }
 
     // Upload vertex buffer (CharVertexGPU, 56 bytes per vertex)

@@ -159,9 +159,56 @@ glm::vec4 skySH[7];
 - `./test.sh` green: unit (splits, snapping, LOD watertightness, tangents), lint
   (reserved-code check).
 
+### Results
+
+Machine: RTX 2070 SUPER, Vulkan SDK 1.4.357.0, Windows 11, 1920x1032. Every
+picture named here is in `docs/evidence/phase-01/img/` as `.before.png`,
+`.after.png` and `.diff.png`, and the numbers are what
+`tools/compare_scenes.py` printed.
+
+| Item | Result |
+|---|---|
+| Identity — `shader_offpath_identity` | **pass.** 0 shaders moved; character 1752, m2 806, terrain 454, wmo 731 instructions, the same counts as before the techniques landed |
+| Identity — a rendered frame at every new key's off value | **pass**, and stronger than asked: the same camera rendered from `c00ab904e` in a second worktree is **bit-identical** to this branch at defaults (numpy max abs difference 0 over RGB) |
+| L1 `stormwind-gate` / `goldshire-inn-morning` / `orgrimmar-drag` / `stranglethorn-canopy` | **partial.** Two Elwynn cameras, not four across three continents: `goldshire-lake` at 09:00, `shadowcascades` 1→3, 35.26 % of pixels changed, SSIM 0.947440. The other three cameras were not rendered |
+| L2 filter 0→1→2 | **pass.** `goldshire-road` 09:00: PCF→Poisson 4.18 % of pixels, SSIM 0.996499; Poisson→PCSS 14.55 %, SSIM 0.977045 |
+| A1 fog cameras | **not measured.** `test_height_fog` pins the calibration arithmetic; no zone was rendered at 06/12/18 |
+| S4 `elwynn-road-sunrise` | **not applicable** — S4 did not ship |
+| G1 `westfall-sentinel-hill` / `tanaris-dunes`, + wireframe, Balanced within 0.5 % of Off | **fail on the threshold, at a camera it was not written for.** `goldshire-lake`, Off→Balanced: 28.55 % of pixels changed by more than one code value, against a stated ceiling of 0.5 %. The mean absolute difference over the frame is 1.277 / 255 and SSIM is 0.972705; the camera is under a forest canopy with 8x MSAA, where a mesh change moves almost every ground pixel by a code value or two. The open-horizon cameras the item actually names are on maps this session did not load. Wireframe pair rendered (`terrainlod` Off→Far, 33.08 % of pixels, SSIM 0.961014) |
+| M3a cameras | **not applicable** — M3a did not ship beyond the tangent routine |
+| Fog calibration, every zone at 06/12/18 | **not measured** |
+| Shadows off: 5 min, no device loss, validation clean | see the row below; measured with `capture_scene --dwell 300` rather than by walking Stormwind |
+| Frame time, preset Medium, lower than pre-phase | **fail as stated, and the measurement says why.** See below |
+| Load time, VRAM | **not measured.** Both are about the normal-map cache, which did not ship |
+| Unit tests: splits, snapping, LOD watertightness, tangents | **pass.** `test_terrain_lod` (watertightness, the skirt ring, one-level-apart), `test_tangent_frame`, `test_height_fog` |
+| Lint: reserved-code check | **pass.** `reserved_code_check.py`: 11 markers, 0 for a shipped phase, 0 malformed. `shader_feature_check.py`: 6 constants, 0 disagreements |
+
+**On the frame time.** Measured with `capture_scene --dwell 60 --setting
+vsync=0` on `goldshire-lake`, which draws the same frame several thousand times
+so the number is not a walk:
+
+| Configuration | Mean | Worst |
+|---|---|---|
+| 1 cascade, PCF, LOD off (what the client did before) | 12.2865 ms | 17.4591 ms |
+| 2 cascades, Poisson, LOD off | 12.2805 ms | 19.5521 ms |
+| 2 cascades, Poisson, LOD Balanced (preset Medium) | 12.6062 ms | 17.2644 ms |
+| 4 cascades, PCSS, LOD Near (preset Ultra's shadow half) | 13.0819 ms | 25.9129 ms |
+
+The phase's claim is that G1 pays for L1 and the frame comes out ahead. At this
+camera it does not: preset Medium is 12.61 ms against 12.29 ms, 2.6 % *slower*,
+and the whole shadow half of preset Ultra costs 6.5 %. Neither is much, and the
+reason both are small is the same reason G1 does not pay for anything here: the
+frame is bound by recording ten thousand terrain chunks and seventy thousand M2
+instances, and terrain LOD does not reduce that - it draws the same number of
+chunks with fewer indices in each. A camera bound by the shadow pass or by
+terrain vertex work would say something different. This one says the techniques
+are close to free and close to worthless, and that what this scene wants is
+fewer draw calls. That is worth knowing and it is not what the phase file
+predicted; the prediction is not restated here as met.
+
 ## Cut order if the phase runs long
 
-Drop in this order, each to a follow-up phase inserted as 01b: geomorph (keep skirts) →
+Drop in this order, each to a follow-up phase: geomorph (keep skirts) →
 PCSS (keep Poisson) → S4 shafts → terrain normal maps (keep M2). Never drop the
 consolidation steps 1–5; they are what the rest of the plan stands on.
 

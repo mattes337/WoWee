@@ -421,6 +421,14 @@ void GameScreen::render(game::GameHandler& gameHandler) {
             renderer->setShadowsEnabled(settingsPanel_.pendingShadows);
             renderer->setShadowDistance(settingsPanel_.pendingShadowDistance);
             renderer->setViewDistance(settingsPanel_.pendingViewDistance);
+            // The rows this phase added, applied here for the reason the rest
+            // of this block exists: a setting that is only handed over when the
+            // panel is opened is a setting the player never gets unless they go
+            // looking for it. The cascade count is an index, so +1.
+            renderer->setShadowCascades(settingsPanel_.pendingShadowCascades + 1);
+            renderer->setShadowFilter(settingsPanel_.pendingShadowFilter);
+            renderer->setShadowLightSize(settingsPanel_.pendingShadowLightSize);
+            renderer->setTerrainLodLevel(settingsPanel_.pendingTerrainLod);
             // The latch waits for the pipeline, not just the renderer.
             //
             // Settings are loaded in the constructor, before the renderer is

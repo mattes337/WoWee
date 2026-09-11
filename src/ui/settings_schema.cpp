@@ -42,24 +42,16 @@ constexpr SettingDesc kSchema[] = {
      "anti-aliasing, surface detail, ground clutter and grass.\n"
      "Change any one of them afterwards and this reads Custom.",
      "Custom|Low|Medium|High|Ultra", 0},
-    // No shadows row, because turning them off crashes the client.
-    //
-    // With the casters skipped the shadow pass still begins, clears and
-    // transitions its map - all of which was written deliberately, and none of
-    // which is enough: the GPU faults within a second or so and the device is
-    // lost. GPU-assisted validation reports nothing at all before it goes, so
-    // the fault is inside a shader rather than in an API call, and it is not
-    // found yet. Until it is, the control is off the panel and shadows are held
-    // on: a setting whose only effect is to end the session is worse than a
-    // setting that is missing.
-    {"shadowdistance", "Shadow distance", SettingKind::Float, 40, 500, 10, "Graphics", "Shadows",
-     // No longer conditional on a shadows toggle: there is not one, and the
-     // stored value it used to read may still say 0 from before it went, which
-     // would grey this out for good.
-     "How far away things still cast shadows, in yards. The shadow map\n"
-     "covers this whole range, so a shorter distance also gives sharper\n"
-     "shadows close to you.", "", 300},
-    {"viewdistance", "View distance", SettingKind::Float, 400, 2400, 50, "Graphics", "View",
+    // Terrain detail falls off with distance rather than everything being
+    // drawn at the 145-vertex mesh it was authored as. Off is that mesh
+    // everywhere, which is what the client always did; the three steps above it
+    // move where the reduction starts rather than how deep it goes.
+    {"terrainlod", "Terrain detail falloff", SettingKind::Enum, 0, 3, 1, "Graphics", "View",
+     "How far away the ground starts drawing with fewer triangles. Far\n"
+     "reduces the most and costs the least; Off draws every chunk at full\n"
+     "detail, which is what this client used to do.",
+     "Off|Near|Balanced|Far", 2},
+    {"viewdistance", "View distance", SettingKind::Float, 400, 2400, 50, "Graphics", "",
      "How far into the distance the world is drawn, in yards. The single\n"
      "largest cost in the picture: terrain, buildings and creatures are all\n"
      "drawn to this range.", "", 1900},
@@ -133,6 +125,55 @@ constexpr SettingDesc kSchema[] = {
      "Draw the night sky's stars as crisp points. Off, they come from\n"
      "the sky's own small star texture, which goes soft at high\n"
      "resolutions.", "", 1},
+
+    // ----------------------------------------------------------------- Shadows
+    //
+    // Its own page, for the reason the Lua panel builder gives at the top of
+    // include/addons/addon_lua_snippets.hpp: a category that outgrows two
+    // columns of 384 pixels is a category that wants splitting, and five shadow
+    // rows are what pushed Graphics past that. test_settings_panel_layout is
+    // what said so.
+    // The shadows row is back.
+    //
+    // It was off the panel because turning shadows off lost the device within a
+    // second and, as the note that replaced it said, "GPU-assisted validation
+    // reports nothing at all before it goes". That sentence was the actual
+    // fault: the Vulkan loader on that machine had a registry entry for an SDK
+    // version that was no longer installed, so it failed to open every layer
+    // manifest and then ran without validation - which reads exactly like a
+    // clean run. Pointed at the installed SDK's Bin, the layer speaks. With
+    // shadows off and the layer loaded, five minutes in Elwynn is clean.
+    //
+    // The pass still clears the map to "nothing occludes" and transitions it
+    // once on the frame the switch flips before it stops drawing - see
+    // Renderer::renderShadowPass. That is not presented as the fix; it is
+    // there because leaving a depth image in a layout every descriptor set
+    // that names it disagrees with is wrong on its own terms.
+    {"shadows", "Shadows", SettingKind::Bool, 0, 1, 1, "Shadows", "Sun shadows",
+     "Whether the sun casts shadows at all. Off is the cheapest single\n"
+     "change in this panel, and the flattest.", "", 1},
+    {"shadowdistance", "Shadow distance", SettingKind::Float, 40, 500, 10, "Shadows", "",
+     "How far away things still cast shadows, in yards. With more than one\n"
+     "cascade this is the range they are divided between, so a shorter\n"
+     "distance still gives sharper shadows close to you.", "", 300, "shadows"},
+    // Cascades: the shadow distance split into that many maps, each fitted to
+    // its own slice of the view. One is the single map the client always drew,
+    // and it is not a lesser version of the others - it is the pre-phase-01
+    // shader, exactly, which is what makes this row's off value meaningful.
+    {"shadowcascades", "Shadow cascades", SettingKind::Enum, 0, 3, 1, "Shadows", "",
+     "How many shadow maps the shadow distance is divided between. More\n"
+     "of them means sharper shadows at your feet without losing the ones\n"
+     "on the far hills, and one more depth pass over the world for each.",
+     "1|2|3|4", 2, "shadows"},
+    {"shadowfilter", "Shadow edges", SettingKind::Enum, 0, 2, 1, "Shadows", "",
+     "How a shadow edge is softened. Sharp takes four taps of the map;\n"
+     "Soft takes sixteen, turned per pixel so the pattern reads as a soft\n"
+     "edge rather than a pattern; Contact widens the edge with distance\n"
+     "from whatever casts it, which is what a real penumbra does.",
+     "Sharp|Soft|Contact", 1, "shadows"},
+    {"shadowlightsize", "Sun width", SettingKind::Float, 0.5f, 5, 0.1f, "Shadows", "",
+     "How wide the sun is, in yards, for the Contact filter. Wider is a\n"
+     "softer shadow further from what casts it.", "", 1.5f, "shadowfilter=2"},
 
     // ------------------------------------------------------------------ Detail
     //

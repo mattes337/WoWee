@@ -44,17 +44,14 @@ struct GPUPerFrameData {
     // shader that reads none of these does not mention them. That is what the
     // client already did: skybox.frag stops at shadowParams.
 
-    /// RESERVED(phase-01b, L1-csm): the four cascade view-projections. Phase 01
-    /// shipped the consolidation and left cascaded shadows to 01b (see
-    /// docs/modern-rendering/01-shadows-fog-distance-surfaces.md, "Cut order"),
-    /// but the slots are here so this block does not move again when they land.
-    /// cascadeMatrix[0] is kept equal to lightSpaceMatrix; the rest are zero
-    /// and no shader reads them.
+    /// The four cascade view-projections. cascadeMatrix[0] is kept equal to
+    /// lightSpaceMatrix, so a shader on the single-map path and one on the
+    /// cascaded path agree about the nearest cascade; the slots past the
+    /// active count are zero and nothing reads them.
     glm::mat4 cascadeMatrix[4] = {};
-    /// RESERVED(phase-01b, L1-csm): view-space depth at which each cascade ends.
+    /// The distance from the camera at which each cascade ends, in yards.
     glm::vec4 shadowSplits{0.0f};
-    /// RESERVED(phase-01b, L1-csm): x = cascade count, y = blend band in yards,
-    /// z = filter, w = unused.
+    /// x = cascade count, y = blend band in yards, z = filter, w = unused.
     glm::ivec4 shadowMeta{1, 0, 0, 0};
 
     /// Height fog: x = base height in world Z, y = density per yard at that

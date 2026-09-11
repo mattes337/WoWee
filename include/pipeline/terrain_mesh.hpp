@@ -33,6 +33,67 @@ struct TerrainVertex {
  */
 using TerrainIndex = uint32_t;
 
+/// WoW's own chunk grid: 9x9 outer vertices with an 8x8 inner set offset half
+/// a cell between them, stored as 9 rows of 17.
+inline constexpr int kChunkGridVertices = 145;
+/// The ring of outer vertices, which is where a skirt hangs from: the 9x9
+/// grid's perimeter, walked once.
+inline constexpr int kChunkSkirtVertices = 32;
+/// What one chunk's vertex buffer holds. The skirt vertices sit after the grid
+/// and are referenced only by the reduced index sets, so a chunk drawn at full
+/// detail is the mesh it always was with 32 vertices nothing indexes.
+inline constexpr int kChunkVertices = kChunkGridVertices + kChunkSkirtVertices;
+/// Off, Near, Balanced, Far - the four steps the terrainlod setting offers,
+/// which are also the four index sets below.
+inline constexpr int kTerrainLodLevels = 4;
+
+/**
+ * One level of detail, as an index set every chunk shares.
+ *
+ * A chunk's own index buffer carries its holes, and holes are per chunk, so
+ * level 0 is not here - it is the buffer TerrainMeshGenerator::generateIndices
+ * already builds. Levels 1 to 3 drop to 81, 25 and 9 of the grid's vertices by
+ * taking every second, fourth and eighth outer one, which no chunk's holes can
+ * be expressed in; a distant chunk draws its cave mouth closed, at a distance
+ * where the mouth is a pixel.
+ *
+ * The skirt follows the surface in the same buffer. It is a vertical band
+ * hanging from the outer ring, and it exists because two chunks at different
+ * levels do not agree about where the ground is between their shared corners:
+ * without it the disagreement is a hole you can see the sky through. Drawn
+ * always - the surface indices and the skirt indices are one draw - because a
+ * chunk at level 0 next to one at level 2 needs the level-2 chunk's skirt, and
+ * neither chunk knows about the other at draw time.
+ */
+struct TerrainLodIndices {
+    /// Surface first, then skirt. One draw covers both.
+    std::vector<TerrainIndex> indices;
+    /// How many of them are the surface, for anyone who wants only that.
+    uint32_t surfaceIndexCount = 0;
+};
+
+/**
+ * The index set for one level, built once and shared by every chunk.
+ *
+ * Level 0 answers an empty set: a chunk at full detail draws its own indices,
+ * which are the only ones that know where its holes are.
+ *
+ * Thread-safe after first use in the sense that matters here: the four sets are
+ * built on the first call and never change, and the terrain loader calls this
+ * on the main thread before any worker reads it.
+ */
+const TerrainLodIndices& terrainLodIndices(int level);
+
+/**
+ * Which level a chunk this far from the camera should draw at.
+ *
+ * The thresholds are fractions of the view distance rather than yards, so a
+ * player who can see 2400 yards gets the same picture at the same relative
+ * depth as one who can see 600. `maxLevel` is the terrainlod setting: 0 draws
+ * everything at full detail, which is what the client always did.
+ */
+int terrainLodForDistance(float distance, float viewDistance, int maxLevel);
+
 /**
  * Renderable terrain mesh for a single map chunk
  */

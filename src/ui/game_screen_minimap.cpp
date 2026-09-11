@@ -1805,6 +1805,10 @@ void GameScreen::saveSettings() {
     out << "fog_sky_blend=" << settingsPanel_.pendingFogSkyBlend << "\n";
     out << "fog_strength=" << settingsPanel_.pendingFogStrength << "\n";
     out << "fog_model=" << settingsPanel_.pendingFogModel << "\n";
+    out << "shadow_cascades=" << settingsPanel_.pendingShadowCascades << "\n";
+    out << "shadow_filter=" << settingsPanel_.pendingShadowFilter << "\n";
+    out << "shadow_light_size=" << settingsPanel_.pendingShadowLightSize << "\n";
+    out << "terrain_lod=" << settingsPanel_.pendingTerrainLod << "\n";
     out << "fog_aerial=" << settingsPanel_.pendingFogAerial << "\n";
     out << "sharp_stars=" << (settingsPanel_.pendingSharpStars ? 1 : 0) << "\n";
     out << "brightness=" << settingsPanel_.pendingBrightness << "\n";
@@ -2058,7 +2062,21 @@ void GameScreen::loadSettings() {
             else if (key == "grass_height") settingsPanel_.pendingGrassHeight = std::clamp(std::stoi(val), 50, 300);
             else if (key == "grass_distance") settingsPanel_.pendingGrassDistance = std::clamp(std::stoi(val), 30, 800);
             else if (key == "shadows") settingsPanel_.pendingShadows = (std::stoi(val) != 0);
-            else if (key == "shadow_distance") settingsPanel_.pendingShadowDistance = std::clamp(std::stof(val), 40.0f, 500.0f);
+            // The graphics rows this phase added read together, in one link of
+            // this chain rather than five. MSVC stops at 128 nested blocks and
+            // an else-if chain nests one deep per link; this one was already
+            // close enough that three more ended the build. The chain is
+            // deepest at its tail, so a short nested chain partway up costs
+            // nothing.
+            else if (key == "shadow_distance" || key == "shadow_cascades" ||
+                     key == "shadow_filter" || key == "shadow_light_size" ||
+                     key == "terrain_lod") {
+                if (key == "shadow_distance") settingsPanel_.pendingShadowDistance = std::clamp(std::stof(val), 40.0f, 500.0f);
+                else if (key == "shadow_cascades") settingsPanel_.pendingShadowCascades = std::clamp(std::stoi(val), 0, 3);
+                else if (key == "shadow_filter") settingsPanel_.pendingShadowFilter = std::clamp(std::stoi(val), 0, 2);
+                else if (key == "shadow_light_size") settingsPanel_.pendingShadowLightSize = std::clamp(std::stof(val), 0.5f, 5.0f);
+                else settingsPanel_.pendingTerrainLod = std::clamp(std::stoi(val), 0, 3);
+            }
             else if (key == "view_distance") settingsPanel_.pendingViewDistance = std::clamp(std::stof(val), 400.0f, 2400.0f);
             else if (key == "fog_sky_blend") settingsPanel_.pendingFogSkyBlend = std::clamp(std::stof(val), 0.0f, 1.0f);
             else if (key == "fog_strength") settingsPanel_.pendingFogStrength = std::clamp(std::stof(val), 0.0f, 2.0f);

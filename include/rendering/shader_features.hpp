@@ -49,12 +49,11 @@ enum class ShaderFeatureBit : uint32_t {
 /// They start at 16 so the boolean bits have room to grow to sixteen without
 /// renumbering anything a shader has already been compiled against.
 enum class ShaderFeatureConstant : uint32_t {
-    /// RESERVED(phase-01b, L1-csm): 1..4; 1 is the single map the client always
-    /// drew, and no shader reads this yet. Here so the ids are settled and this
-    /// enum is written once rather than renumbered when cascades land.
+    /// 1..4 cascades. 1 is the single map the client always drew, and at 1 the
+    /// cascaded path is folded out of the module entirely.
     ShadowCascades = 16,
-    /// RESERVED(phase-01b, L2-soft-shadows): 0 = 3x3 PCF, 1 = Poisson 16,
-    /// 2 = PCSS. As above.
+    /// 0 = 3x3 PCF, 1 = rotated Poisson 16, 2 = PCSS near and Poisson far.
+    /// Read only on the cascaded path.
     ShadowFilter = 17,
     FogModel = 18,        ///< 0 = linear start/end, 1 = exponential height fog
 };

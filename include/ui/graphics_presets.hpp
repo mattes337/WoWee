@@ -70,6 +70,17 @@ struct GraphicsPresetValues {
     /// is still worth having - it is what makes turning the model off read as
     /// Custom rather than as the preset it no longer is.
     int   fogModel;
+    /// The chosen index, not the count: 0 is one cascade. Low draws one, which
+    /// is the single map the client always had and one depth pass over the
+    /// world; Ultra draws four.
+    int   shadowCascades;
+    /// 0 = 3x3 PCF, 1 = rotated Poisson 16, 2 = PCSS. Low keeps the four taps
+    /// it always took.
+    int   shadowFilter;
+    /// 0 = Off, 3 = Far. Low reduces the soonest, because it is the preset
+    /// that needs the triangles back; Ultra still reduces, because a chunk two
+    /// thousand yards out is a handful of pixels at any quality.
+    int   terrainLod;
 };
 
 // Note the shadows column: every preset leaves them on.
@@ -85,10 +96,10 @@ struct GraphicsPresetValues {
 // only softened the resolve. It stays in the panel for anyone who wants it,
 // which mostly means anyone running without MSAA.
 constexpr GraphicsPresetValues kGraphicsPresets[] = {
-    /* Low    */ { .viewDistance = 600.0f, .shadows = true,  .shadowDistance = 100.0f, .antiAliasing = 0, .fxaa = false, .normalMapping = false, .normalMapStrength = 0.6f, .parallax = false, .parallaxQuality = 0,  .groundClutter = 25,  .grass = false, .grassDensity = 70, .grassHeight = 50, .grassDistance = 215, .fogModel = 1},
-    /* Medium */ {.viewDistance = 1000.0f, .shadows = true,  .shadowDistance = 200.0f, .antiAliasing = 1, .fxaa = false, .normalMapping = true,  .normalMapStrength = 0.6f, .parallax = true,  .parallaxQuality = 0,  .groundClutter = 60,  .grass = false, .grassDensity = 70, .grassHeight = 50, .grassDistance = 215, .fogModel = 1},
-    /* High   */ {.viewDistance = 1600.0f, .shadows = true,  .shadowDistance = 350.0f, .antiAliasing = 2, .fxaa = false, .normalMapping = true,  .normalMapStrength = 0.8f, .parallax = true,  .parallaxQuality = 1, .groundClutter = 100, .grass = false, .grassDensity = 70, .grassHeight = 50, .grassDistance = 215, .fogModel = 1},
-    /* Ultra  */ {.viewDistance = 2400.0f, .shadows = true,  .shadowDistance = 500.0f, .antiAliasing = 3, .fxaa = false, .normalMapping = true,  .normalMapStrength = 1.2f, .parallax = true,  .parallaxQuality = 2, .groundClutter = 150, .grass = true,  .grassDensity = 70, .grassHeight = 50, .grassDistance = 215, .fogModel = 1},
+    /* Low    */ { .viewDistance = 600.0f, .shadows = true,  .shadowDistance = 100.0f, .antiAliasing = 0, .fxaa = false, .normalMapping = false, .normalMapStrength = 0.6f, .parallax = false, .parallaxQuality = 0,  .groundClutter = 25,  .grass = false, .grassDensity = 70, .grassHeight = 50, .grassDistance = 215, .fogModel = 1, .shadowCascades = 0, .shadowFilter = 0, .terrainLod = 3},
+    /* Medium */ {.viewDistance = 1000.0f, .shadows = true,  .shadowDistance = 200.0f, .antiAliasing = 1, .fxaa = false, .normalMapping = true,  .normalMapStrength = 0.6f, .parallax = true,  .parallaxQuality = 0,  .groundClutter = 60,  .grass = false, .grassDensity = 70, .grassHeight = 50, .grassDistance = 215, .fogModel = 1, .shadowCascades = 1, .shadowFilter = 1, .terrainLod = 2},
+    /* High   */ {.viewDistance = 1600.0f, .shadows = true,  .shadowDistance = 350.0f, .antiAliasing = 2, .fxaa = false, .normalMapping = true,  .normalMapStrength = 0.8f, .parallax = true,  .parallaxQuality = 1, .groundClutter = 100, .grass = false, .grassDensity = 70, .grassHeight = 50, .grassDistance = 215, .fogModel = 1, .shadowCascades = 2, .shadowFilter = 2, .terrainLod = 2},
+    /* Ultra  */ {.viewDistance = 2400.0f, .shadows = true,  .shadowDistance = 500.0f, .antiAliasing = 3, .fxaa = false, .normalMapping = true,  .normalMapStrength = 1.2f, .parallax = true,  .parallaxQuality = 2, .groundClutter = 150, .grass = true,  .grassDensity = 70, .grassHeight = 50, .grassDistance = 215, .fogModel = 1, .shadowCascades = 3, .shadowFilter = 2, .terrainLod = 1},
 };
 
 /// The number of presets, not counting Custom - which is not a set of values

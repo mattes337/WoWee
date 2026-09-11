@@ -150,6 +150,19 @@ public:
     [[nodiscard]] bool isFogEnabled() const { return fogEnabled; }
     void setViewDistance(float distance) { maxViewDistance_ = std::clamp(distance, 400.0f, 2400.0f); }
 
+    /// How far the ground is allowed to drop in detail: 0 draws every chunk at
+    /// the 145-vertex mesh the client always drew, 3 lets the furthest ones
+    /// fall to nine.
+    ///
+    /// A chunk's level is decided per frame from its distance, so nothing is
+    /// re-uploaded when this changes - the shared index sets are all resident
+    /// and the draw picks one. Two chunks that touch can never be more than one
+    /// level apart, because the thresholds are 12, 30 and 60 percent of the
+    /// view distance and the smallest gap between two of them is far wider than
+    /// the 47 yards that separate two neighbours' distances at the worst angle.
+    void setTerrainLodLevel(int level) { terrainLodLevel_ = std::clamp(level, 0, 3); }
+    [[nodiscard]] int getTerrainLodLevel() const { return terrainLodLevel_; }
+
     void setShadowMap(VkDescriptorImageInfo /*depthInfo*/, const glm::mat4& /*lightSpaceMat*/) {}
     void clearShadowMap() {}
 
@@ -242,6 +255,17 @@ private:
     bool frustumCullingEnabled = true;
     bool fogEnabled = true;
     float maxViewDistance_ = 1200.0f;
+    /// 0 = off, which is what the client always did.
+    int terrainLodLevel_ = 0;
+    /// The three reduced index sets, concatenated into one buffer that every
+    /// chunk draws out of. They are chunk-local indices, so the draw shifts
+    /// them with a vertex offset the way the mega buffer already does.
+    VkBuffer lodIB_ = VK_NULL_HANDLE;
+    VmaAllocation lodIBAlloc_ = VK_NULL_HANDLE;
+    uint32_t lodFirstIndex_[4] = {0, 0, 0, 0};
+    uint32_t lodIndexCount_[4] = {0, 0, 0, 0};
+    /// Built on the first frame that asks for a reduced level, and kept.
+    bool ensureLodIndexBuffer();
     int renderedChunks = 0;
     float furthestDrawnSq_ = 0.0f;
     int culledChunks = 0;
@@ -257,7 +281,14 @@ private:
     void* megaIBMapped_ = nullptr;
     uint32_t megaVBUsed_ = 0;  // vertices used
     uint32_t megaIBUsed_ = 0;  // indices used
-    static constexpr uint32_t MEGA_VB_MAX_VERTS   = 1536 * 1024; // ~1.5M verts × 44B ≈ 64MB
+    // ~1.5M verts x 44B ~ 64MB. A chunk is 177 vertices since the LOD skirt
+    // ring was appended to it, not 145, so this holds about 8,800 chunks -
+    // some 34 tiles - rather than 10,800. Past that a chunk binds its own
+    // buffers and draws on its own, which is the fallback that was always
+    // there; the cap is left where it is rather than grown by a fifth, because
+    // it is a flat 64MB allocation on every machine and the tiles beyond it are
+    // the far ones.
+    static constexpr uint32_t MEGA_VB_MAX_VERTS   = 1536 * 1024;
     static constexpr uint32_t MEGA_IB_MAX_INDICES  = 6 * 1024 * 1024; // 6M indices × 4B = 24MB
 
     VkBuffer indirectBuffer_ = VK_NULL_HANDLE;

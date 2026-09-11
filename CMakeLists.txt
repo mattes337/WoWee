@@ -1838,6 +1838,64 @@ if(WOWEE_BUILD_FRAMEXML_RUN)
     endif()
 endif()
 
+# ---- Tool: capture_scene (one frame of the client, as a PNG) ----
+#
+# A rendering change that is only visible in a picture cannot be reviewed by
+# reading its diff. This target renders a named camera in a named zone at a
+# named time of day, with any client setting moved by --setting, so a before
+# and an after are the same frame with one thing different -
+# howtos/capture-scene-screenshots.md and tools/compare_scenes.py.
+#
+# Built from the client's own sources minus its main, exactly as framexml_run
+# is and for the same reason: this is the client drawing the frame, so an
+# answer that differs from wowee's would be wrong by construction. It is off by
+# default because it compiles those sources a second time, which is a cost only
+# worth paying on the machine asking the question.
+#
+#     cmake -S . -B build -DWOWEE_BUILD_CAPTURE_SCENE=ON
+#     cmake --build build --target capture_scene
+option(WOWEE_BUILD_CAPTURE_SCENE
+       "Build the scene capture tool (tools/capture_scene)" OFF)
+if(WOWEE_BUILD_CAPTURE_SCENE)
+    set(WOWEE_CAPTURE_SOURCES ${WOWEE_SOURCES})
+    list(REMOVE_ITEM WOWEE_CAPTURE_SOURCES src/main.cpp)
+    add_executable(capture_scene
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_scene/main.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_scene/scene_capture.cpp
+        ${WOWEE_CAPTURE_SOURCES}
+        ${WOWEE_PLATFORM_SOURCES}
+        ${WOWEE_MACOS_SOURCES}
+    )
+    # Copied off wowee rather than written out again - see the same four
+    # get_target_property calls above framexml_run for why all four are needed.
+    get_target_property(_capture_libs wowee LINK_LIBRARIES)
+    get_target_property(_capture_incs wowee INCLUDE_DIRECTORIES)
+    get_target_property(_capture_defs wowee COMPILE_DEFINITIONS)
+    get_target_property(_capture_libdirs wowee LINK_DIRECTORIES)
+    if(_capture_libs)
+        target_link_libraries(capture_scene PRIVATE ${_capture_libs})
+    endif()
+    if(_capture_libdirs)
+        target_link_directories(capture_scene PRIVATE ${_capture_libdirs})
+    endif()
+    if(_capture_incs)
+        target_include_directories(capture_scene PRIVATE ${_capture_incs})
+    endif()
+    if(_capture_defs)
+        target_compile_definitions(capture_scene PRIVATE ${_capture_defs})
+    endif()
+    target_include_directories(capture_scene SYSTEM PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/vk-bootstrap/src)
+    add_dependencies(capture_scene wowee_version)
+    if(TARGET opcodes-generate)
+        add_dependencies(capture_scene opcodes-generate)
+    endif()
+    set_target_properties(capture_scene PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+endif()
+
 # ---- Tool: asset_extract (MPQ → loose files) ----
 if(STORMLIB_LIBRARY AND STORMLIB_INCLUDE_DIR)
     add_executable(asset_extract

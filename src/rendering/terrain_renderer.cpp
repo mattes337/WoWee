@@ -1,6 +1,8 @@
 #include "rendering/terrain_vertex.hpp"
 #include "rendering/shadow_params.hpp"
 #include "rendering/terrain_renderer.hpp"
+
+#include <cmath>
 #include "rendering/vk_context.hpp"
 #include "rendering/vk_texture.hpp"
 #include "rendering/vk_buffer.hpp"
@@ -349,6 +351,11 @@ void TerrainRenderer::shutdown() {
     // Destroy mega buffers and indirect draw buffer
     if (megaVB_) { vmaDestroyBuffer(allocator, megaVB_, megaVBAlloc_); megaVB_ = VK_NULL_HANDLE; megaVBAlloc_ = VK_NULL_HANDLE; megaVBMapped_ = nullptr; }
     if (megaIB_) { vmaDestroyBuffer(allocator, megaIB_, megaIBAlloc_); megaIB_ = VK_NULL_HANDLE; megaIBAlloc_ = VK_NULL_HANDLE; megaIBMapped_ = nullptr; }
+    if (lodIB_) {
+        vmaDestroyBuffer(allocator, lodIB_, lodIBAlloc_);
+        lodIB_ = VK_NULL_HANDLE;
+        lodIBAlloc_ = VK_NULL_HANDLE;
+    }
     if (indirectBuffer_) { vmaDestroyBuffer(allocator, indirectBuffer_, indirectAlloc_); indirectBuffer_ = VK_NULL_HANDLE; indirectAlloc_ = VK_NULL_HANDLE; }
     megaVBUsed_ = 0;
     megaIBUsed_ = 0;
@@ -554,6 +561,39 @@ bool TerrainRenderer::createChunkParamsUBO(TerrainChunkGPU& gpuChunk) {
     if (mapInfo.pMappedData) {
         std::memcpy(mapInfo.pMappedData, &params, sizeof(params));
     }
+    return true;
+}
+
+// The three reduced index sets, uploaded once into one buffer.
+//
+// Built lazily rather than at initialise, because a session at LOD off never
+// needs it and the client has always started with terrain LOD off. Nothing
+// frees it afterwards: it is 12 KB and it will be wanted again the moment the
+// setting moves back.
+bool TerrainRenderer::ensureLodIndexBuffer() {
+    if (lodIB_ != VK_NULL_HANDLE) return true;
+    if (!vkCtx) return false;
+
+    std::vector<pipeline::TerrainIndex> all;
+    for (int level = 1; level < pipeline::kTerrainLodLevels; ++level) {
+        const auto& set = pipeline::terrainLodIndices(level);
+        lodFirstIndex_[level] = static_cast<uint32_t>(all.size());
+        lodIndexCount_[level] = static_cast<uint32_t>(set.indices.size());
+        all.insert(all.end(), set.indices.begin(), set.indices.end());
+    }
+    if (all.empty()) return false;
+
+    AllocatedBuffer ib = uploadBuffer(*vkCtx, all.data(),
+                                      all.size() * sizeof(pipeline::TerrainIndex),
+                                      VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    if (!ib.buffer) {
+        LOG_ERROR("Terrain LOD index buffer could not be uploaded");
+        return false;
+    }
+    lodIB_ = ib.buffer;
+    lodIBAlloc_ = ib.allocation;
+    LOG_INFO("Terrain LOD index sets uploaded: ", lodIndexCount_[1] / 3, ", ",
+             lodIndexCount_[2] / 3, ", ", lodIndexCount_[3] / 3, " triangles");
     return true;
 }
 
@@ -870,6 +910,14 @@ void TerrainRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, c
         megaBuffersBound = true;
     }
 
+    // The reduced index sets, if anything is going to ask for one this frame.
+    // Which index buffer is bound is tracked rather than rebound per chunk: at
+    // a full view distance most of the chunks in the loop are at the same
+    // level as the one before them.
+    const int lodMax = terrainLodLevel_;
+    const bool lodReady = (lodMax > 0) && ensureLodIndexBuffer();
+    int boundLod = 0;  // 0 means the chunk's own or the mega index buffer
+
     for (const auto& chunk : chunks) {
         if (!chunk.isValid() || !chunk.materialSet) continue;
 
@@ -888,6 +936,42 @@ void TerrainRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, c
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
                                  1, 1, &chunk.materialSet, 0, nullptr);
+
+        // How much of this chunk to draw. A reduced level takes its indices out
+        // of the shared buffer and its vertices out of wherever this chunk's
+        // are, which is what the vertex offset in the draw is for.
+        const int lod = lodReady
+            ? pipeline::terrainLodForDistance(std::sqrt(distSq), maxViewDistance_, lodMax)
+            : 0;
+        if (lod > 0) {
+            if (useMegaBuffers && chunk.megaBaseVertex >= 0) {
+                if (!megaBuffersBound) {
+                    VkDeviceSize megaOffset = 0;
+                    vkCmdBindVertexBuffers(cmd, 0, 1, &megaVB_, &megaOffset);
+                    megaBuffersBound = true;
+                }
+            } else {
+                VkDeviceSize offset = 0;
+                vkCmdBindVertexBuffers(cmd, 0, 1, &chunk.vertexBuffer, &offset);
+                megaBuffersBound = false;
+            }
+            if (boundLod == 0) {
+                vkCmdBindIndexBuffer(cmd, lodIB_, 0, VK_INDEX_TYPE_UINT32);
+                boundLod = lod;
+            }
+            const int32_t baseVertex =
+                (useMegaBuffers && chunk.megaBaseVertex >= 0) ? chunk.megaBaseVertex : 0;
+            vkCmdDrawIndexed(cmd, lodIndexCount_[lod], 1, lodFirstIndex_[lod], baseVertex, 0);
+            renderedChunks++;
+            if (distSq > furthestDrawnSq_) furthestDrawnSq_ = distSq;
+            continue;
+        }
+        if (boundLod != 0) {
+            // Back to full detail: whichever buffer the branches below want has
+            // to be bound again, because the shared one is bound now.
+            megaBuffersBound = false;
+            boundLod = 0;
+        }
 
         if (useMegaBuffers && chunk.megaBaseVertex >= 0) {
             // Rebound if a fallback chunk bound its own buffers since. The mega

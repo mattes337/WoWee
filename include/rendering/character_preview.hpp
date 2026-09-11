@@ -143,6 +143,11 @@ private:
     // Dummy 1x1 depth texture for shadow map placeholder (sampler2DShadow compatible)
     VkImage dummyShadowImage_ = VK_NULL_HANDLE;
     VkImageView dummyShadowView_ = VK_NULL_HANDLE;
+    /// The same 1x1 image as a one-layer array, for the cascade bindings the
+    /// renderer's per-frame layout now declares. Nothing here reads them - the
+    /// preview draws at one cascade - but a set allocated from that layout has
+    /// to fill every binding its shaders could statically reach.
+    VkImageView dummyShadowArrayView_ = VK_NULL_HANDLE;
     VmaAllocation dummyShadowAlloc_ = VK_NULL_HANDLE;
 
     // ImGui texture handle for displaying the preview (VkDescriptorSet in Vulkan backend)

@@ -338,9 +338,9 @@ TEST_CASE("every panel the client offers still has settings on it", "[settings][
     std::set<std::string> present;
     for (const auto& d : schema()) present.insert(d.category);
 
-    for (const char* category : {"Graphics", "Detail", "Grass", "Upscaling", "Display",
-                                 "Camera", "Interface", "Minimap", "Action Bars", "HUD",
-                                 "Combat", "Names", "Combat Text", "Unit Frames",
+    for (const char* category : {"Graphics", "Shadows", "Detail", "Grass", "Upscaling",
+                                 "Display", "Camera", "Interface", "Minimap", "Action Bars",
+                                 "HUD", "Combat", "Names", "Combat Text", "Unit Frames",
                                  "Sound", "Sound Effects", "Chat", "Gameplay"}) {
         INFO("no setting names the category " << category
              << " any more, so that panel is empty or gone");
@@ -356,6 +356,11 @@ TEST_CASE("every panel the client offers still has settings on it", "[settings][
     // to carry moved here: Graphics was already using most of its two
     // columns, so the ones describing how much of the world is drawn went to
     // a Detail page of their own.
-    INFO("the schema names " << present.size() << " categories where eighteen are expected");
-    CHECK(present.size() == 18);
+    // Nineteen since the five shadow rows - the switch, the distance, the
+    // cascade count, the edge filter and the sun's width - went to a Shadows
+    // page of their own. They were on Graphics, and Graphics was already using
+    // most of its two columns: the layout test caught the last two of them
+    // landing past the bottom of the second one.
+    INFO("the schema names " << present.size() << " categories where nineteen are expected");
+    CHECK(present.size() == 19);
 }

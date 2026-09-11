@@ -4,48 +4,51 @@ What was measured, what was not, and why.
 
 Phase file: [`../../modern-rendering/01-shadows-fog-distance-surfaces.md`](../../modern-rendering/01-shadows-fog-distance-surfaces.md).
 
+This file was written in two passes. The first shipped the consolidation and
+height fog and cut everything that could only be checked in a picture, because
+`tools/capture_scene` — which §7.5 of the plan describes as already existing —
+was not in the tree. The second pass, this one, wrote that tool and shipped the
+shadow and terrain work behind it. The parts of the first pass that are still
+true are kept below rather than rewritten.
+
 ---
 
-## The blocker, first, because it decided the scope
-
-**`tools/capture_scene` does not exist in this repository, and neither does
-`howtos/`.**
+## The tool §7.5 says already exists
 
 `docs/plan-modern-rendering.md` §7.5 opens with "`tools/capture_scene`
 (`howtos/capture-scene-screenshots.md`) already renders a scene headless from a
 map, a camera, a time of day, weather, and an optional character with
-equipment, and writes a PNG plus an entity manifest." That is the premise the
-phase's entire Verify list rests on, and it is not true of this tree:
+equipment, and writes a PNG plus an entity manifest."
 
-```
-$ ls tools/ | grep capture      # nothing
-$ ls howtos/                    # no such directory
-$ grep -rl capture_scene --include='*.txt' --include='*.md' .
-docs/modern-rendering/01-shadows-fog-distance-surfaces.md
-docs/modern-rendering/02-comparison-mode.md
-docs/plan-modern-rendering.md
-```
+What was actually in the tree, when the files were finally found and copied in,
+was a header (`include/tools/scene_capture.hpp`), a 491-line command-line
+parser (`tools/capture_scene/main.cpp`) and a howto describing a Docker
+workflow — **and no implementation of `SceneCapture` at all**. It had never
+been in `CMakeLists.txt`, so nothing had ever noticed. The class the header
+declares, the `Impl` behind it, the Vulkan setup, the world load, the camera
+placement and the readback did not exist.
 
-The only screenshot machinery that exists is `Renderer::captureScreenshot`
-(`src/rendering/renderer.cpp`), which writes the current swapchain to a
-PNG — no scene setup, no camera placement, no time of day, no headless entry
-point, no way to run without logging into a server.
+So it was written: `tools/capture_scene/scene_capture.cpp`, plus the CMake
+target, `--setting`, `--wireframe`, `tools/compare_scenes.py`, and a rewrite of
+the howto to describe the tool that now exists rather than the one that was
+described.
 
-So there was no way to render *any* before/after picture in this session, and
-therefore no way to check "off is pixel-identical", no compare v0, no
-per-technique side-by-sides, no fog ΔE calibration against a rendered horizon,
-no frame time, no load time and no VRAM figure. Building the harness is a phase
-of its own; it is phase 02's subject, and phase 02 is written as if the v0 in
-phase 01 already existed.
+**Three things it does not do, against §7.5's description of it:**
 
-**What was done instead.** The techniques whose correctness is only visible in
-a picture were cut rather than shipped unseen (see *Cut*, below), and the
-"off is today's frame" promise — which is the load-bearing one, because
-everything after this phase leans on it — was measured a different way, at the
-SPIR-V level, where it can be measured without a GPU. See *Off-path identity*.
+- **It is not headless.** It opens a window. A Vulkan swapchain needs a
+  surface, the renderer's whole frame is built around one, and
+  `Renderer::captureScreenshot` reads back the swapchain image that was just
+  presented. An off-screen colour target would have been a second path through
+  every pass — a second thing to be wrong, and the picture would then be of
+  that path rather than of the one that ships.
+- **`--width` and `--height` are ignored.** The window opens at 1280x720 and
+  the shot is of the swapchain, so both halves of a pair are the same size,
+  which is what a comparison needs.
+- **There is no entity manifest.** The `.json` half is not implemented.
 
-**For phase 02.** Correct §7.5 before building on it, and treat "the harness
-exists" as the first thing to check rather than the first thing to assume.
+**For phase 02.** Correct §7.5 rather than building on it, and note that the
+part of the description that is now true — a camera, a map, a time of day and
+a PNG — is true because it was written here, not because it was found.
 
 ---
 
@@ -54,31 +57,198 @@ exists" as the first thing to check rather than the first thing to assume.
 | Step | What | Verified by |
 |---|---|---|
 | 1 | F1 specialization constants: `ShaderFeatures`, `ShaderSpecialization`, `PipelineBuilder::setSpecialization`, the four lit renderers building their variant | builds; off-path identity |
-| 1 | `tools/shader_feature_check.py` — the GLSL and C++ halves of the feature set agree about every id, type and default | `shader_features_agree` test; canaried before it was pinned |
+| 1 | `tools/shader_feature_check.py` — the GLSL and C++ halves of the feature set agree about every id, type and default | `shader_features_agree` test |
 | 2 | F5 `RenderCaps` on `VkContext`, tier + per-feature flags, `applyRenderCapsToSchema` filling `SettingDesc::unavailable`, `tools/reserved_code_check.py` | `reserved_code` test; `sweep_guard` |
 | 3 | Shader includes: `shader_features.glsl`, `shadow_common.glsl`, `fog.glsl`, `parallax.glsl`, `lit_common.glsl`; the four lit shaders drop their copies | off-path identity, exactly |
 | 4 | One UBO append: `cascadeMatrix[4]`, `shadowSplits`, `shadowMeta`, `fogHeight`, `fogSunColor`, `skySH[7]` | off-path identity |
 | 5 | `shader_offpath_identity` — the test itself | it caught a real regression; see below |
+| 6 | **L1 cascaded shadows.** Four-layer `2D_ARRAY` depth, per-cascade framebuffers, practical split at λ 0.7, per-cascade bounding-sphere fit with the existing texel snapping applied per cascade, per-cascade caster culling, cascade select and blend band in `shadow_common.glsl` | off-path identity at one cascade; the pictures below |
+| 6 | **The shadows-off switch.** `setShadowsEnabled` stores again; count 0 clears and transitions the map once and then skips the pass, with `shadowParams.x = 0` | the run below |
+| 7 | **L2 filters.** `SPEC_SHADOW_FILTER` 0 = the 3x3 PCF that shipped, 1 = rotated Poisson 16 with interleaved-gradient noise, 2 = PCSS with a 16-tap blocker search on cascades 0–1 and Poisson beyond | off-path identity; the pictures below |
+| 8 | **Compare v0.** `tools/capture_scene`, `--setting`, `--wireframe`, `tools/compare_scenes.py`, `howtos/capture-scene-screenshots.md` | it produced the pictures below |
 | 9 | A1 exponential height fog with sun in-scatter, calibrated against Light.dbc's own fog end | `test_height_fog` — 11 cases, 110 assertions |
-| 13 | `fogmodel` and `fogaerial` schema rows, a `fogModel` preset column, all seven places | `settings_persist_check`, `dead_setting_check`, `persisted_but_unread_check` |
+| 11 | **G1 terrain LOD.** `terrainLodIndices(level)` — 145/81/25/9 vertices plus a skirt ring, built once and shared by every chunk; LOD select at 0.12/0.3/0.6 of the view distance where the distance culling already runs; a 32-vertex skirt appended to every chunk, dropped by the chunk's own height range | `test_terrain_lod`; the pictures below |
+| 12 | Lengyel's tangent routine out of `character_renderer.cpp` and into `include/rendering/tangent_frame.hpp`, pure and tested | `test_tangent_frame` |
+| 13 | `shadows`, `shadowcascades`, `shadowfilter`, `shadowlightsize`, `terrainlod` schema rows, preset columns, field bindings, side effects, save and load — the same seven places `fogmodel` went through | `settings_persist_check`, `dead_setting_check`, `settings_without_a_control`, `persisted_but_unread_check` |
 
-## Cut
+## Not shipped
+
+| Cut | Why |
+|---|---|
+| **S4 sun shafts** (step 10) | Ran out of session. Third in the phase file's own cut order, and nothing else depends on it |
+| **M3a normal maps for doodads and terrain** (step 12), beyond the tangent routine | The `NormalMapCache`, the `vec4 tangent` attribute on the M2 and terrain GPU vertices, the normal/height bindings in `m2.frag` and `terrain.frag`, and the `normalmapscope` row. This is the largest single item in the phase — a vertex-format change that ripples through the M2 GPU culling path and the bone skinning, plus an on-disk cache with a thread pool behind it — and it was not started. The phase file's cut order says to keep M2 and drop terrain; neither was reached |
+| **Geomorph** (step 11's last clause) | First in the cut order, as written. Skirts alone |
 
 The phase file's cut order is *geomorph → PCSS → sun shafts → terrain normal
-maps*. This session cut further than that, and the reason for every one of them
-is the same: **there is no way in this tree to look at the result.**
+maps (keep M2)*. PCSS shipped and sun shafts did not, so this is not that order
+followed exactly: PCSS is a hundred lines inside a shader that was being
+written anyway, and the shafts are a render-graph node, a half-resolution
+target and two new shaders. What was cut is what was largest, not what was next.
 
-| Cut | Where it went | Why |
+---
+
+## The device loss, and where it actually was
+
+The second pass at this phase ended with the branch losing the GPU three
+seconds into the world, every run. `VK_EXT_device_fault` said the same two
+things each time:
+
+```
+[ERROR] endFrame[163] vkQueueSubmit FAILED: -4
+[ERROR] Device lost - first seen by endFrame vkQueueSubmit
+[ERROR]   fault 0: instruction pointer fault at 0x20001e8e0 (within 0x10)
+[ERROR]   fault 1: invalid read at 0x14978000 (within 0x1000)
+```
+
+It was not the cascades, not the filters, not the terrain LOD, not the height
+fog, and not this branch. It was the capture tool.
+
+**Root cause.** `Renderer::endFrame` replays `ImGui::GetDrawData()`
+unconditionally, and `GetDrawData` answers the last draw data that was *built*.
+The client opens an ImGui frame every frame, so the draw data it replays is
+always this frame's. `capture_scene` never opened one: its `drawFrame` was
+`beginFrame` / `renderWorld` / `endFrame` and nothing else. So every captured
+frame re-submitted the draw data left over from the last frame the world
+loader's loading screen drew - a full-screen `AddImage` of a texture belonging
+to a `rendering::LoadingScreen` that lives on `WorldLoader::loadOnlineWorldTerrain`'s
+own stack and is destroyed the moment that function returns. Sampling a
+destroyed `VkImageView` is what took the device down, a hundred and sixty
+frames after it became stale.
+
+**How it was found.** Not by reading. The first two runs reported nothing at
+all from the validation layer, and the reason is worth writing down: the Vulkan
+loader on this machine had a registry entry for an SDK version that is no longer
+installed, so it logged
+
+```
+[ERROR] Vulkan: loader_get_json: Failed to open JSON file C:\VulkanSDK\1.4.341.1\Bin\VkLayer_khronos_validation.json
+```
+
+and then ran **without validation** - which reads exactly like a clean run, and
+is almost certainly why the note in `settings_schema.cpp` about the old
+shadows-off device loss said "GPU-assisted validation reports nothing at all
+before it goes". Pointing `VK_LAYER_PATH` at the installed SDK's `Bin` made the
+layer name the fault immediately:
+
+```
+[ERROR] Vulkan: vkCmdDrawIndexed(): the combined image sampler descriptor
+[VkDescriptorSet 0xbd00000000bd, Set 0, Binding 0, Index 0, variable "sTexture"]
+is using imageView VkImageView 0x0 that is invalid or has been destroyed.
+```
+
+`sTexture` is ImGui's own fragment sampler. A temporary trace at the three
+`ImGui_ImplVulkan_AddTexture` call sites named `0xbd00000000bd` as the loading
+screen's background.
+
+**Proof that it is not the branch.** `git worktree add D:\wowee-master-check
+c00ab904e`, the capture tool copied in unchanged, built against master, run
+with the same arguments: the same validation error, the same fault addresses,
+the device lost at frame 152 instead of 163. Master, with no cascades and no
+height fog in it, fails identically.
+
+**The fix.** Two parts.
+
+- `tools/capture_scene/scene_capture.cpp` opens and closes an empty ImGui frame
+  per drawn frame. That is both the fix and what the tool wanted anyway - no
+  interface in the picture.
+- `LoadingScreen::shutdown` and `LoadingScreen::loadImage` hand the ImGui
+  descriptor set back with `removeImGuiTexture` instead of nulling the handle
+  and leaving the set in ImGui's pool still naming an image view they are about
+  to destroy. That was also a leak of one descriptor set per zone load.
+
+**Afterwards**, on the branch, with `VK_LAYER_PATH` set and
+`WOWEE_VULKAN_VALIDATION=1`: the same camera renders and exits with two
+`[ERROR]` lines in the log, both of them FrameXML Lua (`PaperDollFrame.lua:269`
+and `PVPBattlegroundFrame.lua:123`, neither new), and no Vulkan error of any
+kind. The same run on `c00ab904e` produces a **bit-identical** PNG - `numpy`
+max absolute difference 0 over all three channels - which is the phase's
+identity check done on a rendered frame rather than on SPIR-V.
+
+**What this does not excuse.** The note in `settings_schema.cpp` claimed the
+shadows-off device loss was a missing barrier and that the fix was the clearing
+pass. That claim was written without a working validation layer and is not
+supported by anything measured here; the clearing pass is kept because leaving
+an image in a layout its descriptors disagree with is wrong on its own terms,
+but the device loss it was written to explain was this one. The note has been
+rewritten to say so.
+
+---
+
+## The pictures
+
+All rendered by `tools/compare_scenes.py`, which drives `capture_scene` twice
+with one setting moved and writes a heat map between them. Machine: RTX 2070
+SUPER, driver as installed, Vulkan SDK 1.4.357.0, 1920x1032 window.
+
+Two cameras, both in Elwynn near Goldshire, both at 09:00 so the sun is low
+enough for shadows to have length:
+
+| Camera | Position | Target |
 |---|---|---|
-| G1 terrain LOD (step 11), geomorph included | 01b | Skirts need 32 more vertices per chunk and a change to a 145-vertex layout that grass sampling and the hole mask both assume. Cracks between LOD rings are the failure mode, and a crack is a pinhole of void that only a picture shows |
-| M3a normal maps and tangents (step 12) | 01b | Tangent handedness is the failure mode, and a mirrored tangent frame looks like slightly wrong lighting, not like an error |
-| S4 sun shafts (step 10) | 01b | A screen-space effect with no screen to check it on |
-| L1 cascades, L2 filters (steps 6, 7) | 01b | The largest and the one with a device loss in its history. The UBO slots and the `SPEC_SHADOW_CASCADES` / `SPEC_SHADOW_FILTER` constants are in place and marked `RESERVED(phase-01b, L1-csm)`, so the block does not move again |
-| The `shadows` off switch | 01b | `setShadowsEnabled` still holds shadows on. The phase asks to "reproduce the old device loss first to confirm the cause, then confirm the fix on the T0 machine" — neither half is possible here, and re-enabling a control documented to end the session within a second, untested, is worse than leaving it off |
-| Compare v0 (step 8) | 02 | `tools/capture_scene` does not exist |
+| `goldshire-lake` | `-9462,-67,70` | `-9200,-320,50` |
+| `goldshire-road` | `-9462,-67,62` | `-9350,-30,55` |
 
-Consolidation steps 1–5 were never at risk; they are what the rest of the plan
-stands on and they are complete.
+| Technique | Files | Setting | Pixels changed | Mean abs | SSIM |
+|---|---|---|---|---|---|
+| L1 cascades | `goldshire-lake-cascades.*` | `shadowcascades` 0 → 2 (1 → 3 maps) | 35.26 % | 2.031 / 255 | 0.947440 |
+| Shadows off | `goldshire-lake-shadows-off.*` | `shadows` 1 → 0, at 3 cascades | 91.98 % | 11.368 / 255 | 0.790277 |
+| L2 Poisson | `goldshire-road-filter-poisson.*` | `shadowfilter` 0 → 1, at 3 cascades | 4.18 % | 0.197 / 255 | 0.996499 |
+| L2 PCSS | `goldshire-road-filter-pcss.*` | `shadowfilter` 1 → 2, at 3 cascades | 14.55 % | 0.819 / 255 | 0.977045 |
+| G1 terrain LOD | `goldshire-lake-terrainlod.*` | `terrainlod` Off → Balanced | 28.55 % | 1.277 / 255 | 0.972705 |
+| G1, wireframe | `goldshire-lake-terrainlod-wireframe.*` | `terrainlod` Off → Far, `--wireframe` | 33.08 % | 1.913 / 255 | 0.961014 |
+
+The `.diff.png` of each pair is scaled to the largest difference in that frame,
+so a subtle change is a picture rather than a black rectangle; the numbers, not
+the brightness, are the magnitude.
+
+**Against the phase file's own threshold for G1** — "Balanced differs from Off
+by < 0.5 % of pixels" — this **fails**: 28.55 % of pixels differ by more than
+one code value. It is worth being precise about what that means. The mean
+absolute difference over the whole frame is 1.277 of 255, half of one percent
+of range, and the pair is 0.9727 on SSIM; what has happened is that a camera in
+a forest canopy with 8x MSAA moves almost every ground pixel by one or two code
+values when the mesh under it changes, and the phase file's threshold was
+written for an open horizon shot. The threshold is not met and is not restated
+here as met. A `tanaris-dunes` or `westfall-sentinel-hill` camera, which is
+what the phase file actually names, would be the honest test of it and was not
+rendered: those cameras are on maps this session did not load.
+
+
+---
+
+## Five minutes in it, with validation on
+
+`capture_scene --dwell 300` draws the settled frame for five minutes and then
+takes the shot. `VK_LAYER_PATH` pointed at the installed SDK's `Bin`,
+`WOWEE_VULKAN_VALIDATION=1`, `goldshire-lake` at 09:00.
+
+| Configuration | Frames | Mean | Worst | Vulkan errors during the soak |
+|---|---|---|---|---|
+| 3 cascades, Poisson, terrain LOD Balanced | 2738 in 300.03 s | 109.6 ms | 175.6 ms | none |
+| 3 cascades, **shadows off** | 2822 in 300.07 s | 106.3 ms | 416.3 ms | none |
+
+No device loss in either. The frame times are a hundred milliseconds because
+the validation layer is in the way; the numbers in the phase file's Verify
+table are the ones taken without it.
+
+Each run's log carries exactly three `[ERROR]` lines, and the same three both
+times:
+
+- `PaperDollFrame.lua:269` and `PVPBattlegroundFrame.lua:123`, both FrameXML
+  Lua and both present on `c00ab904e`;
+- one `vkQueueSubmit(): pSubmits[0] performs a layout transition on presentable
+  VkImage ... but the image has not been acquired`, emitted **after** the soak
+  ends, by `Renderer::captureScreenshot`. That function reads back the
+  swapchain image that was last presented, which means touching it without
+  re-acquiring it. It is pre-existing, it is unchanged here, it fires once per
+  screenshot and never during rendering, and it is left alone: the fix is to
+  re-acquire and re-present around the readback, which changes the client's
+  screenshot path and belongs with whoever owns that.
+
+**Shadows off is the row the phase file asks about.** Five minutes, no device
+loss, and nothing from the validation layer while frames were being drawn. It
+was measured here rather than by walking Stormwind, because there is no server
+in this tree to walk it with.
 
 ---
 
@@ -87,25 +257,19 @@ stands on and they are complete.
 `tools/shader_offpath_check.py`, run by ctest as `shader_offpath_identity` and
 by `sweep_guard` with a ceiling of zero.
 
-The plan's §6.3 asks for "byte-identical SPIR-V to the pre-feature shader".
-Byte-identical is not achievable once a module declares a specialization
-constant: the constant is still a runtime value inside the module, so the
-branch is there in the binary and the driver folds it at pipeline creation.
-Comparing the bytes would compare the wrong thing.
+This is the load-bearing check of the whole phase, and cascaded shadows are
+what it was written for. The obvious way to add cascades is to change binding 1
+from `sampler2DShadow` to `sampler2DArrayShadow` — and that changes the
+single-cascade SPIR-V too, because the sample instruction takes a different
+coordinate. Then nothing could say the off path was untouched.
 
-What is compared instead is the variant a caller with no `VkSpecializationInfo`
-actually gets:
-
-```
-reference = glslc -O tests/shaders_prephase/<name>          | spirv-opt -O
-current   = glslc -O -I assets/shaders assets/shaders/<name> | spirv-opt \
-              --freeze-spec-const --fold-spec-const-op-composite -O
-```
-
-then the multiset of function-body instructions with result ids erased —
-insensitive to id renumbering and basic-block ordering, which `spirv-opt` does
-routinely, and sensitive to an instruction added, removed or given a different
-literal.
+So binding 1 is left exactly as it was and the cascaded path reads two new
+bindings beside it: 2 for the array through the same comparison sampler, and 3
+for the same array through a plain one, which is the only way a PCSS blocker
+search can read a depth rather than compare against it. With
+`SPEC_SHADOW_CASCADES` frozen at 1, everything that touches those two folds
+away, and what is left is the block the four shaders always carried, moved
+inside an `else` and otherwise character for character.
 
 Result on this tree:
 
@@ -117,56 +281,12 @@ ok   wmo.frag.glsl (731 instructions)
 0 shader(s) whose off-path moved
 ```
 
-That covers, and proves identical: four functions extracted into three
-includes; six members appended to the `PerFrame` block; three boolean
-specialization constants gating the existing `enableNormalMap`, `enablePOM` and
-shadow branches; and the whole height-fog path behind `SPEC_FOG_MODEL`.
+Identical instruction counts to the first pass, which is the statement: the
+cascade select, the Poisson disc, the PCSS blocker search, the blend band and
+the two new samplers cost the default build nothing at all.
 
-It is a real check, not a formality — it failed the moment the height fog went
-in, because `--freeze-spec-const` alone leaves an `OpSpecConstantOp IEqual`
-behind that `-O` will not fold, and the dead branch stayed in the module. That
-is exactly the class of "the off path quietly costs something now" the check
-exists for.
-
-What it does not cover: decorations, the entry-point interface, and debug
-names, all of which live outside the function bodies. A uniform block growing a
-member no branch reads is not a difference, because std140 offsets of the
-members already there do not move — which is the append-only rule.
-
----
-
-## The one thing that was checked on a real GPU
-
-There is no scene harness, but the client itself runs, and running it is what
-proves the specialization path builds pipelines a driver accepts. Built here,
-launched with `WOWEE_LOG_LEVEL=INFO` and left at the login screen for fifty
-seconds on an NVIDIA RTX 2070 SUPER (driver 591.86, Vulkan 1.4.325):
-
-```
-[INFO ] Render capability tier: T2 Modern (descriptorIndexing yes,
-        bufferDeviceAddress yes, drawIndirectCount yes, multiDrawIndirect yes,
-        tessellation yes, fragmentShadingRate yes, meshShader yes,
-        rayQuery yes, shaderFloat16 yes, maxImage2D 32768,
-        maxImageArrayLayers 2048)
-[INFO ] Shader variant: bits 0x7, cascades 1, shadow filter 0, fog model 1
-[INFO ] Lit pipelines rebuilt for the new shader variant
-...
-[INFO ] GPU, last frame: 1.54435ms across 2 passes
-```
-
-Zero `[ERROR]` lines in 396, and no device loss. That is:
-
-- `RenderCaps` filled from a real device, every flag and both limits;
-- the saved `fogmodel=1` reaching `Renderer::setFogModel` through the seven
-  places a setting has to pass through;
-- the deferred rebuild running between frames and the four lit renderers
-  building their pipelines with `SPEC_FOG_MODEL = 1` specialized in — which the
-  driver accepted, since the client kept drawing for the next forty seconds.
-
-What it is **not**: a picture of anything. The login screen draws no terrain,
-no buildings and no doodads, so the fog was specialized into pipelines that
-nothing then asked to shade a world with. The frame numbers above are the
-interface, not a scene, and are not comparable to anything.
+What it compares, and what it does not, is documented at the top of
+`tools/shader_offpath_check.py` and was not changed here.
 
 ---
 
@@ -190,57 +310,9 @@ it — `include/rendering/height_fog.hpp`, pinned by `tests/test_height_fog.cpp`
 - the in-scatter colour is the zone's own `diffuseColor`, unchanged, so no zone
   shifts hue.
 
-The two numerical traps in the closed form are covered: a ray level with what
-it is looking at divides by zero (the limit is taken below a threshold, and the
-test checks both sides of that threshold agree), and a camera far below the
-base height exponentiates to infinity (clamped, and the test stands the camera
-2000 yd under).
-
 **Not measured:** the ΔE against a rendered horizon, on every Light.dbc zone at
-06/12/18. That needs a renderer and a screenshot. The calibration above is the
-model-level statement of the same rule; the picture-level one is owed.
-
----
-
-## Numbers
-
-| Verify item | Result |
-|---|---|
-| `shader_offpath_identity` | **pass** — 0 of 4 shaders moved |
-| `reserved_code` | **pass** — 22 markers, 0 stale, 0 malformed |
-| `shader_features_agree` | **pass** — 6 constants, 0 disagreements |
-| ctest | 194 of 204 pass. 10 fail, every one of them for a reason that predates this branch — see *Pre-existing failures* |
-| `test_height_fog` | **pass** — 110 assertions in 11 cases |
-| `sweep_guard` | fails, with **exactly the nine** sweeps that fail at `HEAD` on this machine, and no others. Run twice, side by side: once from a `git archive` of `HEAD`, once from this branch. The `HEAD` copy has no extracted `Data/interface`, so it *skipped* three sweeps this branch runs — which makes the comparison conservative rather than flattering: the branch runs more checks and still lands on the same nine |
-| Compare v0, all scenes | **not measured** — no `tools/capture_scene` |
-| Per-technique before/after | **not measured** — same |
-| Fog ΔE per zone at 06/12/18 | **not measured** — same |
-| Shadows off, 5 min in Stormwind, T0 | **not measured** — the switch was not shipped |
-| Frame time, three `perf_baseline.md` scenes, T0, Medium | **not measured** — no headless harness and no T0 machine here. Also: `docs/perf_baseline.md` has never been filled in. All three scenarios read `_pending_`, and Tracy is not vendored, so the "must be lower than pre-phase" comparison has no pre-phase number on either side of it |
-| Load time, Stormwind, cold and warm normal-map cache | **not applicable** — the normal-map cache was cut |
-| VRAM before/after | **not measured** |
-
-No number in this file is estimated. Where it says "not measured" nothing was
-measured.
-
-### Cameras, for whoever builds the harness
-
-The phase asks for the Stormwind gate camera plus three or four picked in
-Goldshire, Elwynn and Westfall, recorded here. None of them could be verified
-against terrain, so they are written down as *unverified* rather than as scene
-data: run them through `pywowlib/tools/terrain_height.py` before they go into
-`tools/compare_scenes.json`.
-
-| Name | Map | Camera | Target | Confirmed? |
-|---|---|---|---|---|
-| `stormwind-gate` | Azeroth (0) | `-9462,-67,57` | `-9462,-67,50` | Yes — the one camera the plan calls confirmed |
-| the rest | — | — | — | No — not written down here rather than written down wrong |
-
-Guessing four more coordinates from memory of the world and recording them as
-though they had been checked is exactly the failure mode §7.5 warns about when
-it says every position but the Stormwind gate "is to be verified with
-`pywowlib/tools/terrain_height.py` / `wmo_height.py` before it is committed".
-Nothing here could run that check, so nothing here claims to have.
+06/12/18. `capture_scene` could now render those, but a per-zone sweep is a
+catalogue of cameras this session did not have; it is owed.
 
 ---
 
@@ -253,49 +325,55 @@ does not untrack a file that is already tracked, and both `CMakeLists.txt` and
 absent, and they are what the embedded-shader table is generated from.
 
 This commit carries four of them — `terrain.frag`, `wmo.frag`, `m2.frag` and
-`character.frag` — because those four sources changed. The other fifty-four
-were rebuilt only because the Vulkan SDK on this machine (1.4.357.0) is not the
-one that produced the committed bytes: the disassembly is instruction-for-
-instruction identical and only the ids and the generator word differ. Those
-were restored to `HEAD` rather than committed, because a fifty-four-file binary
-diff that changes nothing is noise in the one place a reviewer cannot read the
-diff.
+`character.frag` — because those four sources changed, and because
+`shadow_common.glsl` and `shader_features.glsl` are included by exactly those
+four and nothing else. The rest were rebuilt only because the Vulkan SDK on
+this machine (1.4.357.0) is not the one that produced the committed bytes;
+those were restored to `HEAD` rather than committed, because a fifty-file
+binary diff that changes nothing is noise in the one place a reviewer cannot
+read the diff.
 
-A build with `glslc` recompiles all of them anyway. A build without it now gets
-four shaders that match their sources and sixty-nine that already did.
+The four that are committed are much larger than they were — the cascaded path,
+both new filters and the two new samplers are in the module, as runtime
+specialization constants that a driver folds at pipeline creation. That growth
+is exactly what the off-path check exists to say costs nothing.
 
 ---
 
-## Pre-existing failures
+## Frame time
 
-These fail on this branch and are not caused by it. Each was read and
-attributed; none is a regression.
+`capture_scene --dwell 60 --setting vsync=0`, same camera, same scene, several
+thousand draws of one frame rather than a walk. RTX 2070 SUPER, 1920x1032.
 
-| Test | Why |
+| Configuration | Mean | Worst |
+|---|---|---|
+| 1 cascade, PCF, terrain LOD off - what the client did before | 12.2865 ms | 17.4591 ms |
+| 2 cascades, Poisson, LOD off | 12.2805 ms | 19.5521 ms |
+| 2 cascades, Poisson, LOD Balanced - preset Medium | 12.6062 ms | 17.2644 ms |
+| 4 cascades, PCSS, LOD Near - preset Ultra's shadow half | 13.0819 ms | 25.9129 ms |
+
+The phase file predicts that terrain LOD pays for cascaded shadows and the
+frame comes out ahead of where it started. It does not, at this camera: Medium
+is 2.6 % slower and the full shadow set is 6.5 % slower. Both differences are
+small for the same reason terrain LOD wins nothing: this frame is bound by
+recording ten thousand terrain chunks and seventy thousand M2 instances, and a
+reduced level draws the same number of chunks with fewer indices in each. The
+prediction is recorded as not met rather than restated.
+
+The first attempt at this measurement read 16.65 ms for every configuration,
+to four significant figures, because vertical sync was on - which is the shape
+a frame-time measurement takes when it is measuring the display. `--setting
+vsync=0` is in every command above.
+
+---
+
+## What was checked, and how
+
+| | |
 |---|---|
-| `shared_rules`, `spline_body`, `m2_structs`, `indoor_shadows`, `catalog_subprocess` | Do not build under MSVC. Four cannot find `vulkan/vulkan.h` — those test targets are not given `Vulkan_INCLUDE_DIR` — and `catalog_subprocess` calls `popen`, which Windows does not have. All four include sites predate this branch |
-| `unicorn_stub_compiles`, `open_formats`, `open_format_emitter`, `cli_paths` | Windows/toolchain, unrelated to rendering |
-| `sweep_guard` | Fails at `HEAD` too, with the same nine: `posix_only_check` (1, ceiling 0), `dead_symbol_check` (51, ceiling 2), `duplicate_block_check` (4, ceiling 0), and `framexml_unreachable_verbs`, `startup_latch_check` and `cvar_default_agreement` reporting no count on a Windows checkout. The four sweeps this phase adds all report clean |
-
-### Three sweeps that were blind on Windows, and are not any more
-
-Not scope, but they were in the way of the statement above, and each is the
-exact failure mode `sweep_guard` exists to catch — a check that cannot run
-reads exactly like a clean tree:
-
-- `chat_line_twice_check.py` and `framexml_contract_check.py` read C++ sources
-  with `path.read_text()` and no encoding. One file in `src/game` is UTF-8, and
-  Windows' default is cp1252, so both raised on it and reported nothing. They
-  read as UTF-8 now.
-- `framexml_frame_emitted_check.py` looked for the emitter at `build/bin/
-  framexml_emit`. A multi-config generator — which is what a Windows build uses
-  — puts it at `build/bin/Release/framexml_emit.exe`, so the check reported
-  that it could not run on every Windows run since it was written. It now looks
-  under the config directories and for the `.exe`. Newly able to run, it reports
-  0 of 2369 named frames missing from the emitter.
-
-The MSVC build also needs `-DWOWEE_WARNINGS_AS_ERRORS=OFF`: `/W4 /WX` turns
-`C4458` (a parameter hiding a member, in `include/game/entity.hpp`) into an
-error in a dozen translation units, none of them touched here. That switch is
-documented in `CMakeLists.txt` for exactly this — "a bisect or a new-compiler
-build".
+| `ctest -C Release` | 195 of 206 pass. The eleven failures are the ones this machine already had before this branch: five "Not Run" targets that need `vulkan.h` on a test that does not link it, `unicorn_stub_compiles`, `open_formats`, `open_format_emitter`, `cli_paths`, and `sweep_guard`. `settings_panel_layout` failed during this session and was fixed here - five new shadow rows had pushed the Graphics panel past the bottom of its second column, so shadows became their own page |
+| `sweep_guard` | Back to the nine sweeps it was already over the ceiling on. Two went over during this work and both are fixed: `unused_member_check` found `TerrainRenderer::lodIBAlloc_` written and never read (it is read, in a one-line destroy where the write follows the read on the same line - the line is now four lines), and `posix_only_check` found a bare `setenv` in the new capture tool, now `core::setEnvVar`. `dead_symbol_check` reports 51 on this branch and 51 on `c00ab904e`, and `duplicate_block_check` 4 pairs on both |
+| `shader_offpath_check.py` | 0 shaders moved |
+| `shader_feature_check.py` | 6 constants, 0 disagreements between the GLSL and C++ halves |
+| `reserved_code_check.py` | 11 markers, 0 for a phase that has shipped, 0 malformed |
+| A rendered frame against `c00ab904e` | Bit-identical at defaults |

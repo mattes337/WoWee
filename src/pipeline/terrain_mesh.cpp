@@ -4,9 +4,109 @@
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
 #include <cmath>
+#include <array>
+#include <utility>
 
 namespace wowee {
 namespace pipeline {
+
+namespace {
+
+/// The 9x9 outer grid's perimeter, walked once clockwise from the corner at
+/// (row 0, column 0). Both the skirt vertices and the skirt triangles are in
+/// this order, so skirt vertex k hangs from ring vertex k and the band between
+/// k and k+1 closes.
+const std::array<std::pair<int, int>, kChunkSkirtVertices>& skirtRing() {
+    static const std::array<std::pair<int, int>, kChunkSkirtVertices> ring = [] {
+        std::array<std::pair<int, int>, kChunkSkirtVertices> r{};
+        int n = 0;
+        for (int c = 0; c <= 8; ++c) r[n++] = {0, c};   // top edge, west to east
+        for (int rw = 1; rw <= 8; ++rw) r[n++] = {rw, 8};  // east edge
+        for (int c = 7; c >= 0; --c) r[n++] = {8, c};   // bottom edge, east to west
+        for (int rw = 7; rw >= 1; --rw) r[n++] = {rw, 0};  // west edge
+        return r;
+    }();
+    return ring;
+}
+
+/// An outer grid vertex, in the 9x17 layout a chunk's vertices are stored in.
+constexpr int outerIndex(int row, int col) { return row * 17 + col; }
+
+TerrainLodIndices buildLodIndices(int level) {
+    TerrainLodIndices out;
+    if (level <= 0) return out;  // level 0 is the chunk's own, holes and all
+
+    // 1, 2 or 4 grid steps between the vertices this level keeps: 81, 25 and 9
+    // of them, which are the 9x9 outer grid at full, half and quarter density.
+    const int step = 1 << (level - 1);
+    const int cells = 8 / step;
+    out.indices.reserve(static_cast<size_t>(cells) * cells * 6 + kChunkSkirtVertices * 6);
+
+    for (int r = 0; r < cells; ++r) {
+        for (int c = 0; c < cells; ++c) {
+            const int r0 = r * step;
+            const int c0 = c * step;
+            const int r1 = r0 + step;
+            const int c1 = c0 + step;
+            const TerrainIndex tl = outerIndex(r0, c0);
+            const TerrainIndex tr = outerIndex(r0, c1);
+            const TerrainIndex bl = outerIndex(r1, c0);
+            const TerrainIndex br = outerIndex(r1, c1);
+            // The same winding the full-detail fan uses, so a reduced chunk is
+            // not the one chunk in the scene facing the other way.
+            out.indices.push_back(tl);
+            out.indices.push_back(bl);
+            out.indices.push_back(tr);
+            out.indices.push_back(tr);
+            out.indices.push_back(bl);
+            out.indices.push_back(br);
+        }
+    }
+    out.surfaceIndexCount = static_cast<uint32_t>(out.indices.size());
+
+    // The skirt: a band from each ring vertex to the one hanging below it.
+    // Every ring vertex, at every level - the ring is what the neighbour sees,
+    // and a skirt that skipped the vertices this level dropped would leave the
+    // gap it exists to close.
+    const auto& ring = skirtRing();
+    for (int k = 0; k < kChunkSkirtVertices; ++k) {
+        const int next = (k + 1) % kChunkSkirtVertices;
+        const TerrainIndex top = outerIndex(ring[k].first, ring[k].second);
+        const TerrainIndex topNext = outerIndex(ring[next].first, ring[next].second);
+        const TerrainIndex bottom = static_cast<TerrainIndex>(kChunkGridVertices + k);
+        const TerrainIndex bottomNext = static_cast<TerrainIndex>(kChunkGridVertices + next);
+        out.indices.push_back(top);
+        out.indices.push_back(bottom);
+        out.indices.push_back(topNext);
+        out.indices.push_back(topNext);
+        out.indices.push_back(bottom);
+        out.indices.push_back(bottomNext);
+    }
+    return out;
+}
+
+}  // namespace
+
+const TerrainLodIndices& terrainLodIndices(int level) {
+    static const std::array<TerrainLodIndices, kTerrainLodLevels> sets = [] {
+        std::array<TerrainLodIndices, kTerrainLodLevels> s{};
+        for (int i = 0; i < kTerrainLodLevels; ++i) s[i] = buildLodIndices(i);
+        return s;
+    }();
+    if (level < 0) level = 0;
+    if (level >= kTerrainLodLevels) level = kTerrainLodLevels - 1;
+    return sets[level];
+}
+
+int terrainLodForDistance(float distance, float viewDistance, int maxLevel) {
+    if (maxLevel <= 0 || viewDistance <= 1.0f) return 0;
+    const float t = distance / viewDistance;
+    int level = 0;
+    if (t > 0.6f) level = 3;
+    else if (t > 0.3f) level = 2;
+    else if (t > 0.12f) level = 1;
+    return level < maxLevel ? level : maxLevel;
+}
 
 TerrainMesh TerrainMeshGenerator::generate(const ADTTerrain& terrain) {
     TerrainMesh mesh;
@@ -228,6 +328,32 @@ std::vector<TerrainVertex> TerrainMeshGenerator::generateVertices(const MapChunk
         vertex.layerUV[1] = (offsetY * alphaStep + 0.5f) / alphaTexels;
 
         vertices.push_back(vertex);
+    }
+
+    // The skirt: one vertex hanging below each of the 32 outer-ring vertices.
+    //
+    // Appended to every chunk whether or not anything indexes it, because the
+    // level a chunk draws at is decided per frame at the camera's distance and
+    // the vertex buffer is uploaded once. Thirty-two vertices on a hundred and
+    // forty-five is a fifth more terrain memory; regenerating a chunk's mesh
+    // when it changed level would be a stall in the middle of walking.
+    //
+    // How far down: the chunk's own height range plus two yards. The error a
+    // reduced level can introduce is bounded by how much the ground moves
+    // inside the chunk, so a skirt that long always reaches past whatever the
+    // neighbour drew, and one much longer than that is a wall of stretched
+    // texture visible at the horizon.
+    float minZ = vertices.empty() ? 0.0f : vertices[0].position[2];
+    float maxZ = minZ;
+    for (const auto& v : vertices) {
+        minZ = std::min(minZ, v.position[2]);
+        maxZ = std::max(maxZ, v.position[2]);
+    }
+    const float skirtDrop = (maxZ - minZ) + 2.0f;
+    for (const auto& rc : skirtRing()) {
+        TerrainVertex skirt = vertices[static_cast<size_t>(outerIndex(rc.first, rc.second))];
+        skirt.position[2] -= skirtDrop;
+        vertices.push_back(skirt);
     }
 
     return vertices;

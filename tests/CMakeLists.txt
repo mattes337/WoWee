@@ -1087,6 +1087,26 @@ wowee_add_test(test_frustum
     SOURCES test_frustum.cpp
             ${CMAKE_SOURCE_DIR}/src/rendering/frustum.cpp)
 
+# ── test_tangent_frame ──────────────────────────────────────────
+# Lengyel's tangent basis, lifted out of CharacterRenderer where it needed a
+# Vulkan device to reach and so had never been checked. The handedness on a
+# mirrored UV shell and the NaN a degenerate triangle used to be one normalize
+# away from are the two things here worth pinning. Header-only; instant.
+wowee_add_test(test_tangent_frame
+    SOURCES test_tangent_frame.cpp)
+
+# ── test_terrain_lod ────────────────────────────────────────────
+# The reduced terrain index sets and the skirt that keeps them from cracking
+# open against a neighbour at a different level. Every property here is a pure
+# function of the level - no GPU, no ADT, no camera - which is the whole reason
+# buildLodIndices was written outside the renderer.
+wowee_add_test(test_terrain_lod
+    SOURCES test_terrain_lod.cpp
+            ${CMAKE_SOURCE_DIR}/src/pipeline/terrain_mesh.cpp
+            ${CMAKE_SOURCE_DIR}/src/pipeline/adt_loader.cpp
+            ${CMAKE_SOURCE_DIR}/src/pipeline/adt_alpha.cpp
+            ${CMAKE_SOURCE_DIR}/src/core/logger.cpp)
+
 # ── test_height_fog ─────────────────────────────────────────────
 # The exponential height fog is calibrated against the linear ramp it replaces,
 # because every zone in the game was authored against that ramp: the distance

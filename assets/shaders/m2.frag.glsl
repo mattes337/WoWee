@@ -17,11 +17,11 @@ layout(set = 0, binding = 0) uniform PerFrame {
     vec4 localLightColorIntensity[64];
     ivec4 localLightMeta;
     // ---- appended in phase 01, all at once. See vk_frame_data.hpp. ----
-    // RESERVED(phase-01b, L1-csm): cascade slots, filled when cascaded shadows
-    // land. cascadeMatrix[0] mirrors lightSpaceMatrix; nothing reads the rest.
+    // The cascade set. cascadeMatrix[0] mirrors lightSpaceMatrix, so the two
+    // shadow paths agree about the nearest cascade.
     mat4 cascadeMatrix[4];
-    vec4 shadowSplits;
-    ivec4 shadowMeta;
+    vec4 shadowSplits;   // distance from the camera each cascade ends at
+    ivec4 shadowMeta;    // x = count, y = blend band (yd), z = filter
     // RESERVED(phase-15, A2-volumetric-fog): fogHeight.w and fogSunColor are
     // the froxel volume's inputs too; declared with the fog parameters so this
     // block moves once.
@@ -58,6 +58,14 @@ layout(set = 1, binding = 2) uniform M2Material {
 };
 
 layout(set = 0, binding = 1) uniform sampler2DShadow uShadowMap;
+// The cascaded pair. Declared beside the single map rather than
+// replacing it, so a pipeline specialized for one cascade compiles the same
+// module it always did - see the header of shadow_common.glsl. The array view
+// is over the same image; the second is the same image again through a plain
+// sampler, which is the only way a PCSS blocker search can read a depth
+// instead of comparing against it.
+layout(set = 0, binding = 2) uniform sampler2DArrayShadow uShadowMapArray;
+layout(set = 0, binding = 3) uniform sampler2DArray uShadowMapDepth;
 
 layout(location = 0) in vec3 FragPos;
 layout(location = 1) in vec3 Normal;
@@ -241,18 +249,29 @@ void main() {
         }
 
         if (SPEC_SHADOWS && shadowParams.x > 0.5) {
-            float normalOffset = shadowTexel() * 2.0 * (1.0 - abs(dot(norm, ldir)));
-            vec3 biasedPos = FragPos + norm * normalOffset;
-            vec4 lsPos = lightSpaceMatrix * vec4(biasedPos, 1.0);
-            vec3 proj = lsPos.xyz / lsPos.w;
-            proj.xy = proj.xy * 0.5 + 0.5;
-            if (proj.x >= 0.0 && proj.x <= 1.0 &&
-                proj.y >= 0.0 && proj.y <= 1.0 &&
-                proj.z >= 0.0 && proj.z <= 1.0) {
-                float bias = max(0.0005 * (1.0 - abs(dot(norm, ldir))), 0.00005);
-                shadow = sampleShadowPCF(uShadowMap, vec3(proj.xy, proj.z - bias));
+            // Four cascades: pick the one that covers this fragment, filter it, and
+            // cross-fade into the next over the last band of it. At one cascade -
+            // the default, and what the client always drew - this branch is folded
+            // away and the single map below is the whole of the shader.
+            if (SPEC_SHADOW_CASCADES > 1) {
+                shadow = mix(1.0,
+                             sampleShadowCascades(uShadowMapArray, uShadowMapDepth, FragPos,
+                                                  norm, ldir, length(viewPos.xyz - FragPos)),
+                             shadowParams.y);
+            } else {
+                float normalOffset = shadowTexel() * 2.0 * (1.0 - abs(dot(norm, ldir)));
+                vec3 biasedPos = FragPos + norm * normalOffset;
+                vec4 lsPos = lightSpaceMatrix * vec4(biasedPos, 1.0);
+                vec3 proj = lsPos.xyz / lsPos.w;
+                proj.xy = proj.xy * 0.5 + 0.5;
+                if (proj.x >= 0.0 && proj.x <= 1.0 &&
+                    proj.y >= 0.0 && proj.y <= 1.0 &&
+                    proj.z >= 0.0 && proj.z <= 1.0) {
+                    float bias = max(0.0005 * (1.0 - abs(dot(norm, ldir))), 0.00005);
+                    shadow = sampleShadowPCF(uShadowMap, vec3(proj.xy, proj.z - bias));
+                }
+                shadow = mix(1.0, shadow, shadowParams.y);
             }
-            shadow = mix(1.0, shadow, shadowParams.y);
         }
 
         // Leaf subsurface scattering (foliage only) - uses stable normal, no FragPos dependency
