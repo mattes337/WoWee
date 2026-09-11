@@ -25,7 +25,9 @@ layout(location = 2) out float vFogVisibility;
 void main() {
     vec4 viewPos4 = view * vec4(aPos, 1.0);
     float dist = -viewPos4.z;
-    gl_PointSize = clamp(aSize * 500.0 / max(dist, 1.0), 1.0, 128.0);
+    // aSize already carries the world-units-to-pixels factor; see
+    // renderM2Particles, which is where the projection is known.
+    gl_PointSize = clamp(aSize / max(dist, 1.0), 1.0, 128.0);
     vColor = aColor;
     vTile = aTile;
     float worldDist = length(viewPos.xyz - aPos);

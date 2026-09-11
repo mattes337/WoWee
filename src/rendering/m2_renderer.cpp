@@ -1887,7 +1887,14 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                     }
                     if (bgpu.texture2 && bgpu.texture2->isValid()) {
                         bgpu.texCombiner =
-                            pipeline::m2TexCombiner(batch.textureCount, batch.shader);
+                            pipeline::m2TexCombiner(batch.textureCount, batch.shader, bgpu.blendMode);
+                        // And which coordinates that layer reads.
+                        const size_t unit = static_cast<size_t>(batch.textureUnit) + 1;
+                        if (unit < model.textureCoordCombos.size()) {
+                            const uint16_t combo = model.textureCoordCombos[unit];
+                            bgpu.layer2CoordSet =
+                                (combo == 0xFFFF) ? 2 : (combo == 0 ? 0 : 1);
+                        }
                     }
                 }
             } else if (!allTextures.empty()) {
@@ -2172,6 +2179,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             mat.tintG = bgpu.tint.g;
             mat.tintB = bgpu.tint.b;
             mat.texCombiner = bgpu.texCombiner;
+            mat.layer2CoordSet = bgpu.layer2CoordSet;
             mat.colorKeyThreshold = 0.08f;
             mat.unlit = (bgpu.materialFlags & 0x01) ? 1 : 0;
             mat.blendMode = bgpu.blendMode;

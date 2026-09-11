@@ -578,6 +578,27 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
     static const bool kNoParticles = envFlagEnabled("WOWEE_M2_NO_PARTICLES");
     if (kNoParticles) return;
 
+    // How many pixels one world unit of sprite covers at one unit of distance.
+    //
+    // The shader divides this by the particle's distance, so it has to carry
+    // the projection: a sprite of half-extent s at distance d covers
+    // s * height * (1/tan(fovY/2)) / d pixels. This was a constant 500, which
+    // is right at no resolution and no field of view - at 1280x720 and sixty
+    // degrees the figure is about 1250 - and being two and a half times too
+    // small is why flame fixtures need the floors below at all. The 500 is
+    // kept only as the fallback for a caller that never said how tall its
+    // target is.
+    const float pointSizeFactor =
+        (viewportHeight_ > 0.0f && cachedProj11_ > 0.0f)
+            ? viewportHeight_ * cachedProj11_
+            : 500.0f;
+    // The floors below were tuned against the old constant and are written in
+    // world units, so converting the factor without converting them would
+    // change what they mean. They are really a statement about pixels - a
+    // candle flame must not land sub-pixel - so scale them to keep the pixel
+    // size they were tuned to.
+    const float floorScale = 500.0f / pointSizeFactor;
+
     // Collect all particles from all instances, grouped by texture+blend
     // Reuse persistent map - clear each group's vertex data but keep bucket structure.
     for (auto& [k, g] : particleGroups_) {
@@ -681,7 +702,7 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
 
             float scale = rawScale;
             if (gpu.isSpellEffect) {
-                scale = std::max(rawScale * 1.5f, 0.15f);
+                scale = std::max(rawScale * 1.5f, 0.15f * floorScale);
             } else if (!gpu.isFireflyEffect) {
                 scale = std::min(rawScale, 1.5f);
                 // Candle flames are authored at a fraction of a unit, which lands
@@ -695,7 +716,7 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
                 // which would also change how they blend.
                 if (gpu.isLanternLike || gpu.isTorch ||
                     gpu.isBrazierOrFire || gpu.isKoboldFlame) {
-                    scale = std::max(scale, 0.15f);
+                    scale = std::max(scale, 0.15f * floorScale);
                 }
             }
 
@@ -707,7 +728,7 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
             vd.push_back(color.g);
             vd.push_back(color.b);
             vd.push_back(alpha);
-            vd.push_back(scale);
+            vd.push_back(scale * pointSizeFactor);
             float tileIndex = p.tileIndex;
             if (cachedIsTiled) {
                 tileIndex = p.tileIndex + static_cast<float>(cachedAnimFrame);

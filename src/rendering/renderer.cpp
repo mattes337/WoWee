@@ -932,7 +932,12 @@ void Renderer::applyMsaaChange() {
         setupWater1xPass();
     }
     if (wmoRenderer) wmoRenderer->recreatePipelines();
-    if (m2Renderer) m2Renderer->recreatePipelines();
+    if (m2Renderer) {
+        // A point sprite's size is in pixels, so the new height matters.
+        m2Renderer->setViewportHeight(
+            static_cast<float>(vkCtx->getSwapchainExtent().height));
+        m2Renderer->recreatePipelines();
+    }
     if (skyboxModelRenderer_) skyboxModelRenderer_->recreatePipelines();
     if (characterRenderer) characterRenderer->recreatePipelines();
     if (questMarkerRenderer) questMarkerRenderer->recreatePipelines();
@@ -3150,6 +3155,10 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
     // Create M2, WMO, and Character renderers
     if (!m2Renderer) {
         m2Renderer = std::make_unique<M2Renderer>();
+        // What a point sprite's size on screen is measured against. Re-stated
+        // on a swapchain change below, since it is a pixel count.
+        m2Renderer->setViewportHeight(
+            static_cast<float>(vkCtx->getSwapchainExtent().height));
         if (!m2Renderer->initialize(vkCtx, perFrameSetLayout, assetManager))
             LOG_ERROR("M2Renderer initialization failed");
         if (swimEffects) {

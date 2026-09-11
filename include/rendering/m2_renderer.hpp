@@ -95,6 +95,7 @@ struct M2ModelGPU {
         /// and paints over all of them - a flat cyan sky with the weather
         /// underneath it.
         int16_t priorityPlane = 0;
+        int32_t layer2CoordSet = 1;
         uint16_t materialLayer = 0;
         glm::vec3 center = glm::vec3(0.0f); // Center of batch geometry (model space)
         float glowSize = 1.0f;              // Approx radius of batch geometry
@@ -396,6 +397,12 @@ struct M2MaterialUBO {
     /// How a two-layer material combines its layers; 0 for one layer. Matches
     /// combineLayers() in m2.frag.glsl.
     int32_t texCombiner;
+    /// Where the second layer's coordinates come from: 0 and 1 are the two UV
+    /// sets a vertex carries, 2 is a spherical environment map. The model's
+    /// texture-unit table says which, and a specular sheet that asks for the
+    /// third and is given the first is a reflection pasted on authored
+    /// coordinates - the login wyrm's body, khaki against a blue picture.
+    int32_t layer2CoordSet = 1;
 };
 
 // M2 params UBO - matches M2Params in m2.vert.glsl (set 1, binding 1)
@@ -440,6 +447,12 @@ public:
     /// composed, and its emitters are the picture. Damped, the Northrend login
     /// screen loses the frost on its wyrm and the light over its spire.
     void setSceneMode(bool enabled) { sceneMode_ = enabled; }
+
+    /// The height in pixels of what this renderer draws into, which is what a
+    /// point sprite's size on screen is measured against - see the note on the
+    /// point-size factor in renderM2Particles. Without it the sprites fall
+    /// back to a constant that is right at no resolution.
+    void setViewportHeight(float pixels) { viewportHeight_ = pixels; }
     void shutdown();
 
     [[nodiscard]] bool hasModel(uint32_t modelId) const;
@@ -1017,6 +1030,10 @@ private:
     bool skyMode_ = false;
     /// True when this renderer draws an authored scene - see setSceneMode.
     bool sceneMode_ = false;
+    float viewportHeight_ = 0.0f;
+    /// projection[1][1] of the camera this frame, which is 1/tan(fovY/2): the
+    /// other half of turning a sprite's size in world units into pixels.
+    float cachedProj11_ = 0.0f;
     // What the sky-model clock diagnostic last reported, so it prints on a
     // restart or once a second rather than every frame. See M2Renderer::update.
     uint32_t skyDiagInstanceId_ = 0;

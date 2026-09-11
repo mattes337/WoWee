@@ -1433,6 +1433,63 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
         model.attachmentLookup = readArray<uint16_t>(m2Data, header.ofsAttachmentLookup, header.nAttachmentLookup);
     }
 
+    // Lights the model carries, at their rest values.
+    //
+    // An M2Light is 156 bytes: type and bone, a position, then seven
+    // M2Tracks - ambient colour and intensity, diffuse colour and intensity,
+    // the two attenuation distances and a visibility flag. Only the first four
+    // are read, and only their first key: nothing in this client animates a
+    // model's own light, and what a glue backdrop needs from one is the colour
+    // its artist lit the scene with.
+    if (header.nLights > 0 && header.ofsLights > 0) {
+        constexpr uint32_t kM2LightStride = 156;
+        const uint32_t lightCount = capCount(header.nLights, 64u, "nLights");
+        model.lights.reserve(lightCount);
+        for (uint32_t i = 0; i < lightCount; ++i) {
+            const uint32_t base = header.ofsLights + i * kM2LightStride;
+            if (base + kM2LightStride > m2Data.size()) break;
+            pipeline::M2Light light;
+            std::memcpy(&light.type, m2Data.data() + base, sizeof(uint16_t));
+            std::memcpy(&light.bone, m2Data.data() + base + 2, sizeof(int16_t));
+            std::memcpy(&light.position, m2Data.data() + base + 4, sizeof(float) * 3);
+            // Each track's first value, where it has one. The layout of an
+            // M2Track is (interpolation, globalSequence, timestamps array,
+            // values array); the values array is the last eight bytes.
+            auto firstVec3 = [&](uint32_t trackOffset, glm::vec3 fallback) {
+                uint32_t n = 0, ofs = 0;
+                std::memcpy(&n, m2Data.data() + trackOffset + 12, sizeof(uint32_t));
+                std::memcpy(&ofs, m2Data.data() + trackOffset + 16, sizeof(uint32_t));
+                if (n == 0 || ofs == 0 || ofs + 8 > m2Data.size()) return fallback;
+                uint32_t vn = 0, vofs = 0;
+                std::memcpy(&vn, m2Data.data() + ofs, sizeof(uint32_t));
+                std::memcpy(&vofs, m2Data.data() + ofs + 4, sizeof(uint32_t));
+                if (vn == 0 || vofs + sizeof(float) * 3 > m2Data.size()) return fallback;
+                glm::vec3 out;
+                std::memcpy(&out, m2Data.data() + vofs, sizeof(float) * 3);
+                return out;
+            };
+            auto firstFloat = [&](uint32_t trackOffset, float fallback) {
+                uint32_t n = 0, ofs = 0;
+                std::memcpy(&n, m2Data.data() + trackOffset + 12, sizeof(uint32_t));
+                std::memcpy(&ofs, m2Data.data() + trackOffset + 16, sizeof(uint32_t));
+                if (n == 0 || ofs == 0 || ofs + 8 > m2Data.size()) return fallback;
+                uint32_t vn = 0, vofs = 0;
+                std::memcpy(&vn, m2Data.data() + ofs, sizeof(uint32_t));
+                std::memcpy(&vofs, m2Data.data() + ofs + 4, sizeof(uint32_t));
+                if (vn == 0 || vofs + sizeof(float) > m2Data.size()) return fallback;
+                float out = fallback;
+                std::memcpy(&out, m2Data.data() + vofs, sizeof(float));
+                return out;
+            };
+            light.ambientColor = firstVec3(base + 16, glm::vec3(1.0f));
+            light.ambientIntensity = firstFloat(base + 36, 1.0f);
+            light.diffuseColor = firstVec3(base + 56, glm::vec3(1.0f));
+            light.diffuseIntensity = firstFloat(base + 76, 1.0f);
+            model.lights.push_back(light);
+        }
+        LOG_DEBUG("M2 lights: ", model.lights.size());
+    }
+
     // Cameras - only the static base position/target are used; scene models keep
     // their framing here, and animated camera tracks are not needed for a backdrop.
     if (header.nCameras > 0 && header.ofsCameras > 0) {

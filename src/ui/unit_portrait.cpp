@@ -461,6 +461,7 @@ bool GlueBackdrop::View::build(int w, int h, rendering::Renderer* renderer) {
     // Before initialize, as setSkyMode wants: this is one authored scene, not
     // a field of world doodads, so its particles are not damped.
     models->setSceneMode(true);
+    models->setViewportHeight(static_cast<float>(h));
     if (!models->initialize(ctx, perFrameLayout, assets, target->getRenderPass(),
                             target->getSampleCount())) {
         LOG_WARNING("GlueBackdrop: could not build the model renderer");
@@ -1055,7 +1056,20 @@ void GlueBackdrop::View::composite() {
                                    lighting.lightColor[2], 0.0f);
         ubo.ambientColor = glm::vec4(lighting.ambientColor[0], lighting.ambientColor[1],
                                      lighting.ambientColor[2], 0.0f);
+    } else if (!modelData.lights.empty()) {
+        // The model's own light, which is what "ResetLights" means and what a
+        // screen that never calls SetLighting is asking for. The Northrend
+        // login scene carries one: ambient (0.718, 0.831, 0.929) at 1.3 with
+        // the diffuse term at zero - cold, bright and flat. The studio rig
+        // below lit it with a warm directional instead, which is why its frost
+        // wyrm came out khaki against a blue picture.
+        const pipeline::M2Light& light = modelData.lights.front();
+        ubo.lightDir = glm::vec4(glm::normalize(glm::vec3(0.5f, -0.7f, 0.5f)), 0.0f);
+        ubo.lightColor = glm::vec4(light.diffuseColor * light.diffuseIntensity, 0.0f);
+        ubo.ambientColor = glm::vec4(light.ambientColor * light.ambientIntensity, 0.0f);
     } else {
+        // No lighting from the interface and none in the model: the studio rig
+        // the character preview lights its racial backdrops with.
         ubo.lightDir = glm::vec4(glm::normalize(glm::vec3(0.5f, -0.7f, 0.5f)), 0.0f);
         ubo.lightColor = glm::vec4(1.0f, 0.95f, 0.9f, 0.0f);
         ubo.ambientColor = glm::vec4(0.45f, 0.45f, 0.5f, 0.0f);

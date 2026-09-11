@@ -218,7 +218,8 @@ struct M2RibbonEmitter {
 ///
 /// The names read <layer0 op>_<layer1 op>. "Opaque" on the first means layer
 /// 0's alpha is not used; "NA" on the second means layer 1's is not used.
-inline int32_t m2TexCombiner(uint16_t textureCount, uint16_t shaderId) {
+inline int32_t m2TexCombiner(uint16_t textureCount, uint16_t shaderId,
+                             uint16_t blendMode) {
     if (textureCount < 2) return 0;
     // An explicit combiner in the low bits. Nothing in 3.3.5a's art sets it,
     // and mapping it would be a guess, so such a batch draws layer 0 alone.
@@ -236,14 +237,22 @@ inline int32_t m2TexCombiner(uint16_t textureCount, uint16_t shaderId) {
     }
     switch (lower) {
         // Blizzard's table calls this one Opaque_Opaque, whose alpha is the
-        // material's rather than either layer's. This client cannot: the
-        // Northrend login scene's aurora sheets are `lower == 0` and carry
-        // colorIndex 0xFFFF - no colour slot, so no material alpha to be had -
-        // and their second layer is a mask whose RGB is a flat grey and whose
-        // alpha is the entire shape. Given alpha 1 they are opaque slabs, and
-        // that is exactly how they drew: dark bands across the sky. So the
-        // alpha comes from layer 1 here, which is what the art is built for.
-        case 0:  return 1;   // Opaque_Mod, not Opaque_Opaque - see above
+        // material's rather than either layer's. Which is right depends on how
+        // the batch blends, and the login scene has both kinds.
+        //
+        // Its aurora sheets are alpha-blended and carry colorIndex 0xFFFF - no
+        // colour slot, so no material alpha to be had. Given alpha 1 they are
+        // opaque slabs, and that is exactly how they drew: dark bands across
+        // the sky. Their second layer is a mask whose RGB is a flat grey and
+        // whose alpha is the entire shape, so the alpha comes from layer 1.
+        //
+        // Its light shafts are additive, where alpha is not a shape but an
+        // intensity - the mask has already multiplied the colour, and taking
+        // the alpha from it a second time leaves the shaft at a fraction of
+        // what the art asks for. Those keep the material's alpha, which is the
+        // authored colour track, and where the shafts overlap they saturate:
+        // the burst over the citadel's spire.
+        case 0:  return blendMode >= 3 ? 4 : 1;   // Opaque_Opaque / Opaque_Mod
         case 3:  return 11;  // Opaque_AddAlpha
         case 4:  return 11;  // Opaque_AddAlpha
         case 6:  return 12;  // Opaque_Mod2xNA_Alpha
@@ -251,6 +260,23 @@ inline int32_t m2TexCombiner(uint16_t textureCount, uint16_t shaderId) {
         default: return 1;   // Opaque_Mod
     }
 }
+
+/// A light the model carries.
+///
+/// Only the at-rest values: every one of these is an M2Track and nothing in
+/// 3.3.5a's scene models animates them. The Northrend login scene's single
+/// light is the reason this exists - it is ambient-only, cold blue-white at
+/// 1.3, with the diffuse term at zero, and a glue screen that invents a warm
+/// studio rig instead renders its frost wyrm in khaki.
+struct M2Light {
+    uint16_t type = 0;            // 0 = directional, 1 = point
+    int16_t bone = -1;
+    glm::vec3 position{0.0f};
+    glm::vec3 ambientColor{1.0f};
+    float ambientIntensity = 1.0f;
+    glm::vec3 diffuseColor{1.0f};
+    float diffuseIntensity = 1.0f;
+};
 
 // Complete M2 model structure
 struct M2Model {
@@ -322,6 +348,8 @@ struct M2Model {
     // Attachment points (for weapon/effect anchoring)
     std::vector<M2Attachment> attachments;
     std::vector<M2Camera> cameras;
+    /// The lights the model carries, at rest. See M2Light.
+    std::vector<M2Light> lights;
     std::vector<uint16_t> attachmentLookup; // attachment ID → index
 
     // Particle emitters

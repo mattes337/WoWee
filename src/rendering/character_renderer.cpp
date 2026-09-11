@@ -3123,7 +3123,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 matData.layer2CoordSet = 1;
                 if (layer2Tex && layer2Tex->isValid()) {
                     matData.texCombiner =
-                        pipeline::m2TexCombiner(batch.textureCount, batch.shader);
+                        pipeline::m2TexCombiner(batch.textureCount, batch.shader, blendMode);
                     // And which coordinates to sample it with. The batch's
                     // texture unit says so; taking set 1 for every second
                     // layer put the wyrm's environment-mapped specular on

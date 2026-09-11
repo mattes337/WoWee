@@ -665,6 +665,8 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
 static const bool kM2NoSkinning = envFlagEnabled("WOWEE_M2_NO_SKINNING");
 
 void M2Renderer::prepareRender(uint32_t frameIndex, const Camera& camera) {
+    // 1/tan(fovY/2), kept for the point-size factor in renderM2Particles.
+    cachedProj11_ = camera.getProjectionMatrix()[1][1];
     if (!initialized_ || instances.empty()) return;
     (void)camera;  // reserved for future frustum-based culling
 
