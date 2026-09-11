@@ -1005,6 +1005,7 @@ set(WOWEE_SOURCES
     src/rendering/sky_system.cpp
     src/rendering/character_renderer.cpp
     src/rendering/character_preview.cpp
+    src/rendering/glue_scene.cpp
     src/rendering/wmo_renderer.cpp
     src/rendering/imgui_texture.cpp
     src/rendering/bone_slots.cpp
@@ -1074,6 +1075,7 @@ set(WOWEE_SOURCES
     src/ui/xml_parser.cpp
     src/ui/framexml_emitter.cpp
     src/ui/framexml_takeover.cpp
+    src/ui/glue_race_scene.cpp
     src/ui/unit_portrait.cpp
     src/ui/interface_fonts.cpp
     src/ui/text_edit.cpp

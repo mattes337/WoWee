@@ -768,7 +768,15 @@ private:
         int32_t boneBase;          //  4 bytes @ offset 80
         int32_t boneCount;         //  4 bytes @ offset 84 - clamps skinning reads
         float highlight = 0.0f;    //  4 bytes @ offset 88 - pressed-on lift
-        int32_t _pad = {};         //  4 bytes @ offset 92 - align to 96 (std430)
+        int32_t _pad = {};         //  4 bytes @ offset 92
+        // The second layer's own scroll. A two-layer material's layers carry
+        // their own texture transforms - the lookup steps per layer - and the
+        // Northrend login scene's masks have none while the clouds and light
+        // rays under them scroll. Scrolling both by the first layer's slid
+        // every mask off its quad, which is where the sheets' hard edges
+        // came from.
+        glm::vec2 uvOffset2;       //  8 bytes @ offset 96
+        glm::vec2 _pad2 = {};      //  8 bytes @ offset 104 - align to 112 (std430)
     };
     // How many instances one frame may hand the GPU, not how many exist. Ground
     // clutter is what fills it: it is drawn by the thousand and every tuft

@@ -664,6 +664,49 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
 // drawn by the particle or ribbon systems.
 static const bool kM2NoSkinning = envFlagEnabled("WOWEE_M2_NO_SKINNING");
 
+namespace {
+
+/// The texture transform layer `layer` of a batch reads, or null for none.
+/// A batch's textureAnimIndex is the start of a run of `textureCount`
+/// entries in the transform lookup, one per layer; 0xFFFF in the table means
+/// that layer does not scroll.
+const pipeline::M2TextureTransform* layerTextureTransform(const M2ModelGPU& model,
+                                                          uint16_t textureAnimIndex,
+                                                          uint16_t layer) {
+    const size_t lookupIdx = static_cast<size_t>(textureAnimIndex) + layer;
+    if (lookupIdx >= model.textureTransformLookup.size()) return nullptr;
+    const uint16_t transformIdx = model.textureTransformLookup[lookupIdx];
+    if (transformIdx >= model.textureTransforms.size()) return nullptr;
+    return &model.textureTransforms[transformIdx];
+}
+
+/// WOWEE_M2_SKIP_BATCH="20,21" leaves those batch indices of every model
+/// undrawn, in both passes. For telling one batch's contribution apart from
+/// its neighbours' on a screen where several overlap - the login scene's
+/// light shafts, glow sheets and clouds all sit over the same sky - which a
+/// screenshot of the whole cannot do.
+bool skipBatchDiag(size_t batchIndex) {
+    static const std::vector<size_t> kSkip = [] {
+        std::vector<size_t> out;
+        const char* v = std::getenv("WOWEE_M2_SKIP_BATCH");
+        if (v == nullptr) return out;
+        std::string s = v;
+        size_t pos = 0;
+        while (pos < s.size()) {
+            size_t comma = s.find(',', pos);
+            if (comma == std::string::npos) comma = s.size();
+            const std::string tok = s.substr(pos, comma - pos);
+            if (!tok.empty()) out.push_back(static_cast<size_t>(std::strtoul(tok.c_str(), nullptr, 10)));
+            pos = comma + 1;
+        }
+        return out;
+    }();
+    if (kSkip.empty()) return false;
+    return std::find(kSkip.begin(), kSkip.end(), batchIndex) != kSkip.end();
+}
+
+} // namespace
+
 void M2Renderer::prepareRender(uint32_t frameIndex, const Camera& camera) {
     // 1/tan(fovY/2), kept for the point-size factor in renderM2Particles.
     cachedProj11_ = camera.getProjectionMatrix()[1][1];
@@ -1406,6 +1449,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                 auto& e = instSSBO[instanceDataCount_];
                 e.model = inst.modelMatrix;
                 e.uvOffset = glm::vec2(0.0f);
+                e.uvOffset2 = glm::vec2(0.0f);
                 e.fadeAlpha = p.fadeAlpha;
                 e.useBones = (p.useBones && !kM2NoSkinning) ? 1 : 0;
                 e.boneBase = p.useBones ? static_cast<int32_t>(inst.megaBoneOffset) : 0;
@@ -1450,6 +1494,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
 
                 for (size_t bi = 0; bi < model.batches.size(); bi++) {
                     const auto& batch = model.batches[bi];
+                    if (skipBatchDiag(bi)) continue;
                     if (batch.indexCount == 0) continue;
                     if (!model.isGroundDetail && batch.submeshLevel != lod) continue;
                     if (batch.batchOpacity < 0.01f) continue;
@@ -1604,14 +1649,13 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                         // every instance in this group; only the sampled translation
                         // varies (per-instance animTime).
                         const pipeline::M2TextureTransform* tt = nullptr;
+                        const pipeline::M2TextureTransform* tt2 = nullptr;
                         if (batch.textureAnimIndex != 0xFFFF && model.hasTextureAnimation) {
-                            uint16_t lookupIdx = batch.textureAnimIndex;
-                            if (lookupIdx < model.textureTransformLookup.size()) {
-                                uint16_t transformIdx = model.textureTransformLookup[lookupIdx];
-                                if (transformIdx < model.textureTransforms.size()) {
-                                    tt = &model.textureTransforms[transformIdx];
-                                }
-                            }
+                            tt = layerTextureTransform(model, batch.textureAnimIndex, 0);
+                            // The second layer's, one lookup on: the combo index
+                            // steps per layer.
+                            if (batch.texCombiner != 0)
+                                tt2 = layerTextureTransform(model, batch.textureAnimIndex, 1);
                         }
                         for (size_t j = lodIdx; j < lodEnd; j++) {
                             const auto& p = pending[j];
@@ -1628,6 +1672,14 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                                 uvOffset = glm::vec2(lavaAnimSeconds * 0.03f,
                                                      -lavaAnimSeconds * 0.08f);
                             }
+                            glm::vec2 uvOffset2(0.0f);
+                            if (tt2) {
+                                glm::vec3 trans2 = m2_track::sampleVec3(
+                                    tt2->translation, inst.currentSequenceIndex,
+                                    inst.animTime, inst.globalSequenceTime,
+                                    model.globalSequenceDurations, glm::vec3(0.0f));
+                                uvOffset2 = glm::vec2(trans2.x, trans2.y);
+                            }
                             // Rebuild the entry from CPU-side data rather than copying it
                             // out of the base entry. instSSBO lives in write-combined
                             // upload memory: writing it is cheap, but reading it back is
@@ -1635,6 +1687,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                             auto& e = instSSBO[instanceDataCount_];
                             e.model = inst.modelMatrix;
                             e.uvOffset = uvOffset;
+                            e.uvOffset2 = uvOffset2;
                             e.fadeAlpha = p.fadeAlpha;
                             e.useBones = (p.useBones && !kM2NoSkinning) ? 1 : 0;
                             e.boneBase = p.useBones ? static_cast<int32_t>(inst.megaBoneOffset) : 0;
@@ -1801,6 +1854,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
         // to sit in. See M2ModelGPU::sortedBatchIndices.
         for (const uint32_t batchIndex : model.sortedBatchIndices) {
             const auto& batch = model.batches[batchIndex];
+            if (skipBatchDiag(batchIndex)) continue;
             if (batch.indexCount == 0) continue;
             if (!model.isGroundDetail && batch.submeshLevel != targetLOD) continue;
             if (batch.batchOpacity < 0.01f) continue;
@@ -1860,18 +1914,25 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             static const bool skyNoTexAnim =
                 std::getenv("WOWEE_SKY_M2_NO_TEXANIM") != nullptr;
             glm::vec2 uvOffset(0.0f);
+            glm::vec2 uvOffset2(0.0f);
             if (batch.textureAnimIndex != 0xFFFF && model.hasTextureAnimation &&
                 !(skyMode_ && skyNoTexAnim)) {
-                uint16_t lookupIdx = batch.textureAnimIndex;
-                if (lookupIdx < model.textureTransformLookup.size()) {
-                    uint16_t transformIdx = model.textureTransformLookup[lookupIdx];
-                    if (transformIdx < model.textureTransforms.size()) {
-                        const auto& tt = model.textureTransforms[transformIdx];
-                        glm::vec3 trans = m2_track::sampleVec3(
-                            tt.translation, instance.currentSequenceIndex,
+                if (const auto* tt = layerTextureTransform(model, batch.textureAnimIndex, 0)) {
+                    glm::vec3 trans = m2_track::sampleVec3(
+                        tt->translation, instance.currentSequenceIndex,
+                        instance.animTime, instance.globalSequenceTime,
+                        model.globalSequenceDurations, glm::vec3(0.0f));
+                    uvOffset = glm::vec2(trans.x, trans.y);
+                }
+                // The second layer scrolls by its own transform, which for a
+                // mask over scrolling clouds is usually none at all.
+                if (batch.texCombiner != 0) {
+                    if (const auto* tt2 = layerTextureTransform(model, batch.textureAnimIndex, 1)) {
+                        glm::vec3 trans2 = m2_track::sampleVec3(
+                            tt2->translation, instance.currentSequenceIndex,
                             instance.animTime, instance.globalSequenceTime,
                             model.globalSequenceDurations, glm::vec3(0.0f));
-                        uvOffset = glm::vec2(trans.x, trans.y);
+                        uvOffset2 = glm::vec2(trans2.x, trans2.y);
                     }
                 }
             }
@@ -1898,6 +1959,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             auto& e = instSSBO[instanceDataCount_];
             e.model = instance.modelMatrix;
             e.uvOffset = uvOffset;
+            e.uvOffset2 = uvOffset2;
             e.fadeAlpha = instanceFadeAlpha * batchAlpha;
             e.useBones = (needsBones && !kM2NoSkinning) ? 1 : 0;
             e.boneBase = needsBones ? static_cast<int32_t>(instance.megaBoneOffset) : 0;

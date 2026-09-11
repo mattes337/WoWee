@@ -937,6 +937,22 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
     model.version = header.version;
     model.globalFlags = header.globalFlags;
 
+    // The texture combiner array, for a model that stores its batches'
+    // combiners this way. It sits after the fixed header, and only the WotLK
+    // layout has it: the flag bit is 0x08 and the array is read at 0x130,
+    // which is where sizeof(M2Header) lands. Read before the skins, embedded
+    // or separate, because every batch's shader id is resolved through it.
+    constexpr uint32_t kUseTextureCombinerCombos = 0x08;
+    if (header.version >= 264 && (header.globalFlags & kUseTextureCombinerCombos) &&
+        m2Data.size() >= sizeof(M2Header) + 8) {
+        const uint32_t count = readValue<uint32_t>(m2Data, sizeof(M2Header));
+        const uint32_t offset = readValue<uint32_t>(m2Data, sizeof(M2Header) + 4);
+        // Bounded by what a batch can address, which is a uint16 offset.
+        if (count > 0 && count <= 65536 && offset > 0) {
+            model.textureCombinerCombos = readArray<uint16_t>(m2Data, offset, count);
+        }
+    }
+
     // M2 binary layout splits three ways, not two. TBC (v260-263) shares the
     // extended header / 68-byte sequences / 48-byte attachments / 504-byte
     // particle emitters with vanilla, but introduced the boneNameCRC field
@@ -1866,7 +1882,8 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
                 M2Batch batch;
                 batch.flags = db.flags;
                 batch.priorityPlane = db.priorityPlane;
-                batch.shader = db.shader;
+                batch.shader = m2ShaderFromCombinerCombos(
+                    db.shader, db.textureCount, model.textureCombinerCombos);
                 batch.skinSectionIndex = db.skinSectionIndex;
                 batch.colorIndex = db.colorIndex;
                 batch.materialIndex = db.materialIndex;
@@ -1980,7 +1997,8 @@ bool M2Loader::loadSkin(const std::vector<uint8_t>& skinData, M2Model& model) {
 
             batch.flags = db.flags;
             batch.priorityPlane = db.priorityPlane;
-            batch.shader = db.shader;
+            batch.shader = m2ShaderFromCombinerCombos(
+                db.shader, db.textureCount, model.textureCombinerCombos);
             batch.skinSectionIndex = db.skinSectionIndex;
             batch.colorIndex = db.colorIndex;
             batch.materialIndex = db.materialIndex;

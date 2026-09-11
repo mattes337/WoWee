@@ -17,6 +17,8 @@
 #include "core/world_entry_callback_handler.hpp"
 #include "core/ui_screen_callback_handler.hpp"
 #include "game/spell_classification.hpp"
+#include "rendering/camera.hpp"
+#include "rendering/glue_scene.hpp"
 #include "rendering/animation/animation_ids.hpp"
 #include "rendering/animation_controller.hpp"
 #include <bit>
@@ -127,9 +129,24 @@ namespace {
 /// giving back the moment the world starts. Application::shutdown releases it
 /// while the device is still alive; the destructor at exit then finds nothing
 /// to do.
-ui::GlueBackdrop& glueBackdrop() {
-    static ui::GlueBackdrop backdrop;
-    return backdrop;
+/// The scene behind whichever glue screen is up, and the camera it is seen
+/// through. One of each: a glue screen shows one scene and swapping screens
+/// replaces it.
+struct GlueBackdropView {
+    rendering::GlueScene scene;
+    rendering::Camera camera;
+    /// What the camera was last aimed by, so a screen that says the same
+    /// thing every frame re-aims nothing.
+    std::string framedModel;
+    int framedCamera = -1;
+    int framedWidth = 0;
+    int framedHeight = 0;
+    bool framed = false;
+};
+
+GlueBackdropView& glueBackdrop() {
+    static GlueBackdropView view;
+    return view;
 }
 
 /// One number out of the scene entry sitting on top of the Lua stack.
@@ -144,8 +161,8 @@ double sceneNumber(lua_State* L, const char* key, double fallback) {
 /// fourteen-number shape lua_glue_api.cpp files it in: light set, enabled,
 /// type, direction, ambient intensity and colour, diffuse intensity and
 /// colour.
-std::vector<ui::GlueSceneLight> sceneLights(lua_State* L, const char* key) {
-    std::vector<ui::GlueSceneLight> out;
+std::vector<rendering::GlueSceneLight> sceneLights(lua_State* L, const char* key) {
+    std::vector<rendering::GlueSceneLight> out;
     lua_getfield(L, -1, key);
     if (lua_istable(L, -1)) {
         const size_t count = lua_objlen(L, -1);
@@ -164,7 +181,7 @@ std::vector<ui::GlueSceneLight> sceneLights(lua_State* L, const char* key) {
                 // light type, which the interface's own comment says is
                 // always directional.
                 if (n[1] == 0.0) {
-                    ui::GlueSceneLight light;
+                    rendering::GlueSceneLight light;
                     light.direction[0] = static_cast<float>(n[4]);
                     light.direction[1] = static_cast<float>(n[5]);
                     light.direction[2] = static_cast<float>(n[6]);
@@ -194,7 +211,8 @@ std::vector<ui::GlueSceneLight> sceneLights(lua_State* L, const char* key) {
 /// lua_glue_api.cpp records all of it under the frame's name. Which of those
 /// frames is on screen is a question only the widget tree can answer, so it is
 /// asked here rather than guessed from the client's own state: one glue screen
-/// is up at a time and it is the one whose frame is visible.
+/// is up at a time and it is the one whose frame is visible. Nothing here knows
+/// which screen that is: the scene is drawn from what the frame recorded.
 void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* assets,
                         rendering::Renderer* renderer, float deltaTime) {
     lua_State* L = engine.getState();
@@ -203,7 +221,7 @@ void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* asset
     // Read the whole table out first. Searching the widget tree with the
     // table still on the stack would leave the iteration half-done on the
     // frame that finds a match.
-    std::vector<std::pair<std::string, ui::GlueSceneState>> declared;
+    std::vector<std::pair<std::string, rendering::GlueSceneState>> declared;
     lua_getfield(L, LUA_REGISTRYINDEX, "wowee_glue_scenes");
     if (lua_istable(L, -1)) {
         lua_pushnil(L);
@@ -214,7 +232,7 @@ void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* asset
                 std::string model = path ? path : "";
                 lua_pop(L, 1);
                 if (!model.empty()) {
-                    ui::GlueSceneState scene;
+                    rendering::GlueSceneState scene;
                     scene.model = std::move(model);
                     scene.cameraIndex = static_cast<int>(sceneNumber(L, "camera", 0.0));
                     scene.sequence = static_cast<int>(sceneNumber(L, "sequence", 0.0));
@@ -242,7 +260,7 @@ void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* asset
 
     auto& widgets = engine.widgets();
     ui::Widget* frame = nullptr;
-    const ui::GlueSceneState* scene = nullptr;
+    const rendering::GlueSceneState* scene = nullptr;
     for (const auto& [frameName, sceneState] : declared) {
         ui::Widget* w = widgets.findByName(frameName);
         if (w == nullptr || !w->visible || w->rectW <= 0.0f || w->rectH <= 0.0f) continue;
@@ -257,17 +275,50 @@ void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* asset
     const float scale = widgets.uiScale();
     const int w = static_cast<int>(frame->rectW * scale);
     const int h = static_cast<int>(frame->rectH * scale);
-    const bool drawn = glueBackdrop().update(*scene, w, h, assets, renderer, deltaTime);
+    GlueBackdropView& view = glueBackdrop();
+    bool drawn = false;
+    if (w > 0 && h > 0) {
+        // The target is allocated in multiples of 32 and bounded, so a window
+        // dragged larger by a few pixels does not rebuild the whole view; the
+        // passes draw and the interface samples exactly the frame's rect.
+        const int tw = std::clamp((w + 31) / 32 * 32, 128, 2048);
+        const int th = std::clamp((h + 31) / 32 * 32, 128, 2048);
+        if (view.scene.build(tw, th, renderer, assets)) {
+            view.scene.setDrawSize(w, h);
+            view.scene.setClearColor(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+            if (view.scene.show(*scene)) {
+                // The model's own camera is the whole of the placement, so
+                // the view is re-aimed only when the model, the camera the
+                // screen asks for or the rect's aspect changes. A camera
+                // that cannot frame anything leaves the scene undrawn: there
+                // is no second way to place one of these, and a guess would
+                // read as a different fault entirely.
+                if (view.framedModel != scene->model || view.framedCamera != scene->cameraIndex ||
+                    view.framedWidth != w || view.framedHeight != h) {
+                    view.framed = view.scene.frame(view.camera);
+                    view.framedModel = scene->model;
+                    view.framedCamera = scene->cameraIndex;
+                    view.framedWidth = w;
+                    view.framedHeight = h;
+                }
+                if (view.framed) {
+                    view.scene.update(deltaTime, view.camera);
+                    view.scene.composite(view.camera);
+                    drawn = view.scene.textureId() != 0;
+                }
+            }
+        }
+    }
     // With the screen's glow already in it, where it asked for one - the glow
     // is a pass over the scene rather than a second image laid on top, because
     // adding light is not something the interface's draw list can be asked to
-    // do. See GlueBackdrop::textureId.
-    frame->externalTexture = drawn ? glueBackdrop().textureId() : 0;
+    // do. See GlueScene::textureId.
+    frame->externalTexture = drawn ? view.scene.textureId() : 0;
     // And only the part of it the passes wrote: the target is allocated in
     // multiples of 32 and this frame is 1280x720, so a whole-image draw
     // squashes 736 rows into 720 and bands the picture.
-    frame->externalTextureU1 = drawn ? glueBackdrop().textureU1() : 1.0f;
-    frame->externalTextureV1 = drawn ? glueBackdrop().textureV1() : 1.0f;
+    frame->externalTextureU1 = drawn ? view.scene.textureU1() : 1.0f;
+    frame->externalTextureV1 = drawn ? view.scene.textureV1() : 1.0f;
 }
 
 /// The expansion profile files built into the executable, keyed by their path
@@ -2284,7 +2335,7 @@ void Application::shutdown() {
     paperdollModel_.shutdown(renderer.get());
     // Here, while the device is still alive: the backdrop is a static, so its
     // own destructor runs long after Vulkan has gone.
-    glueBackdrop().shutdown();
+    glueBackdrop().scene.shutdown();
 
     // For the same reason, and it was never being done: ImGui's Vulkan backend
     // holds a pipeline, its layout and descriptor set layout, two shader
@@ -4435,7 +4486,7 @@ void Application::render() {
                 // A render target the size of the window and a model renderer
                 // to fill it, held for a screen that is behind us. Cheap after
                 // the first call, which is why it can sit in the frame loop.
-                glueBackdrop().shutdown();
+                glueBackdrop().scene.shutdown();
                 // And the loop that was playing under it. Nothing else would
                 // stop it: the glue ambience is not a zone's, so the world's
                 // own zone change leaves it running under the world.

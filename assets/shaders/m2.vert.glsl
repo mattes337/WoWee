@@ -37,9 +37,13 @@ struct InstanceData {
     int useBones;
     int boneBase;
     int boneCount;
-    // 0 for an ordinary instance, 1 while the player is pressing on it. Sits
-    // in what was padding, so the entry is the same 96 bytes it always was.
+    // 0 for an ordinary instance, 1 while the player is pressing on it.
     float highlight;
+    int _pad;
+    // The second layer's own scroll; the masks of a two-layer material do
+    // not follow the first layer's texture transform.
+    vec2 uvOffset2;
+    vec2 _pad2;
 };
 layout(set = 3, binding = 0) readonly buffer InstanceSSBO {
     InstanceData instanceData[];
@@ -258,7 +262,7 @@ void main() {
     Normal = mat3(model) * norm.xyz;
 
     TexCoord = (push.texCoordSet == 1 ? aTexCoord2 : aTexCoord) + uvOff;
-    TexCoord2 = (push.texCoordSet == 1 ? aTexCoord : aTexCoord2) + uvOff;
+    TexCoord2 = (push.texCoordSet == 1 ? aTexCoord : aTexCoord2) + instanceData[instIdx].uvOffset2;
 
     InstanceOrigin = model[3].xyz;
     ModelHeight = pos.z;

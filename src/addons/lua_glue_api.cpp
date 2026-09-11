@@ -37,9 +37,9 @@
 //   * The background scenes are real: which frame holds one, which model it
 //     holds, which of the model's cameras and animations it wants, and the fog
 //     and lights GlueParent's SetLighting puts around it are all recorded here
-//     and drawn by the client - see ui::GlueBackdrop. Two of the things a
-//     screen can say about a scene are recorded and not drawn, and are named
-//     on GlueBackdrop::update: the glow, and where in an animation to sit.
+//     and drawn by the client - see rendering::GlueScene. One thing a screen
+//     can say about a scene is recorded and not drawn, and is named on
+//     GlueScene::show: where in an animation to sit.
 //   * The music and the ambience are real: both name a row in
 //     SoundEntries.dbc and both reach the audio coordinator, which reads the
 //     table and plays what the row names.
@@ -1113,8 +1113,8 @@ int lua_GlueSetModelPath(lua_State* L) {
 // layer cannot reach a renderer, and the frame these are called on is the one
 // the client draws the scene into. Application::updateGlueBackdrop reads the
 // entry back for whichever glue frame is on screen and hands it to
-// ui::GlueBackdrop, which is where the fog, the lights and the camera actually
-// take effect.
+// rendering::GlueScene, which is where the fog, the lights and the camera
+// actually take effect.
 //
 // All of them were no-ops before, and a no-op is invisible: AccountLogin.xml's
 // fogNear="0" fogFar="1200" glow="0.08" and GlueParent's whole SetLighting -
@@ -1473,7 +1473,7 @@ void registerGlueLuaAPI(lua_State* L) {
 
         // The model frames. Which frame holds the scene, which scene it holds
         // and everything the screen says about it are recorded here and drawn
-        // by the client - see ui::GlueBackdrop. The facing pair below is still
+        // by the client - see rendering::GlueScene. The facing pair below is still
         // recorded only.
         //
         // The methods themselves go on the frame metatable, which does not

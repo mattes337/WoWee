@@ -2,6 +2,7 @@
 #include "core/logger.hpp"
 #include "ui/ui_colors.hpp"
 #include "rendering/character_preview.hpp"
+#include "ui/glue_race_scene.hpp"
 #include "rendering/renderer.hpp"
 #include "core/application.hpp"
 #include "pipeline/asset_manager.hpp"
@@ -252,6 +253,12 @@ void CharacterCreateScreen::updatePreviewIfNeeded() {
             selectedAppearanceId(hairColorIds_, hairColor),
             selectedAppearanceId(facialHairIds_, facialHair),
             useFemaleModel);
+        // Stood in the scene the original create screen would stand them in,
+        // drawn through the same path the glue screens use.
+        const game::Class cls =
+            (classIndex >= 0 && classIndex < static_cast<int>(availableClasses.size()))
+                ? availableClasses[static_cast<size_t>(classIndex)] : game::Class::WARRIOR;
+        preview_->setScene(glueRaceScene(availableRaces_[raceIndex], cls));
 
         prevRaceIndex_ = raceIndex;
         prevGenderIndex_ = genderIndex;

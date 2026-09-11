@@ -176,7 +176,7 @@ bool CharacterPreview::initialize(pipeline::AssetManager* am, int width, int hei
     // If already initialized with valid resources, reuse them.
     // This avoids destroying GPU resources that may still be referenced by
     // an in-flight command buffer (compositePass recorded earlier this frame).
-    if (renderTarget_ && renderTarget_->isValid() && charRenderer_ && camera_) {
+    if (scene_ && scene_->isBuilt() && charRenderer_ && camera_) {
         // Mark model as not loaded - loadCharacter() will handle instance cleanup
         modelLoaded_ = false;
         return true;
@@ -198,17 +198,22 @@ bool CharacterPreview::initialize(pipeline::AssetManager* am, int width, int hei
         return false;
     }
 
-    // Create off-screen render target first (need its render pass for pipeline creation)
-    createFBO();
-    if (!renderTarget_ || !renderTarget_->isValid()) {
+    // The view is a GlueScene with nothing on show: the same target, per-frame
+    // blocks and glow passes an authored scene gets, so a character stood in
+    // one is drawn exactly as the scene is.
+    scene_ = std::make_unique<GlueScene>();
+    if (!scene_->build(fboWidth_, fboHeight_, appRenderer, am)) {
         LOG_ERROR("CharacterPreview: failed to create off-screen render target");
+        scene_.reset();
         return false;
     }
+    scene_->setClearColor(transparentBackground_ ? glm::vec4(0.0f)
+                                                 : glm::vec4(0.05f, 0.05f, 0.1f, 1.0f));
 
-    // Initialize CharacterRenderer with our off-screen render pass
+    // Initialize CharacterRenderer with the view's render pass
     charRenderer_ = std::make_unique<CharacterRenderer>();
-    if (!charRenderer_->initialize(vkCtx_, perFrameLayout, am, renderTarget_->getRenderPass(),
-                                   renderTarget_->getSampleCount())) {
+    if (!charRenderer_->initialize(vkCtx_, perFrameLayout, am, scene_->renderPass(),
+                                   scene_->sampleCount())) {
         LOG_ERROR("CharacterPreview: failed to initialize CharacterRenderer");
         return false;
     }
@@ -240,232 +245,10 @@ void CharacterPreview::shutdown() {
         charRenderer_.reset();
     }
     camera_.reset();
-    destroyFBO();
+    if (scene_) { scene_->shutdown(); scene_.reset(); }
     modelLoaded_ = false;
     compositeRendered_ = false;
     instanceId_ = 0;
-}
-
-void CharacterPreview::createFBO() {
-    if (!vkCtx_) return;
-    VkDevice device = vkCtx_->getDevice();
-    VmaAllocator allocator = vkCtx_->getAllocator();
-
-    // 1. Create off-screen render target with depth
-    renderTarget_ = std::make_unique<VkRenderTarget>();
-    if (!renderTarget_->create(*vkCtx_, fboWidth_, fboHeight_, VK_FORMAT_R8G8B8A8_UNORM, true,
-                               VK_SAMPLE_COUNT_4_BIT)) {
-        LOG_ERROR("CharacterPreview: failed to create render target");
-        renderTarget_.reset();
-        return;
-    }
-
-    // 1b. Transition the color image from UNDEFINED to SHADER_READ_ONLY_OPTIMAL
-    // so that ImGui::Image doesn't sample an image in UNDEFINED layout before
-    // the first compositePass runs.
-    {
-        VkCommandBuffer cmd = vkCtx_->beginSingleTimeCommands();
-        VkImageMemoryBarrier2 barrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-        barrier.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        barrier.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = renderTarget_->getColorImage();
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        VkDependencyInfo barrierDep{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-        barrierDep.dependencyFlags = 0;
-        barrierDep.imageMemoryBarrierCount = 1;
-        barrierDep.pImageMemoryBarriers = &barrier;
-        cmdPipelineBarrier2(cmd, barrierDep);
-        vkCtx_->endSingleTimeCommands(cmd);
-    }
-
-    // 2. Create 1x1 dummy depth texture (shadow map placeholder, depth=1.0 = no shadow).
-    //    Must be a depth format for sampler2DShadow compatibility.
-    {
-        VkImageCreateInfo imgCI{.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
-        imgCI.imageType = VK_IMAGE_TYPE_2D;
-        imgCI.format = VK_FORMAT_D16_UNORM;
-        imgCI.extent = {.width = 1, .height = 1, .depth = 1};
-        imgCI.mipLevels = 1;
-        imgCI.arrayLayers = 1;
-        imgCI.samples = VK_SAMPLE_COUNT_1_BIT;
-        imgCI.tiling = VK_IMAGE_TILING_OPTIMAL;
-        imgCI.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        VmaAllocationCreateInfo allocCI{};
-        allocCI.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-        if (vmaCreateImage(vkCtx_->getAllocator(), &imgCI, &allocCI,
-                &dummyShadowImage_, &dummyShadowAlloc_, nullptr) != VK_SUCCESS) {
-            LOG_ERROR("CharacterPreview: failed to create dummy shadow image");
-            return;
-        }
-        VkImageViewCreateInfo viewCI{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-        viewCI.image = dummyShadowImage_;
-        viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewCI.format = VK_FORMAT_D16_UNORM;
-        viewCI.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
-        if (vkCreateImageView(device, &viewCI, nullptr, &dummyShadowView_) != VK_SUCCESS) {
-            LOG_ERROR("CharacterPreview: failed to create dummy shadow image view");
-            return;
-        }
-        // Clear to depth 1.0 and transition to shader-read layout
-        vkCtx_->immediateSubmit([&](VkCommandBuffer cmd) {
-            VkImageMemoryBarrier2 toTransfer{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-            toTransfer.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-            toTransfer.dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            toTransfer.image = dummyShadowImage_;
-            toTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            toTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            toTransfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            toTransfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            toTransfer.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
-            toTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            VkDependencyInfo toTransferDep{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-            toTransferDep.dependencyFlags = 0;
-            toTransferDep.imageMemoryBarrierCount = 1;
-            toTransferDep.pImageMemoryBarriers = &toTransfer;
-            cmdPipelineBarrier2(cmd, toTransferDep);
-            VkClearDepthStencilValue clearVal{.depth = 1.0f, .stencil = 0};
-            VkImageSubresourceRange range{.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
-            vkCmdClearDepthStencilImage(cmd, dummyShadowImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearVal, 1, &range);
-            VkImageMemoryBarrier2 toRead{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-            toRead.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            toRead.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-            toRead.image = dummyShadowImage_;
-            toRead.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            toRead.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            toRead.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            toRead.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            toRead.subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
-            toRead.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            toRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            VkDependencyInfo toReadDep{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-            toReadDep.dependencyFlags = 0;
-            toReadDep.imageMemoryBarrierCount = 1;
-            toReadDep.pImageMemoryBarriers = &toRead;
-            cmdPipelineBarrier2(cmd, toReadDep);
-        });
-    }
-
-    // 3. Create descriptor pool for per-frame sets (2 UBO + 2 sampler)
-    {
-        VkDescriptorPoolSize sizes[2]{};
-        sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        sizes[0].descriptorCount = MAX_FRAMES;
-        sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        sizes[1].descriptorCount = MAX_FRAMES;
-
-        VkDescriptorPoolCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-        ci.maxSets = MAX_FRAMES;
-        ci.poolSizeCount = 2;
-        ci.pPoolSizes = sizes;
-        if (vkCreateDescriptorPool(device, &ci, nullptr, &previewDescPool_) != VK_SUCCESS) {
-            LOG_ERROR("CharacterPreview: failed to create descriptor pool");
-            return;
-        }
-    }
-
-    // 4. Create per-frame UBOs and descriptor sets
-    auto* appRenderer = core::Application::getInstance().getRenderer();
-    VkDescriptorSetLayout perFrameLayout = appRenderer->getPerFrameSetLayout();
-
-    for (uint32_t i = 0; i < MAX_FRAMES; i++) {
-        // Create mapped UBO
-        VkBufferCreateInfo bufInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-        bufInfo.size = sizeof(GPUPerFrameData);
-        bufInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-
-        VmaAllocationCreateInfo allocInfo{};
-        allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-        VmaAllocationInfo mapInfo{};
-        if (vmaCreateBuffer(allocator, &bufInfo, &allocInfo,
-                &previewUBO_[i], &previewUBOAlloc_[i], &mapInfo) != VK_SUCCESS) {
-            LOG_ERROR("CharacterPreview: failed to create UBO ", i);
-            return;
-        }
-        previewUBOMapped_[i] = mapInfo.pMappedData;
-
-        // Allocate descriptor set
-        VkDescriptorSetAllocateInfo setAlloc{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-        setAlloc.descriptorPool = previewDescPool_;
-        setAlloc.descriptorSetCount = 1;
-        setAlloc.pSetLayouts = &perFrameLayout;
-        if (vkAllocateDescriptorSets(device, &setAlloc, &previewPerFrameSet_[i]) != VK_SUCCESS) {
-            LOG_ERROR("CharacterPreview: failed to allocate descriptor set ", i);
-            return;
-        }
-
-        // Write UBO binding (0) and shadow sampler binding (1) using dummy white texture
-        VkDescriptorBufferInfo descBuf{};
-        descBuf.buffer = previewUBO_[i];
-        descBuf.offset = 0;
-        descBuf.range = sizeof(GPUPerFrameData);
-
-        VkDescriptorImageInfo shadowImg{};
-        // sampler is ignored: this set comes from the renderer's per-frame
-        // layout, where binding 1 declares an immutable comparison sampler.
-        shadowImg.imageView = dummyShadowView_;
-        shadowImg.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-        VkWriteDescriptorSet writes[2]{};
-        writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[0].dstSet = previewPerFrameSet_[i];
-        writes[0].dstBinding = 0;
-        writes[0].descriptorCount = 1;
-        writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        writes[0].pBufferInfo = &descBuf;
-        writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[1].dstSet = previewPerFrameSet_[i];
-        writes[1].dstBinding = 1;
-        writes[1].descriptorCount = 1;
-        writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writes[1].pImageInfo = &shadowImg;
-
-        vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
-    }
-
-    // 5. Register the color attachment as an ImGui texture
-    imguiTextureId_ = ImGui_ImplVulkan_AddTexture(
-        renderTarget_->getSampler(),
-        renderTarget_->getColorImageView(),
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-    LOG_INFO("CharacterPreview: off-screen FBO created (", fboWidth_, "x", fboHeight_, ")");
-}
-
-void CharacterPreview::destroyFBO() {
-    if (!vkCtx_) return;
-    VkDevice device = vkCtx_->getDevice();
-    VmaAllocator allocator = vkCtx_->getAllocator();
-
-    if (imguiTextureId_) {
-        removeImGuiTexture(imguiTextureId_);
-        imguiTextureId_ = VK_NULL_HANDLE;
-    }
-
-    for (uint32_t i = 0; i < MAX_FRAMES; i++) {
-        destroy(allocator, previewUBO_[i], previewUBOAlloc_[i]);
-    }
-
-    destroy(device, previewDescPool_);
-
-    if (dummyShadowView_) { vkDestroyImageView(device, dummyShadowView_, nullptr); dummyShadowView_ = VK_NULL_HANDLE; }
-    if (dummyShadowImage_) { vmaDestroyImage(allocator, dummyShadowImage_, dummyShadowAlloc_); dummyShadowImage_ = VK_NULL_HANDLE; dummyShadowAlloc_ = VK_NULL_HANDLE; }
-
-    if (renderTarget_) {
-        renderTarget_->destroy(device, allocator);
-        renderTarget_.reset();
-    }
 }
 
 bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
@@ -718,7 +501,9 @@ bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
     }
 
     modelLoaded_ = true;
-    loadRacialBackdrop(race);
+    // Appearance changes recreate the character instance but keep the scene:
+    // put the new instance back on its stand mark.
+    applyPreviewView();
     LOG_INFO("CharacterPreview: loaded ", m2Path,
              " skin=", static_cast<int>(skin), " face=", static_cast<int>(face),
              " hair=", static_cast<int>(hairStyle), " hairColor=", static_cast<int>(hairColor),
@@ -1222,96 +1007,47 @@ void CharacterPreview::attachWeaponEnchantVisual(uint32_t attachmentId, uint32_t
     }
 }
 
-void CharacterPreview::loadRacialBackdrop(game::Race race) {
+void CharacterPreview::setScene(const GlueSceneState& scene) {
     // Nothing to stand in front of when the background is meant to show
-    // through. Skipped here rather than removed afterwards, so a portrait does
-    // not read and build a scene on every rebuild only to discard it.
-    if (transparentBackground_) return;
-
-    if (!charRenderer_ || !assetManager_) return;
-    if (backdropRace_ == static_cast<int>(race) && backdropInstanceId_ != 0) {
-        // Appearance changes recreate the character instance but keep the racial
-        // scene. Reapply its stand mark and camera rig to the new instance.
-        applyPreviewView();
-        return;
+    // through.
+    if (transparentBackground_ || !scene_) return;
+    // show() reloads only when the model changes and re-applies the rest, so
+    // a screen saying the same scene again costs a comparison.
+    const bool placed = scene_->show(scene);
+    if (!placed && !scene.model.empty()) {
+        LOG_WARNING("CharacterPreview: scene ", scene.model, " could not be placed");
     }
+    takeStageFromScene();
+}
 
-    if (backdropInstanceId_ != 0) {
-        charRenderer_->removeInstance(backdropInstanceId_);
-        backdropInstanceId_ = 0;
-    }
-    backdropRace_ = static_cast<int>(race);
+void CharacterPreview::clearScene() {
+    if (scene_) scene_->clear();
+    takeStageFromScene();
+}
+
+void CharacterPreview::takeStageFromScene() {
     previewStandPosition_ = glm::vec3(0.0f);
     previewViewDirection_ = glm::vec3(0.0f, 1.0f, 0.0f);
     modelYaw_ = 90.0f;
+    if (scene_ && scene_->placed()) {
+        // These scenes are authored in their own space - the human one sits
+        // ~230 units from its origin - and carry the camera and the spot the
+        // character stands on. Keep the character on the authored stand mark
+        // and use the scene camera for the viewing direction; distance and
+        // focus come from the portrait rig so scroll-wheel zoom can move
+        // naturally toward the face.
+        const GlueSceneStage stage = scene_->stage();
+        if (stage.valid) {
+            glm::vec3 toCamera = stage.cameraEye - stage.cameraTarget;
+            if (glm::length(toCamera) < 0.001f) toCamera = glm::vec3(0.0f, 1.0f, 0.0f);
+            previewStandPosition_ = stage.standPosition;
+            previewViewDirection_ = glm::normalize(toCamera);
+            modelYaw_ = glm::degrees(std::atan2(previewViewDirection_.y, previewViewDirection_.x));
+            LOG_INFO("CharacterPreview: stand=(", stage.standPosition.x, ",",
+                     stage.standPosition.y, ",", stage.standPosition.z, ")");
+        }
+    }
     applyPreviewView();
-
-    // The glue screens each stand the character in their racial home - humans in
-    // Stormwind, orcs in Durotar, and so on. Undead reuse the Scourge scene.
-    const char* sceneName = nullptr;
-    switch (race) {
-        case game::Race::HUMAN:     sceneName = "UI_Human";    break;
-        case game::Race::ORC:       sceneName = "UI_Orc";      break;
-        case game::Race::DWARF:     sceneName = "UI_Dwarf";    break;
-        case game::Race::NIGHT_ELF: sceneName = "UI_NightElf"; break;
-        case game::Race::UNDEAD:    sceneName = "UI_Scourge";  break;
-        case game::Race::TAUREN:    sceneName = "UI_Tauren";   break;
-        // Blizzard does not ship separate Gnome or Troll glue scenes in the
-        // Classic/TBC/WotLK asset sets. These races intentionally share their
-        // faction partner's authored selection backdrop.
-        case game::Race::GNOME:     sceneName = "UI_Dwarf";    break;
-        case game::Race::TROLL:     sceneName = "UI_Orc";      break;
-        case game::Race::BLOOD_ELF: sceneName = "UI_BloodElf"; break;
-        case game::Race::DRAENEI:   sceneName = "UI_Draenei";  break;
-        default: break;
-    }
-    if (!sceneName) return;
-
-    std::string scenePath = std::string("Interface\\Glues\\Models\\") + sceneName + "\\" +
-                            sceneName + ".m2";
-    pipeline::M2Model sceneModel;
-    if (!loadPreviewM2(scenePath, sceneModel)) {
-        LOG_WARNING("CharacterPreview: no racial backdrop at ", scenePath);
-        return;
-    }
-
-    // These scenes are authored in their own space - the human one sits ~230 units
-    // from its origin - and carry the camera and the spot the character stands on.
-    // Without both there is no way to place the scene, so leave it out entirely
-    // rather than drop geometry somewhere off-screen.
-    if (sceneModel.cameras.empty()) {
-        LOG_WARNING("CharacterPreview: racial backdrop ", scenePath, " has no camera; skipping");
-        return;
-    }
-    const auto& sceneCam = sceneModel.cameras[0];
-
-    // Attachment 0 is the character's mark on the scene's ground.
-    glm::vec3 standPos = sceneCam.targetBase;
-    for (const auto& att : sceneModel.attachments) {
-        if (att.id == 0) { standPos = att.position; break; }
-    }
-
-    if (!charRenderer_->loadModel(sceneModel, PREVIEW_BACKDROP_MODEL_ID)) {
-        LOG_WARNING("CharacterPreview: failed to load racial backdrop ", scenePath);
-        return;
-    }
-
-    backdropInstanceId_ = charRenderer_->createInstance(PREVIEW_BACKDROP_MODEL_ID, glm::vec3(0.0f));
-    if (backdropInstanceId_ == 0) return;
-    charRenderer_->setInstanceSceneModel(backdropInstanceId_, true);
-
-    // Keep the character on the scene's authored stand mark and use the scene
-    // camera only for viewing direction. Distance and focus come from our portrait
-    // rig so scroll-wheel zoom can move naturally toward the face.
-    glm::vec3 toCamera = sceneCam.positionBase - sceneCam.targetBase;
-    if (glm::length(toCamera) < 0.001f) toCamera = glm::vec3(0.0f, 1.0f, 0.0f);
-    previewStandPosition_ = standPos;
-    previewViewDirection_ = glm::normalize(toCamera);
-    modelYaw_ = glm::degrees(std::atan2(previewViewDirection_.y, previewViewDirection_.x));
-    applyPreviewView();
-
-    LOG_INFO("CharacterPreview: racial backdrop ", scenePath,
-             " stand=(", standPos.x, ",", standPos.y, ",", standPos.z, ")");
 }
 
 void CharacterPreview::update(float deltaTime) {
@@ -1325,6 +1061,8 @@ void CharacterPreview::update(float deltaTime) {
                                             : previewStandPosition_;
         charRenderer_->update(deltaTime, cameraPos);
     }
+    // The scene's own animation and particles, seen from the same camera.
+    if (scene_ && camera_) scene_->update(deltaTime, *camera_);
 }
 
 void CharacterPreview::render() {
@@ -1336,50 +1074,23 @@ void CharacterPreview::compositePass(VkCommandBuffer cmd, uint32_t frameIndex) {
     if (!compositeRequested_) return;
     compositeRequested_ = false;
 
-    if (!charRenderer_ || !camera_ || !modelLoaded_ || !renderTarget_ || !renderTarget_->isValid()) {
+    if (!charRenderer_ || !camera_ || !modelLoaded_ || !scene_ || !scene_->isBuilt()) {
         return;
     }
 
-    uint32_t fi = frameIndex % MAX_FRAMES;
-
-    // Update per-frame UBO with preview camera matrices and studio lighting
-    GPUPerFrameData ubo{};
-    ubo.view = camera_->getViewMatrix();
-    ubo.projection = camera_->getProjectionMatrix();
-    ubo.lightSpaceMatrix = glm::mat4(1.0f);
-    // Studio lighting: key light from upper-right-front
-    ubo.lightDir = glm::vec4(glm::normalize(glm::vec3(0.5f, -0.7f, 0.5f)), 0.0f);
-    ubo.lightColor = glm::vec4(1.0f, 0.95f, 0.9f, 0.0f);
-    ubo.ambientColor = glm::vec4(0.35f, 0.35f, 0.4f, 0.0f);
-    ubo.viewPos = glm::vec4(camera_->getPosition(), 0.0f);
-    // No fog in preview
-    ubo.fogColor = glm::vec4(0.05f, 0.05f, 0.1f, 0.0f);
-    ubo.fogParams = glm::vec4(9999.0f, 10000.0f, 0.0f, 0.0f);
-    // Off-screen preview has no real shadow pass/light-space setup. Sampling
-    // the global shadow binding here can produce unstable fragments on some
-    // drivers, so keep the portrait on studio lighting only.
-    ubo.shadowParams = glm::vec4(0.0f);
-
-    std::memcpy(previewUBOMapped_[fi], &ubo, sizeof(GPUPerFrameData));
-
-    // Begin off-screen render pass
-    // Nothing at all behind a portrait, so the frame art around it shows
-    // through; the studio backdrop everywhere else.
-    VkClearColorValue clearColor = transparentBackground_
-        ? VkClearColorValue{{0.0f, 0.0f, 0.0f, 0.0f}}
-        : VkClearColorValue{{0.05f, 0.05f, 0.1f, 1.0f}};
-    renderTarget_->beginPass(cmd, clearColor);
-
-    // Preview rendering bypasses Renderer::renderWorld(), so it must run the
-    // same resource-preparation hook itself after server appearance data has
-    // produced bone matrices. This preserves lazy data loading while keeping
-    // GPU allocation outside CharacterRenderer::render().
-    charRenderer_->prepareRender(fi);
-
-    // Render the character model
-    charRenderer_->render(cmd, previewPerFrameSet_[fi], *camera_);
-
-    renderTarget_->endPass(cmd);
+    // The scene records the pass: its per-frame block carries this camera
+    // and the lighting and fog of whatever is on show - the studio rig when
+    // nothing is - and the character is drawn into it first, so the scene's
+    // depth and its blended sheets see the figure.
+    const uint32_t slot = frameIndex % GlueScene::kSlots;
+    scene_->record(cmd, slot, *camera_,
+                   [&](VkCommandBuffer c, VkDescriptorSet perFrameSet, const Camera& camera) {
+        // Preview rendering bypasses Renderer::renderWorld(), so it must run
+        // the same resource-preparation hook itself after server appearance
+        // data has produced bone matrices.
+        charRenderer_->prepareRender(slot);
+        charRenderer_->render(c, perFrameSet, camera);
+    });
 
     compositeRendered_ = true;
 }
@@ -1399,19 +1110,19 @@ void CharacterPreview::zoom(float wheelDelta) {
 
 void CharacterPreview::setTransparentBackground(bool transparent) {
     transparentBackground_ = transparent;
+    if (!scene_) return;
+    // Nothing at all behind a portrait, so the frame art around it shows
+    // through; the studio backdrop everywhere else.
+    scene_->setClearColor(transparent ? glm::vec4(0.0f) : glm::vec4(0.05f, 0.05f, 0.1f, 1.0f));
     // The scene model behind the character is as opaque as the clear colour,
     // so it goes as well.
-    if (transparent && backdropInstanceId_ != 0 && charRenderer_) {
-        charRenderer_->removeInstance(backdropInstanceId_);
-        backdropInstanceId_ = 0;
-        backdropRace_ = -1;
-    }
+    if (transparent) clearScene();
 }
 
 void CharacterPreview::setPortraitFraming() {
     zoomLevel_ = 1.0f;
     // Straight at the character. The model is turned to face the camera in the
-    // same breath, which is the part loadRacialBackdrop would otherwise be the
+    // same breath, which is the part takeStageFromScene would otherwise be the
     // only place to do.
     previewViewDirection_ = glm::vec3(0.0f, 1.0f, 0.0f);
     modelYaw_ = glm::degrees(std::atan2(previewViewDirection_.y,

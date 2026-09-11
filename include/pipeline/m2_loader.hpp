@@ -204,6 +204,33 @@ struct M2RibbonEmitter {
     uint16_t textureCols = 1;
 };
 
+/// The shader id a skin batch would carry if it were spelled the way
+/// m2TexCombiner reads it, for a model that stores combiners the older way.
+///
+/// A model with global flag 0x08 does not put a shader id in its batches. It
+/// keeps one array of texture combiners in its header - Blizzard's
+/// texture_combiner_combos - and each batch's `shader` field is an offset into
+/// it: `textureCount` entries starting there, one op per layer, in the same
+/// numbering the low bits of a shader id use (0 Opaque, 1 Mod, 3 Add, 4 Mod2x,
+/// 6 Mod2xNA, 7 AddNA). Read as a shader id the offset is nonsense: the
+/// Northrend login scene stores [1, 4, 1, 1] and its light shafts say 0, which
+/// is Mod_Mod2x by the table and Opaque_Opaque by the number, and its glow
+/// says 2, which is Mod_Mod by the table and Opaque_AddAlpha by the number.
+/// Roughly a third of the client's models carry the flag, most of them with
+/// [1, 4] or [1, 6] - an environment-mapped specular sheet over a Mod base.
+///
+/// Returns `shader` unchanged for a model without the array, a batch of one
+/// layer, or an offset the array does not cover; otherwise the two ops packed
+/// as m2TexCombiner reads them, layer 0's in bits 0x70 and layer 1's in the
+/// low three.
+inline uint16_t m2ShaderFromCombinerCombos(uint16_t shader, uint16_t textureCount,
+                                           const std::vector<uint16_t>& combos) {
+    if (combos.empty() || textureCount != 2) return shader;
+    const size_t at = shader;
+    if (at + 1 >= combos.size()) return shader;
+    return static_cast<uint16_t>(((combos[at] & 7) << 4) | (combos[at + 1] & 7));
+}
+
 /// Which two-layer combine a skin batch's `shader` asks for, as the index the
 /// model shaders implement. Zero means "layer 0 alone".
 ///
@@ -211,10 +238,9 @@ struct M2RibbonEmitter {
 /// and Blizzard resolves it through a table whose shape is nothing like the
 /// raw number: bit 0x8000 means the low bits are already a combiner, bits 0x70
 /// choose the Mod_* family over the Opaque_* one, and only the low three bits
-/// pick within a family. Using the raw id as an index puts the login screen's
-/// light shafts on Opaque_Mod2xNA when they want Opaque_Opaque, which takes
-/// their alpha from the falloff mask a second time and leaves the shaft a
-/// fraction of the brightness the art asks for.
+/// pick within a family. A model that stores combiners as an array instead
+/// has its batches rewritten into this shape at load - see
+/// m2ShaderFromCombinerCombos.
 ///
 /// The names read <layer0 op>_<layer1 op>. "Opaque" on the first means layer
 /// 0's alpha is not used; "NA" on the second means layer 1's is not used.
@@ -237,21 +263,14 @@ inline int32_t m2TexCombiner(uint16_t textureCount, uint16_t shaderId,
     }
     switch (lower) {
         // Blizzard's table calls this one Opaque_Opaque, whose alpha is the
-        // material's rather than either layer's. Which is right depends on how
-        // the batch blends, and the login scene has both kinds.
-        //
-        // Its aurora sheets are alpha-blended and carry colorIndex 0xFFFF - no
-        // colour slot, so no material alpha to be had. Given alpha 1 they are
-        // opaque slabs, and that is exactly how they drew: dark bands across
-        // the sky. Their second layer is a mask whose RGB is a flat grey and
-        // whose alpha is the entire shape, so the alpha comes from layer 1.
-        //
-        // Its light shafts are additive, where alpha is not a shape but an
-        // intensity - the mask has already multiplied the colour, and taking
-        // the alpha from it a second time leaves the shaft at a fraction of
-        // what the art asks for. Those keep the material's alpha, which is the
-        // authored colour track, and where the shafts overlap they saturate:
-        // the burst over the citadel's spire.
+        // material's rather than either layer's. Only a model without a
+        // combiner array reaches it with a zero - every model with one has
+        // been rewritten into a Mod_* id above - and for those, which is the
+        // older art, the raw zero is not a statement of intent. An additive
+        // batch keeps the material's alpha, where alpha is an intensity and
+        // the second layer has already shaped the colour; a blended one takes
+        // the second layer's, where a sheet with no colour slot would
+        // otherwise draw as an opaque slab.
         case 0:  return blendMode >= 3 ? 4 : 1;   // Opaque_Opaque / Opaque_Mod
         case 3:  return 11;  // Opaque_AddAlpha
         case 4:  return 11;  // Opaque_AddAlpha
@@ -365,6 +384,12 @@ struct M2Model {
 
     // Flags
     uint32_t globalFlags;
+
+    /// Texture combiner combos, when global flag 0x08 says the batches store
+    /// combiners this way; empty otherwise. Already applied to every batch's
+    /// `shader` by the loader - see m2ShaderFromCombinerCombos - and kept so
+    /// a reader of the model can see what it was applied from.
+    std::vector<uint16_t> textureCombinerCombos;
 
     [[nodiscard]] bool isValid() const {
         return !vertices.empty() && !indices.empty();

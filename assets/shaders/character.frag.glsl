@@ -177,11 +177,16 @@ vec2 layer2Coords() {
 
 vec4 combineLayers(vec4 t0, vec4 t1, int mode) {
     if (mode == 1)  return vec4(t0.rgb * t1.rgb,       t1.a);
-    if (mode == 2)  return vec4(t0.rgb * t1.rgb * 2.0, t1.a);
+    // Mod2x doubles the whole product, alpha included: the "NA" variants
+    // below are what a second layer whose alpha is not wanted asks for. The
+    // login scene's masks are a flat grey of 0.46 with the shape in the alpha,
+    // and the doubling is what makes the grey a neutral tint and the shape a
+    // full-strength one.
+    if (mode == 2)  return vec4(t0.rgb * t1.rgb * 2.0, t1.a * 2.0);
     if (mode == 3)  return vec4(t0.rgb * t1.rgb * 2.0, 1.0);
     if (mode == 4)  return vec4(t0.rgb * t1.rgb,       1.0);
     if (mode == 5)  return vec4(t0.rgb * t1.rgb,       t0.a * t1.a);
-    if (mode == 6)  return vec4(t0.rgb * t1.rgb * 2.0, t0.a * t1.a);
+    if (mode == 6)  return vec4(t0.rgb * t1.rgb * 2.0, t0.a * t1.a * 2.0);
     if (mode == 7)  return vec4(t0.rgb + t1.rgb,       t0.a + t1.a);
     if (mode == 8)  return vec4(t0.rgb * t1.rgb * 2.0, t0.a);
     if (mode == 9)  return vec4(t0.rgb + t1.rgb,       t0.a);

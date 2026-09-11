@@ -1901,6 +1901,14 @@ target_link_libraries(test_light_volume_order PRIVATE catch2_main)
 add_test(NAME light_volume_order COMMAND test_light_volume_order)
 register_test_target(test_light_volume_order)
 
+# ── test_m2_combiner_combos ──────────────────────────────────
+# A batch's shader id for a model whose header stores combiners as an
+# array (global flag 0x08). Read as ids, the offsets put the login scene's
+# light shafts on the wrong combiner. Header-only, no device.
+wowee_add_test(test_m2_combiner_combos
+    SOURCES test_m2_combiner_combos.cpp
+            ${TEST_COMMON_SOURCES})
+
 # ── test_m2_blend_mode ───────────────────────────────────────
 # Whether an M2 batch is alpha tested. Additive batches were forced onto
 # the cutout pipeline when their texture had no alpha, which drew every

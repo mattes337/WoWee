@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/character.hpp"
+#include "rendering/glue_scene.hpp"
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
@@ -20,7 +21,6 @@ class CharacterRenderer;
 class Camera;
 class VkContext;
 class VkTexture;
-class VkRenderTarget;
 
 class CharacterPreview {
 public:
@@ -81,8 +81,19 @@ public:
     /// Draws the character against nothing rather than a lit backdrop, so what
     /// surrounds it is transparent. A portrait is masked by the frame art
     /// around it, and anything opaque behind the head shows as a block of
-    /// colour inside that frame.
+    /// colour inside that frame. Clears any scene: it is as opaque as the
+    /// clear colour.
     void setTransparentBackground(bool transparent);
+
+    /// Stand the character in `scene`, drawn through the same path the glue
+    /// screens draw theirs: the scene's model behind the figure, its fog and
+    /// lights over both, and its authored camera and stand mark as the
+    /// framing the rig starts from. Nothing in the preview knows which screen
+    /// the scene belongs to; ui::glueRaceScene is where the client's own
+    /// screens get theirs. Ignored while the background is transparent.
+    void setScene(const GlueSceneState& scene);
+    /// No scene: the studio backdrop and the studio rig.
+    void clearScene();
 
     // Off-screen composite pass - call from Renderer::beginFrame() before main render pass
     void compositePass(VkCommandBuffer cmd, uint32_t frameIndex);
@@ -92,7 +103,10 @@ public:
 
     // Returns the ImGui texture handle. Returns VK_NULL_HANDLE until the first
     // compositePass has run (image is in UNDEFINED layout before that).
-    [[nodiscard]] VkDescriptorSet getTextureId() const { return compositeRendered_ ? imguiTextureId_ : VK_NULL_HANDLE; }
+    [[nodiscard]] VkDescriptorSet getTextureId() const {
+        if (!compositeRendered_ || !scene_) return VK_NULL_HANDLE;
+        return reinterpret_cast<VkDescriptorSet>(scene_->textureId());
+    }
     [[nodiscard]] int getWidth() const { return fboWidth_; }
     [[nodiscard]] int getHeight() const { return fboHeight_; }
 
@@ -108,8 +122,6 @@ private:
         uint16_t geoset200 = 0;
     };
 
-    void createFBO();
-    void destroyFBO();
     void ensureAppearanceGeosetsLoaded();
     std::unordered_set<uint16_t> buildBaseGeosets();
     [[nodiscard]] uint16_t selectedHairScalpGeoset() const;
@@ -120,8 +132,9 @@ private:
     void attachWeapons(const std::vector<game::EquipmentItem>& equipment);
     // Put the weapon's enchant glint on it (char enum reports the ItemVisual id directly).
     void attachWeaponEnchantVisual(uint32_t attachmentId, uint32_t itemVisualId);
-    // Load the race's glue scene (Stormwind for humans, Orgrimmar for orcs, ...) as a backdrop.
-    void loadRacialBackdrop(game::Race race);
+    /// Take the stand mark and viewing direction from the scene on show, or
+    /// the studio's when there is none, and re-aim the rig.
+    void takeStageFromScene();
     void applyPreviewView();
 
     pipeline::AssetManager* assetManager_ = nullptr;
@@ -129,24 +142,11 @@ private:
     std::unique_ptr<CharacterRenderer> charRenderer_;
     std::unique_ptr<Camera> camera_;
 
-    // Off-screen render target (color + depth)
-    std::unique_ptr<VkRenderTarget> renderTarget_;
-
-    // Per-frame UBO for preview camera/lighting (double-buffered)
-    static constexpr uint32_t MAX_FRAMES = 2;
-    VkDescriptorPool previewDescPool_ = VK_NULL_HANDLE;
-    VkBuffer previewUBO_[MAX_FRAMES] = {};
-    VmaAllocation previewUBOAlloc_[MAX_FRAMES] = {};
-    void* previewUBOMapped_[MAX_FRAMES] = {};
-    VkDescriptorSet previewPerFrameSet_[MAX_FRAMES] = {};
-
-    // Dummy 1x1 depth texture for shadow map placeholder (sampler2DShadow compatible)
-    VkImage dummyShadowImage_ = VK_NULL_HANDLE;
-    VkImageView dummyShadowView_ = VK_NULL_HANDLE;
-    VmaAllocation dummyShadowAlloc_ = VK_NULL_HANDLE;
-
-    // ImGui texture handle for displaying the preview (VkDescriptorSet in Vulkan backend)
-    VkDescriptorSet imguiTextureId_ = VK_NULL_HANDLE;
+    /// The view: the offscreen target, the per-frame blocks, the glow passes
+    /// and the scene behind the character, when a screen put one there. The
+    /// character is drawn into its pass through the figure callback record()
+    /// takes.
+    std::unique_ptr<GlueScene> scene_;
 
     // 4:5 portrait aspect ratio - taller than wide to show full character body
     // from head to feet in the character creation/selection screen. Rendered at
@@ -155,7 +155,6 @@ private:
     int fboHeight_ = 800;
 
     static constexpr uint32_t PREVIEW_MODEL_ID = 9999;
-    static constexpr uint32_t PREVIEW_BACKDROP_MODEL_ID = 9996;
 
     // CharacterRenderer::loadModel() keeps a model cache keyed by id and skips
     // loading when the id is already present, so a fixed id per hand would hand
@@ -165,8 +164,6 @@ private:
     uint32_t previewModelIdFor(const std::string& assetKey);
     std::unordered_map<std::string, uint32_t> previewModelIds_;
     uint32_t nextPreviewModelId_ = 20000;
-    uint32_t backdropInstanceId_ = 0;
-    int backdropRace_ = -1;   // race whose glue scene is currently loaded (-1 = none)
     uint32_t instanceId_ = 0;
     bool modelLoaded_ = false;
     bool compositeRequested_ = false;

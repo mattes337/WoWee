@@ -2,6 +2,7 @@
 #include "game/equipment_hash.hpp"
 #include "ui/ui_colors.hpp"
 #include "rendering/character_preview.hpp"
+#include "ui/glue_race_scene.hpp"
 #include "rendering/renderer.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "core/application.hpp"
@@ -432,6 +433,9 @@ void CharacterScreen::renderDetails(game::GameHandler& gameHandler,
                                             character.facialFeatures, character.useFemaleModel)) {
                     preview_->applyEquipment(character.equipment);
                 }
+                // Stood in the scene the original select screen would stand
+                // them in, drawn through the same path the glue screens use.
+                preview_->setScene(glueRaceScene(character.race, character.characterClass));
 
                 previewGuid_ = character.guid;
                 previewAppearanceBytes_ = character.appearanceBytes;

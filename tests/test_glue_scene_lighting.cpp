@@ -10,15 +10,15 @@
 // lighting is wrong", which is why they are worth a test.
 
 #include "catch_amalgamated.hpp"
-#include "ui/unit_portrait.hpp"
+#include "rendering/glue_scene.hpp"
 
 #include <cmath>
 #include <vector>
 
-using wowee::ui::GlueSceneLight;
-using wowee::ui::glueCameraIndex;
-using wowee::ui::glueSceneFogRange;
-using wowee::ui::glueSceneLighting;
+using wowee::rendering::GlueSceneLight;
+using wowee::rendering::glueCameraIndex;
+using wowee::rendering::glueSceneFogRange;
+using wowee::rendering::glueSceneLighting;
 
 namespace {
 

@@ -184,17 +184,6 @@ static constexpr int kBaseTexSize    = 256;  // NPC baked texture default
 static constexpr int kUpscaleTexSize = 512;  // Target size for region compositing
 static constexpr int32_t kPreviewSimpleTextureMode = -31336;
 
-// WOWEE_SCENE_DIAG=1 - dump what each glue-scene backdrop batch is handed at draw
-// time. The scene renders through the character path, so when it comes out wrong
-// the question is always which texture, blend mode and shader path it actually got.
-static bool sceneDiagEnabled() {
-    static const bool enabled = [] {
-        const char* v = std::getenv("WOWEE_SCENE_DIAG");
-        return v && v[0] != '\0' && v[0] != '0';
-    }();
-    return enabled;
-}
-
 // Evaluate a batch's M2 color-alpha track at the given animation sequence/time.
 // Returns 1.0 when the batch has no color slot or the track has no usable data.
 // Global-sequence-timed tracks are not culled (they run on a different clock and
@@ -2109,7 +2098,7 @@ void CharacterRenderer::update(float deltaTime, const glm::vec3& cameraPos) {
         float distSq = glm::distance2(inst.position, cameraPos);
         const bool isSkyBird = inst.cachedModel && inst.cachedModel->isSkyBird;
         const float updateRadiusSq = isSkyBird ? birdUpdateRadiusSq : animUpdateRadiusSq;
-        if (distSq > updateRadiusSq && !inst.isSceneModel) continue;
+        if (distSq > updateRadiusSq) continue;
 
         // Advance global sequence timer (accumulates independently of animation wrapping)
         inst.globalSequenceTime += deltaTime * 1000.0f;
@@ -2611,7 +2600,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
         if (!instance.visible) continue;
 
         // Character instance culling: test both distance and frustum visibility
-        if (!instance.hasOverrideModelMatrix && !instance.isSceneModel) {
+        if (!instance.hasOverrideModelMatrix) {
             glm::vec3 toInst = instance.position - camPos;
             float distSq = glm::dot(toInst, toInst);
 
@@ -2831,11 +2820,8 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 const bool hairTexture = batchUsesTextureType(gpuModel, batch, 6);
                 const bool hairGeoset = (submeshGroup >= 1 && submeshGroup <= 3) ||
                                         (submeshGroup == 0 && batch.submeshId > 0 && batch.submeshId <= 99);
-                // Scene models have no hair, and their submesh ids are all 0, which
-                // would otherwise satisfy the hair-geoset guess for every batch.
-                const bool hairMaterial = !instance.isSceneModel &&
-                                          (hairTexture ||
-                                           (hairGeoset && (blendMode != 0 || batch.textureCount > 1)));
+                const bool hairMaterial = hairTexture ||
+                                          (hairGeoset && (blendMode != 0 || batch.textureCount > 1));
 
                 // Attached weapon models can include additive FX/card batches that
                 // appear as detached flat quads for some swords. Keep core geometry
@@ -2846,7 +2832,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 }
 
                 // For body/equipment parts with white/fallback texture, use skin (type 1) texture.
-                if (texPtr == whiteTexture_.get() && !instance.isSceneModel) {
+                if (texPtr == whiteTexture_.get()) {
                     uint16_t group = batchGroup;
                     bool isSkinGroup = (group == 0 || group == 3 || group == 4 || group == 5 ||
                                         group == 8 || group == 9 || group == 13);
@@ -2893,12 +2879,10 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 // inferring a cutout from "the texture has alpha" discards the whole
                 // building and leaves the sky showing through it. Only an alpha-key
                 // material (blendMode 1) cuts out here.
-                const bool blendNeedsCutout = instance.isSceneModel
-                    ? (blendMode == 1)
-                    : ((blendMode == 1) ||
-                       (blendMode == 0 && alphaCutout) ||
-                       (blendMode >= 2 && !alphaCutout) ||
-                       hairMaterial);
+                const bool blendNeedsCutout = (blendMode == 1) ||
+                                              (blendMode == 0 && alphaCutout) ||
+                                              (blendMode >= 2 && !alphaCutout) ||
+                                              hairMaterial;
                 // Enchant glows emit their own light; scene lighting must not tint them.
                 const bool unlit = ((materialFlags & 0x01) != 0) || (blendMode >= 3) ||
                                    instance.isEffectModel;
@@ -3054,30 +3038,6 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     matData.enableNormalMap = 0;
                     matData.enablePOM = kPreviewSimpleTextureMode;
                     matData.heightMapVariance = 0.0f;
-                }
-
-                // WOWEE_SCENE_DIAG=1 dumps what each backdrop batch is actually told to
-                // draw - texture, blend mode, shader path - once per scene model.
-                static std::set<size_t> sceneDiagSeen;
-                if (instance.isSceneModel && sceneDiagEnabled() &&
-                    sceneDiagSeen.insert(bi).second) {
-                    std::string texName = "<white>";
-                    if (batch.textureIndex < gpuModel.data.textureLookup.size()) {
-                        uint16_t lk = gpuModel.data.textureLookup[batch.textureIndex];
-                        if (lk < gpuModel.data.textures.size())
-                            texName = gpuModel.data.textures[lk].filename;
-                    }
-                    // Warning level: the diagnostic is opt-in already, and the file log
-                    // filters info out by default.
-                    core::Logger::getInstance().warning(
-                        "SCENE DIAG batch bi=", bi, " submesh=", batch.submeshId,
-                        " shader=", batch.shader, " texcnt=", batch.textureCount,
-                        " blend=", blendMode, " matFlags=0x", std::hex, materialFlags, std::dec,
-                        " alphaTest=", matData.alphaTest,
-                        " unlit=", matData.unlit,
-                        " simplePath=", (matData.enablePOM == kPreviewSimpleTextureMode ? 1 : 0),
-                        " whiteFallback=", (texPtr == whiteTexture_.get() ? 1 : 0),
-                        " tex=", texName);
                 }
 
                 // The material's second texture layer, where it declares one.
@@ -4244,11 +4204,6 @@ bool CharacterRenderer::attachWeaponEffect(uint32_t charInstanceId, uint32_t att
     core::Logger::getInstance().debug("Attached enchant visual model ", effectModelId,
         " to weapon at attachment ", attachmentId, " (visual slot ", visualSlot, ")");
     return true;
-}
-
-void CharacterRenderer::setInstanceSceneModel(uint32_t instanceId, bool isScene) {
-    auto it = instances.find(instanceId);
-    if (it != instances.end()) it->second.isSceneModel = isScene;
 }
 
 void CharacterRenderer::detachWeaponEffects(uint32_t charInstanceId, uint32_t attachmentId) {
