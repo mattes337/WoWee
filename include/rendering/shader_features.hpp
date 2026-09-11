@@ -40,7 +40,13 @@ enum class ShaderFeatureBit : uint32_t {
     NormalMap = 0,  ///< perturb the normal by the material's normal map
     Parallax = 1,   ///< march the height map for relief
     Shadows = 2,    ///< read the sun shadow map at all
-    Count = 3,
+    /// Whether M2 doodads and terrain read a generated normal map too, or only
+    /// the buildings and characters that always did. Off in `defaultBits()`,
+    /// which is what keeps m2.frag and terrain.frag byte-identical to the
+    /// modules that shipped - `NormalMap` above cannot do that job, because it
+    /// is on by default for the two shaders that always had the branch.
+    NormalMapEverywhere = 3,
+    Count = 4,
 };
 
 /// The specialization constant ids that are not bits: small integers whose

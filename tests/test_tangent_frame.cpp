@@ -174,19 +174,24 @@ TEST_CASE("degenerate input never produces a NaN", "[tangent]") {
 
 TEST_CASE("a grid tangent is the u axis laid into the surface", "[tangent]") {
     // Flat ground: the tangent is the u axis unchanged.
-    const glm::vec4 flat = gridTangent(glm::vec3(0, 0, 1), glm::vec3(0, -1, 0));
+    const glm::vec4 flat = gridTangent(glm::vec3(0, 0, 1), glm::vec3(0, -1, 0),
+                                       glm::vec3(-1, 0, 0));
     CHECK(nearly(glm::vec3(flat), glm::vec3(0, -1, 0)));
-    CHECK(flat.w == Catch::Approx(1.0f));
+    // cross(up, -Y) is +X and v runs along -X, so the bitangent runs against
+    // the cross product: the handedness this grid actually has is -1.
+    CHECK(flat.w == Catch::Approx(-1.0f));
 
     // A slope: the tangent tilts with it and stays perpendicular to the normal.
     const glm::vec3 slope = glm::normalize(glm::vec3(0.0f, 0.4f, 1.0f));
-    const glm::vec4 tilted = gridTangent(slope, glm::vec3(0, -1, 0));
+    const glm::vec4 tilted = gridTangent(slope, glm::vec3(0, -1, 0),
+                                         glm::vec3(-1, 0, 0));
     CHECK(std::abs(glm::dot(glm::vec3(tilted), slope)) < 1e-5f);
     CHECK(std::abs(glm::length(glm::vec3(tilted)) - 1.0f) < 1e-5f);
 
     // A wall facing straight along u, which nothing on this terrain is but a
     // skirt vertex could look like. The answer is arbitrary and finite.
-    const glm::vec4 wall = gridTangent(glm::vec3(0, -1, 0), glm::vec3(0, -1, 0));
+    const glm::vec4 wall = gridTangent(glm::vec3(0, -1, 0), glm::vec3(0, -1, 0),
+                                       glm::vec3(-1, 0, 0));
     CHECK(finite(wall));
     CHECK(glm::length(glm::vec3(wall)) == Catch::Approx(1.0f));
 }

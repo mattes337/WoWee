@@ -80,6 +80,7 @@
 #include "rendering/amd_fsr3_runtime.hpp"
 #include "rendering/spell_visual_system.hpp"
 #include "rendering/post_process_pipeline.hpp"
+#include "rendering/sun_shafts.hpp"
 #include "rendering/animation_controller.hpp"
 #include "rendering/render_graph.hpp"
 #include "rendering/overlay_system.hpp"
@@ -904,6 +905,12 @@ bool Renderer::initialize(core::Window* win) {
     postProcessPipeline_ = std::make_unique<PostProcessPipeline>();
     postProcessPipeline_->initialize(vkCtx);
 
+    sunShafts_ = std::make_unique<SunShafts>();
+    if (!sunShafts_->initialize(vkCtx)) {
+        LOG_WARNING("Sun shafts could not be initialized; the setting will do nothing");
+        sunShafts_.reset();
+    }
+
     // Create render graph and register virtual resources
     renderGraph_ = std::make_unique<RenderGraph>();
 
@@ -1049,6 +1056,10 @@ void Renderer::shutdown() {
         postProcessPipeline_->shutdown();
         postProcessPipeline_.reset();
     }
+    if (sunShafts_) {
+        sunShafts_->shutdown();
+        sunShafts_.reset();
+    }
 
     // Destroy render graph
     renderGraph_.reset();
@@ -1121,6 +1132,52 @@ void Renderer::setFogModel(int model) {
     // Deferred, for the same reason the MSAA change is: destroying a pipeline
     // that a command buffer already in flight still names is how this renderer
     // has lost a device before.
+    shaderFeatureChangePending_ = true;
+}
+
+std::string Renderer::normalMapCacheDir() const {
+    auto* assets = core::Application::getInstance().getAssetManager();
+    if (!assets) return {};
+    const std::string& data = assets->getDataPath();
+    if (data.empty()) return {};
+    // Per expansion, because two expansions' trees can hold two different
+    // textures under one path and a map is filed under what its source was.
+    std::string expansion = assets->getManifest().getExpansion();
+    if (expansion.empty()) expansion = "base";
+    return data + "/generated/" + expansion + "/normals";
+}
+
+void Renderer::setSunShaftsEnabled(bool enabled) {
+    if (sunShafts_) sunShafts_->setEnabled(enabled);
+}
+
+bool Renderer::areSunShaftsEnabled() const {
+    return sunShafts_ && sunShafts_->isEnabled();
+}
+
+void Renderer::setSunShaftStrength(float strength) {
+    if (sunShafts_) sunShafts_->setStrength(strength);
+}
+
+float Renderer::getSunShaftStrength() const {
+    return sunShafts_ ? sunShafts_->getStrength() : 0.0f;
+}
+
+void Renderer::setNormalMapScope(int scope) {
+    const int wanted = (scope == 1) ? 1 : 0;
+    if (wanted == normalMapScope_) return;
+    normalMapScope_ = wanted;
+
+    if (m2Renderer) m2Renderer->setNormalMapsEnabled(wanted == 1);
+    if (terrainRenderer) terrainRenderer->setNormalMapsEnabled(wanted == 1);
+
+    ShaderFeatures features = activeShaderFeatures();
+    features.set(ShaderFeatureBit::NormalMapEverywhere, wanted == 1);
+    if (!setActiveShaderFeatures(features)) return;
+
+    // Deferred, for the same reason setFogModel is: destroying a pipeline a
+    // command buffer in flight still names is how this renderer has lost a
+    // device before.
     shaderFeatureChangePending_ = true;
 }
 
@@ -1205,6 +1262,8 @@ void Renderer::applyMsaaChange() {
         if (auto* cl = skySystem->getClouds()) cl->recreatePipelines();
         if (auto* lf = skySystem->getLensFlare()) lf->recreatePipelines();
     }
+
+    if (sunShafts_) sunShafts_->recreatePipelines();
 
     if (minimap) {
         // After syncSwimEffectsTargetPass above, which is what decides the pass
@@ -1310,6 +1369,12 @@ void Renderer::beginFrame() {
         }
         // Recreate post-process resources for new swapchain dimensions
         if (postProcessPipeline_) postProcessPipeline_->handleSwapchainResize();
+        // Half the swapchain, and its composite pipeline is built against the
+        // interface pass the rebuild just remade.
+        if (sunShafts_) {
+            sunShafts_->handleSwapchainResize();
+            sunShafts_->recreatePipelines();
+        }
         // Resize HiZ depth pyramid for new swapchain dimensions
         if (hizSystem_) {
             auto ext = vkCtx->getSwapchainExtent();
@@ -1466,6 +1531,22 @@ void Renderer::endFrame() {
             vkCtx->getCurrentFrame());
     }
 
+    // S4. Between the two passes because that is the only place in the frame
+    // where the finished picture exists and nothing is recording into it: the
+    // scene pass has closed and the interface pass has not opened. The three
+    // half-resolution passes happen here; the additive quad that puts them on
+    // screen is the first thing drawn in the interface pass below.
+    bool sunShaftsDrawn = false;
+    glm::vec3 sunShaftColor(1.0f);
+    if (sunShafts_ && skySystem && currentImageIndex < vkCtx->getSwapchainImages().size()) {
+        const SkySystem::SunState& sun = skySystem->getSunState();
+        sunShaftColor = sun.color;
+        sunShaftsDrawn = sunShafts_->renderMask(
+            currentCmd, vkCtx->getSwapchainImages()[currentImageIndex],
+            vkCtx->getSwapchainExtent(), sun.ndc, sun.visibility);
+        if (sunShaftsDrawn) vkCtx->gpuMark(currentCmd, "sun-shafts");
+    }
+
     const auto& overlayFbs = vkCtx->getOverlayFramebuffers();
     if (vkCtx->getOverlayRenderPass() != VK_NULL_HANDLE && currentImageIndex < overlayFbs.size()) {
         VkRenderPassBeginInfo overlayRp{};
@@ -1484,6 +1565,10 @@ void Renderer::endFrame() {
         VkRect2D sc{};
         sc.extent = ext;
         vkCmdSetScissor(currentCmd, 0, 1, &sc);
+
+        // The shafts first, so they are part of the world rather than over the
+        // interface.
+        if (sunShaftsDrawn) sunShafts_->composite(currentCmd, sunShaftColor, ext);
 
         // ImGui's pipelines are built against the overlay pass, so it always
         // records inline here rather than into a scene-pass secondary buffer.
@@ -2759,6 +2844,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         if (wmoRenderer) wmoRenderer->prepareRender();
         auto prepWmoEnd = std::chrono::steady_clock::now();
         if (m2Renderer && camera) m2Renderer->prepareRender(frameIdx, *camera);
+        if (terrainRenderer) terrainRenderer->applyReadyNormalMaps();
         if (useOriginalSkybox && camera)
             skyboxModelRenderer_->prepareRender(frameIdx, *camera);
         auto prepM2End = std::chrono::steady_clock::now();
@@ -3014,6 +3100,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                 m2Renderer->setInsideInterior(cameraController->isInsideInteriorWMO());
             }
             m2Renderer->prepareRender(frameIdx, *camera);
+            if (terrainRenderer) terrainRenderer->applyReadyNormalMaps();
             auto m2Start = std::chrono::steady_clock::now();
             m2Renderer->render(currentCmd, perFrameSet, *camera);
             m2Renderer->renderSmokeParticles(currentCmd, perFrameSet);
@@ -3379,6 +3466,8 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
         }
         terrainRenderer->setWireframe(wireframeMode_);
         terrainRenderer->setTerrainLodLevel(terrainLodLevel_);
+        terrainRenderer->setNormalMapsEnabled(normalMapScope_ == 1);
+        terrainRenderer->initializeNormalMapCache(normalMapCacheDir());
         if (shadowRenderPass != VK_NULL_HANDLE) {
             terrainRenderer->initializeShadow(shadowRenderPass);
         }
@@ -3418,6 +3507,8 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
         m2Renderer = std::make_unique<M2Renderer>();
         if (!m2Renderer->initialize(vkCtx, perFrameSetLayout, assetManager))
             LOG_ERROR("M2Renderer initialization failed");
+        m2Renderer->setNormalMapsEnabled(normalMapScope_ == 1);
+        m2Renderer->initializeNormalMapCache(normalMapCacheDir());
         if (swimEffects) {
             swimEffects->setM2Renderer(m2Renderer.get());
         }

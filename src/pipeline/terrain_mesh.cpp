@@ -3,6 +3,7 @@
 #include <algorithm>
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
+#include "rendering/tangent_frame.hpp"
 #include <cmath>
 #include <array>
 #include <utility>
@@ -319,6 +320,19 @@ std::vector<TerrainVertex> TerrainMeshGenerator::generateVertices(const MapChunk
         constexpr float texScale = 4.0f / CHUNK_SIZE;
         vertex.texCoord[0] = -vertex.position[1] * texScale;
         vertex.texCoord[1] = -vertex.position[0] * texScale;
+
+        // The tangent frame, from those two lines: u runs along world -Y and v
+        // along world -X, whatever the height does. Derived here beside the
+        // coordinates it is the frame of, so the two cannot drift apart.
+        {
+            const glm::vec4 tf = rendering::gridTangent(
+                glm::vec3(vertex.normal[0], vertex.normal[1], vertex.normal[2]),
+                glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f));
+            vertex.tangent[0] = tf.x;
+            vertex.tangent[1] = tf.y;
+            vertex.tangent[2] = tf.z;
+            vertex.tangent[3] = tf.w;
+        }
 
         // Layer UV for alpha map sampling (0-1 range per chunk).
         // Sample at texel centers of the 64x64 alpha map to avoid edge seams.

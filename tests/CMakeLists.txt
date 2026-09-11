@@ -793,6 +793,14 @@ wowee_add_test(test_normal_map
             ${TEST_COMMON_SOURCES}
             ${CMAKE_SOURCE_DIR}/src/rendering/normal_map.cpp)
 
+# ── test_normal_map_cache ──────────────────────
+# The name a generated normal map gets on disk and the box filter that puts an
+# oversized source under the cap. Both are inline in the header precisely so
+# they can be reached without a Vulkan context, a thread pool or a file system.
+# Header-only; instant.
+wowee_add_test(test_normal_map_cache
+    SOURCES test_normal_map_cache.cpp)
+
 # ── test_spatial_grid ────────────────────────────────────────
 # The uniform grid the M2 and WMO renderers narrow collision queries with. Both
 # had their own copy, private to a renderer and unreachable without a Vulkan

@@ -166,22 +166,33 @@ picture named here is in `docs/evidence/phase-01/img/` as `.before.png`,
 `.after.png` and `.diff.png`, and the numbers are what
 `tools/compare_scenes.py` printed.
 
+**The third pass — S4 and M3a — has no pictures, and the reason is not a
+judgement.** `Data/extracted`, which is a junction into a checkout this worktree
+does not own, was emptied while that pass was building. Every ADT, M2, WMO and
+BLP the capture tool reads is gone from the machine; the client starts, loads
+FrameXML and draws its interface over an empty grey frame, and
+`asset_extract` cannot rebuild the tree here because StormLib is not in this
+vcpkg install and the target is therefore not built at all. The rows below say
+**not measured, blocked** where that is what happened, and say what was
+measured instead. See `docs/evidence/phase-01/README.md`.
+
 | Item | Result |
 |---|---|
-| Identity — `shader_offpath_identity` | **pass.** 0 shaders moved; character 1752, m2 806, terrain 454, wmo 731 instructions, the same counts as before the techniques landed |
-| Identity — a rendered frame at every new key's off value | **pass**, and stronger than asked: the same camera rendered from `c00ab904e` in a second worktree is **bit-identical** to this branch at defaults (numpy max abs difference 0 over RGB) |
+| Identity — `shader_offpath_identity` | **pass.** 0 shaders moved; character 1752, m2 806, terrain 454, wmo 731 instructions, the same counts as before the techniques landed — including after M3a put a normal-map path into `m2.frag` and `terrain.frag`, which is what `SPEC_NORMAL_MAP_EVERYWHERE` exists for. It caught two instructions there: `vec2 finalUV = TexCoord` above the branch let the optimizer fold two later loads of `TexCoord` into that one |
+| Identity — a rendered frame at every new key's off value | **pass for the second pass's keys, not measured for the third's.** The same camera rendered from `c00ab904e` in a second worktree was **bit-identical** to this branch at defaults (numpy max abs difference 0 over RGB). `normalmapscope` and `sunshafts` did not exist then and no frame could be rendered after they did; what stands in for it is the SPIR-V identity above, which is the stronger half of the same promise and the half a picture cannot make precise |
 | L1 `stormwind-gate` / `goldshire-inn-morning` / `orgrimmar-drag` / `stranglethorn-canopy` | **partial.** Two Elwynn cameras, not four across three continents: `goldshire-lake` at 09:00, `shadowcascades` 1→3, 35.26 % of pixels changed, SSIM 0.947440. The other three cameras were not rendered |
 | L2 filter 0→1→2 | **pass.** `goldshire-road` 09:00: PCF→Poisson 4.18 % of pixels, SSIM 0.996499; Poisson→PCSS 14.55 %, SSIM 0.977045 |
 | A1 fog cameras | **not measured.** `test_height_fog` pins the calibration arithmetic; no zone was rendered at 06/12/18 |
-| S4 `elwynn-road-sunrise` | **not applicable** — S4 did not ship |
-| G1 `westfall-sentinel-hill` / `tanaris-dunes`, + wireframe, Balanced within 0.5 % of Off | **fail on the threshold, at a camera it was not written for.** `goldshire-lake`, Off→Balanced: 28.55 % of pixels changed by more than one code value, against a stated ceiling of 0.5 %. The mean absolute difference over the frame is 1.277 / 255 and SSIM is 0.972705; the camera is under a forest canopy with 8x MSAA, where a mesh change moves almost every ground pixel by a code value or two. The open-horizon cameras the item actually names are on maps this session did not load. Wireframe pair rendered (`terrainlod` Off→Far, 33.08 % of pixels, SSIM 0.961014) |
-| M3a cameras | **not applicable** — M3a did not ship beyond the tangent routine |
+| S4 `elwynn-road-sunrise` | **not measured, blocked.** S4 ships. The pair could not be rendered: no world would load. What *was* measured is that a 45-second soak with validation on, `sunshafts=1` and `sunshaftstrength=1`, draws 36 263 frames without a device loss and without a validation message that does not also appear with the same keys off |
+| G1 `westfall-sentinel-hill` / `tanaris-dunes`, + wireframe, Balanced within 0.5 % of Off | **fail on the threshold at the one camera that could be rendered, and still not tested at the two it names.** `goldshire-lake`, Off→Balanced: 28.55 % of pixels changed by more than one code value, against a stated ceiling of 0.5 %. The mean absolute difference over the frame is 1.277 / 255 and SSIM is 0.972705; the camera is under a forest canopy with 8x MSAA, where a mesh change moves almost every ground pixel by a code value or two. The third pass set out to re-run this at Sentinel Hill and the Tanaris dunes, where the threshold was written for an open horizon, and could not: the asset tree was gone. The threshold is still not met and is still not restated as met. Wireframe pair rendered (`terrainlod` Off→Far, 33.08 % of pixels, SSIM 0.961014) |
+| M3a `northshire-abbey` / `stormwind-gate` ground / `kharanos-snow` | **not measured, blocked**, for the same reason. M3a ships: the tangent attribute on both vertex formats, the cache, the two shader paths and the `normalmapscope` row. What is measured is that `m2.frag` and `terrain.frag` are unchanged with the scope constant at its default, and that `test_tangent_frame` pins both frames |
 | Fog calibration, every zone at 06/12/18 | **not measured** |
 | Shadows off: 5 min, no device loss, validation clean | see the row below; measured with `capture_scene --dwell 300` rather than by walking Stormwind |
 | Frame time, preset Medium, lower than pre-phase | **fail as stated, and the measurement says why.** See below |
-| Load time, VRAM | **not measured.** Both are about the normal-map cache, which did not ship |
-| Unit tests: splits, snapping, LOD watertightness, tangents | **pass.** `test_terrain_lod` (watertightness, the skirt ring, one-level-apart), `test_tangent_frame`, `test_height_fog` |
-| Lint: reserved-code check | **pass.** `reserved_code_check.py`: 11 markers, 0 for a shipped phase, 0 malformed. `shader_feature_check.py`: 6 constants, 0 disagreements |
+| Load time, VRAM | **not measured, blocked.** Both are about the normal-map cache, which ships and which nothing in this session could make generate a single map: they are derived from textures, and there are no textures. The one number that can be stated is static: `sizeof(pipeline::TerrainVertex)` goes from 44 to 60 bytes, so the terrain mega vertex buffer goes from 66 MB to 90 MB, and the M2 vertex from 72 to 88. `NormalMapCache` logs its own map count and megabytes every 256 uploads, so the figure is there to be read the first time a zone loads |
+| Unit tests: splits, snapping, LOD watertightness, tangents | **pass.** `test_terrain_lod` (watertightness, the skirt ring, one-level-apart), `test_tangent_frame` — which now pins the handedness the terrain grid actually has rather than the +1 it was assumed to have — `test_height_fog`, and `test_normal_map_cache` over the hash a generated map is filed under and the box filter that puts an oversized source under the cap |
+| Lint: reserved-code check | **pass.** `reserved_code_check.py`: 15 markers, 0 for a shipped phase, 0 malformed. `shader_feature_check.py`: 7 constants, 0 disagreements |
+| `./test.sh` / `ctest` green | **pass, against the ten failures this machine already had.** 197 of 207; the ten are five "Not Run" targets that need `vulkan.h`, `unicorn_stub_compiles`, `open_formats`, `open_format_emitter`, `cli_paths` and `sweep_guard`, and `sweep_guard` is over its ceiling on the same nine sweeps with the same numbers as before |
 
 **On the frame time.** Measured with `capture_scene --dwell 60 --setting
 vsync=0` on `goldshire-lake`, which draws the same frame several thousand times
@@ -206,11 +217,23 @@ are close to free and close to worthless, and that what this scene wants is
 fewer draw calls. That is worth knowing and it is not what the phase file
 predicted; the prediction is not restated here as met.
 
+The third pass added two more things to this table and could put neither in it.
+S4 has a stated ceiling of 0.3 ms at 1080p and M3a a stated bound of +40 % video
+memory, and both are measurements of a loaded world; the pass that wrote them had
+none. Neither number is guessed at here.
+
 ## Cut order if the phase runs long
 
 Drop in this order, each to a follow-up phase: geomorph (keep skirts) →
 PCSS (keep Poisson) → S4 shafts → terrain normal maps (keep M2). Never drop the
 consolidation steps 1–5; they are what the rest of the plan stands on.
+
+**What was actually dropped:** geomorph, and parallax occlusion on the ground.
+The second is less than this order’s last item rather than more — it says
+"terrain normal maps (keep M2)", and what went is the march for relief over
+those maps rather than the maps. The bump is what shows on the ground at
+standing height; the relief is what shows on a wall. PCSS shipped out of order
+because it is a hundred lines inside a shader that was being written anyway.
 
 ## Commit
 

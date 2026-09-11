@@ -223,6 +223,10 @@ public:
     int pendingAntiAliasing = 1;  // 0=Off, 1=2x, 2=4x, 3=8x
     bool pendingFXAA = false;     // FXAA post-process (combinable with MSAA)
     bool pendingNormalMapping = true;   // on by default
+    /// 0 = buildings and characters, 1 = everything. See the schema row.
+    int pendingNormalMapScope = 1;
+    bool pendingSunShafts = true;
+    float pendingSunShaftStrength = 0.5f;
     float pendingNormalMapStrength = 0.8f;  // 0.0-2.0
     float pendingLensFlare = 1.0f;          // 0.0-2.0, sun flare strength
     int pendingFrameCap = 0;                // index into the frame-limit choices

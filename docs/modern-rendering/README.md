@@ -29,7 +29,7 @@ Sorted by impact ÷ effort with dependencies respected (plan §7.1). Ratio in br
 
 | # | File | Ships | Depends on |
 |---|---|---|---|
-| 01 | [01-shadows-fog-distance-surfaces.md](01-shadows-fog-distance-surfaces.md) | **Shipped:** shader consolidation (includes, spec constants, one UBO append); F5 capability gating; A1 height fog + aerial perspective; L1 cascaded shadows and the off switch; L2 Poisson and PCSS; G1 terrain LOD with skirts; compare v0 (`tools/capture_scene`, `tools/compare_scenes.py`). **Not shipped:** S4 sun shafts, M3a normal maps beyond the tangent routine — neither is scheduled yet | — |
+| 01 | [01-shadows-fog-distance-surfaces.md](01-shadows-fog-distance-surfaces.md) | **Shipped:** shader consolidation (includes, spec constants, one UBO append); F5 capability gating; A1 height fog + aerial perspective; L1 cascaded shadows and the off switch; L2 Poisson and PCSS; G1 terrain LOD with skirts; S4 sun shafts; M3a normal maps on M2 doodads and terrain, with the disk-backed `NormalMapCache`; compare v0 (`tools/capture_scene`, `tools/compare_scenes.py`). **Cut, as the phase file's own cut order says to:** geomorph, and parallax occlusion on the ground — the ground has its normal maps and not the march for relief over them | — |
 | 02 | [02-comparison-mode.md](02-comparison-mode.md) | §7.5 `--compare` on the game exe, scene catalogue, report, CI | 01 |
 | 03 | [03-depth-prepass-reverse-z.md](03-depth-prepass-reverse-z.md) | F3 pre-pass, reverse-Z, normal target; velocity target reserved | 02 |
 | 04 | [04-hdr-pipeline.md](04-hdr-pipeline.md) | F2 HDR scene target, tone map, exposure, Light.dbc recalibration | 03 |

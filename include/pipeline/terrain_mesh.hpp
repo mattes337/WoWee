@@ -18,6 +18,11 @@ struct TerrainVertex {
     float normal[3];       // Normal vector
     float texCoord[2];     // Base texture coordinates
     float layerUV[2];      // Layer texture coordinates
+    /// The frame the ground's generated normal maps are read in: xyz the
+    /// tangent, w the handedness. Analytic rather than solved, because a
+    /// terrain vertex's texture coordinates are a fixed scale of its world
+    /// position - see gridTangent() in rendering/tangent_frame.hpp.
+    float tangent[4];
     uint8_t chunkIndex = 0;    // Which chunk this vertex belongs to
 
     TerrainVertex()  {
@@ -25,6 +30,7 @@ struct TerrainVertex {
         normal[0] = normal[1] = normal[2] = 0.0f;
         texCoord[0] = texCoord[1] = 0.0f;
         layerUV[0] = layerUV[1] = 0.0f;
+        tangent[0] = 1.0f; tangent[1] = 0.0f; tangent[2] = 0.0f; tangent[3] = 1.0f;
     }
 };
 

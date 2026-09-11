@@ -119,7 +119,21 @@ public:
     [[nodiscard]] Clouds*    getClouds()    const { return clouds_.get(); }
     [[nodiscard]] LensFlare* getLensFlare() const { return lensFlare_.get(); }
 
+    /// Where the sun was on screen the last time the sky was drawn, and its
+    /// colour. Recorded here because the sky is the one thing that knows the
+    /// sun's position, and the sun shafts are drawn after the scene pass has
+    /// closed - long after this.
+    struct SunState {
+        glm::vec2 ndc{10.0f, 10.0f};
+        float visibility = 0.0f;
+        glm::vec3 color{1.0f};
+    };
+    [[nodiscard]] const SunState& getSunState() const { return sunState_; }
+
 private:
+    /// What getSunState() answers; filled while the sky is drawn.
+    SunState sunState_;
+
     std::unique_ptr<Skybox>    skybox_;      // Authoritative sky
     std::unique_ptr<Celestial> celestial_;   // Sun + 2 moons
     std::unique_ptr<StarField> starField_;   // Fallback procedural stars

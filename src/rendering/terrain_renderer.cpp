@@ -31,6 +31,9 @@ struct TerrainParamsUBO {
     int32_t hasLayer1;
     int32_t hasLayer2;
     int32_t hasLayer3;
+    // ---- M3a: appended, so the block grows once ----
+    int32_t normalMapMask;
+    float normalMapStrength;
 };
 
 TerrainRenderer::TerrainRenderer() = default;
@@ -133,7 +136,9 @@ bool TerrainRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameL
     // --- Create material descriptor set layout (set 1) ---
     // bindings 0-6: combined image samplers (base + 3 layer + 3 alpha)
     // binding 7: uniform buffer (TerrainParams)
-    std::vector<VkDescriptorSetLayoutBinding> materialBindings(8);
+    // bindings 8-11: the four layers' generated normal/height maps, flat until
+    //                NormalMapCache has one
+    std::vector<VkDescriptorSetLayoutBinding> materialBindings(12);
     for (uint32_t i = 0; i < 7; i++) {
         materialBindings[i] = {};
         materialBindings[i].binding = i;
@@ -146,6 +151,13 @@ bool TerrainRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameL
     materialBindings[7].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     materialBindings[7].descriptorCount = 1;
     materialBindings[7].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    for (uint32_t i = 8; i < 12; i++) {
+        materialBindings[i] = {};
+        materialBindings[i].binding = i;
+        materialBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        materialBindings[i].descriptorCount = 1;
+        materialBindings[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    }
 
     materialSetLayout = createDescriptorSetLayout(device, materialBindings);
     if (!materialSetLayout) {
@@ -155,7 +167,7 @@ bool TerrainRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameL
 
     // --- Create descriptor pool ---
     VkDescriptorPoolSize poolSizes[] = {
-        { .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_MATERIAL_SETS * 7 },
+        { .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_MATERIAL_SETS * 11 },
         { .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = MAX_MATERIAL_SETS },
     };
 
@@ -211,6 +223,14 @@ bool TerrainRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameL
     whiteTexture->upload(*vkCtx, whitePixel, 1, 1, VK_FORMAT_R8G8B8A8_UNORM, false);
     whiteTexture->createSampler(device, VK_FILTER_LINEAR, VK_FILTER_LINEAR,
                                  VK_SAMPLER_ADDRESS_MODE_REPEAT);
+
+    // The ground unperturbed: (0,0,1) as a normal, bound on bindings 8 to 11
+    // until a layer has a map of its own.
+    flatNormalTexture = std::make_unique<VkTexture>();
+    uint8_t flatNormalPixel[4] = {128, 128, 255, 128};
+    flatNormalTexture->upload(*vkCtx, flatNormalPixel, 1, 1, VK_FORMAT_R8G8B8A8_UNORM, false);
+    flatNormalTexture->createSampler(device, VK_FILTER_LINEAR, VK_FILTER_LINEAR,
+                                     VK_SAMPLER_ADDRESS_MODE_REPEAT);
 
     opaqueAlphaTexture = std::make_unique<VkTexture>();
     uint8_t opaqueAlpha = 255;
@@ -336,6 +356,8 @@ void TerrainRenderer::shutdown() {
 
     if (whiteTexture) { whiteTexture->destroy(device, allocator); whiteTexture.reset(); }
     if (opaqueAlphaTexture) { opaqueAlphaTexture->destroy(device, allocator); opaqueAlphaTexture.reset(); }
+    if (flatNormalTexture) { flatNormalTexture->destroy(device, allocator); flatNormalTexture.reset(); }
+    normalMapCache_.shutdown();
 
     destroy(device, pipeline);
     destroy(device, wireframePipeline);
@@ -501,6 +523,7 @@ void TerrainRenderer::bindChunkTextures(TerrainChunkGPU& gpuChunk,
     uint32_t baseTexId = chunk.layers[0].textureId;
     if (baseTexId < texturePaths.size()) {
         gpuChunk.baseTexture = loadTexture(texturePaths[baseTexId]);
+        gpuChunk.normalMapKeys[0] = normalizeTextureKey(texturePaths[baseTexId]);
     } else {
         LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk[", chunkX, ",", chunkY,
                     "] base textureId ", baseTexId, " >= texturePaths size ",
@@ -516,6 +539,7 @@ void TerrainRenderer::bindChunkTextures(TerrainChunkGPU& gpuChunk,
         VkTexture* layerTex = whiteTexture.get();
         if (layer.textureId < texturePaths.size()) {
             layerTex = loadTexture(texturePaths[layer.textureId]);
+            gpuChunk.normalMapKeys[li + 1] = normalizeTextureKey(texturePaths[layer.textureId]);
         } else {
             LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk[", chunkX, ",", chunkY,
                         "] layer[", i, "] textureId ", layer.textureId,
@@ -532,6 +556,17 @@ void TerrainRenderer::bindChunkTextures(TerrainChunkGPU& gpuChunk,
         gpuChunk.alphaTextures[li] = alphaTex;
         gpuChunk.layerCount = static_cast<int>(i);
     }
+
+    if (normalMapsEnabled_) {
+        gpuChunk.normalMapsPending = !chunkNormalMapsResolved(gpuChunk);
+        // Whatever already exists is bound on the first write rather than a
+        // frame later: a zone's second tile reuses the first's tileset.
+        for (int i = 0; i < 4; i++) {
+            if (gpuChunk.normalMapKeys[i].empty()) continue;
+            const auto* ready = normalMapCache_.lookup(gpuChunk.normalMapKeys[i]);
+            if (ready && ready->texture) gpuChunk.normalMapMask |= (1 << i);
+        }
+    }
 }
 
 bool TerrainRenderer::createChunkParamsUBO(TerrainChunkGPU& gpuChunk) {
@@ -540,6 +575,8 @@ bool TerrainRenderer::createChunkParamsUBO(TerrainChunkGPU& gpuChunk) {
     params.hasLayer1 = gpuChunk.layerCount >= 1 ? 1 : 0;
     params.hasLayer2 = gpuChunk.layerCount >= 2 ? 1 : 0;
     params.hasLayer3 = gpuChunk.layerCount >= 3 ? 1 : 0;
+    params.normalMapMask = gpuChunk.normalMapMask;
+    params.normalMapStrength = normalMapStrength_;
 
     VkBufferCreateInfo bufCI{};
     bufCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -677,6 +714,11 @@ VkTexture* TerrainRenderer::loadTexture(const std::string& path) {
         return whiteTexture.get();
     }
 
+    // Strength 2 for the ground, which is the number the WMO path uses: a
+    // tileset is stone, dirt and grass seen from standing height, and a
+    // stronger gradient only roughens it.
+    if (normalMapsEnabled_) normalMapCache_.request(key, blp, 2.0f);
+
     auto tex = std::make_unique<VkTexture>();
     if (!tex->uploadBLP(*vkCtx, blp)) {
         LOG_WARNING("Failed to upload texture to GPU: ", path);
@@ -711,6 +753,8 @@ void TerrainRenderer::uploadPreloadedTextures(
         std::string key = normalizeKey(path);
         if (textureCache.find(key) != textureCache.end()) continue;
         if (!blp.isValid()) continue;
+
+        if (normalMapsEnabled_) normalMapCache_.request(key, blp, 2.0f);
 
         auto tex = std::make_unique<VkTexture>();
         if (!tex->uploadBLP(*vkCtx, blp)) continue;
@@ -815,12 +859,28 @@ bool TerrainRenderer::writeMaterialDescriptors(VkDescriptorSet set, const Terrai
         imageInfos[4 + i] = pick(chunk.alphaTextures[i], opaque)->descriptorInfo();
     }
 
+    // The four generated normal maps, or the flat 128,128,255 where a layer has
+    // none - because it is still being made, because the texture had no height
+    // in it, or because the ground was never asked for maps at all.
+    VkTexture* flat = flatNormalTexture.get();
+    if (!sampleable(flat)) flat = white;
+    VkDescriptorImageInfo normalInfos[4];
+    for (int i = 0; i < 4; i++) {
+        VkTexture* map = nullptr;
+        if (normalMapsEnabled_ && !chunk.normalMapKeys[i].empty()) {
+            if (const auto* ready = normalMapCache_.lookup(chunk.normalMapKeys[i])) {
+                map = ready->texture;
+            }
+        }
+        normalInfos[i] = pick(map, flat)->descriptorInfo();
+    }
+
     VkDescriptorBufferInfo bufInfo{};
     bufInfo.buffer = chunk.paramsUBO;
     bufInfo.offset = 0;
     bufInfo.range = sizeof(TerrainParamsUBO);
 
-    VkWriteDescriptorSet writes[8] = {};
+    VkWriteDescriptorSet writes[12] = {};
     for (int i = 0; i < 7; i++) {
         writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writes[i].dstSet = set;
@@ -835,8 +895,16 @@ bool TerrainRenderer::writeMaterialDescriptors(VkDescriptorSet set, const Terrai
     writes[7].descriptorCount = 1;
     writes[7].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     writes[7].pBufferInfo = &bufInfo;
+    for (int i = 0; i < 4; i++) {
+        writes[8 + i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[8 + i].dstSet = set;
+        writes[8 + i].dstBinding = static_cast<uint32_t>(8 + i);
+        writes[8 + i].descriptorCount = 1;
+        writes[8 + i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writes[8 + i].pImageInfo = &normalInfos[i];
+    }
 
-    vkUpdateDescriptorSets(vkCtx->getDevice(), 8, writes, 0, nullptr);
+    vkUpdateDescriptorSets(vkCtx->getDevice(), 12, writes, 0, nullptr);
     return true;
 }
 
@@ -1242,6 +1310,91 @@ void TerrainRenderer::calculateBoundingSphere(TerrainChunkGPU& gpuChunk,
     }
 
     gpuChunk.boundingSphereRadius = std::sqrt(maxDistSq);
+}
+
+
+// ---------------------------------------------------------------------------
+// M3a: the ground's generated normal maps
+// ---------------------------------------------------------------------------
+
+std::string TerrainRenderer::normalizeTextureKey(const std::string& path) {
+    std::string key = path;
+    std::replace(key.begin(), key.end(), '/', '\\');
+    std::transform(key.begin(), key.end(), key.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return key;
+}
+
+void TerrainRenderer::initializeNormalMapCache(const std::string& cacheDir) {
+    normalMapCache_.initialize(vkCtx, cacheDir);
+}
+
+void TerrainRenderer::setNormalMapStrength(float strength) {
+    const float wanted = std::clamp(strength, 0.0f, 2.0f);
+    if (std::abs(wanted - normalMapStrength_) < 1e-4f) return;
+    normalMapStrength_ = wanted;
+    for (auto& chunk : chunks) writeChunkNormalMapParams(chunk);
+}
+
+bool TerrainRenderer::chunkNormalMapsResolved(const TerrainChunkGPU& chunk) const {
+    for (int i = 0; i < 4; i++) {
+        if (chunk.normalMapKeys[i].empty()) continue;
+        if (!normalMapCache_.lookup(chunk.normalMapKeys[i])) return false;
+    }
+    return true;
+}
+
+void TerrainRenderer::writeChunkNormalMapParams(TerrainChunkGPU& chunk) {
+    if (!chunk.paramsAlloc || !vkCtx) return;
+    VmaAllocationInfo info{};
+    vmaGetAllocationInfo(vkCtx->getAllocator(), chunk.paramsAlloc, &info);
+    if (!info.pMappedData) return;
+    auto* params = static_cast<TerrainParamsUBO*>(info.pMappedData);
+    params->normalMapMask = chunk.normalMapMask;
+    params->normalMapStrength = normalMapStrength_;
+}
+
+void TerrainRenderer::applyReadyNormalMaps() {
+    if (!vkCtx || !normalMapsEnabled_) return;
+
+    normalMapReadyScratch_.clear();
+    const bool anyNew = normalMapCache_.pump(&normalMapReadyScratch_, 8) > 0;
+    if (!anyNew) return;
+
+    // Every chunk still waiting on one of its four keys. Only those: a chunk
+    // whose layers are all answered is never looked at again, so this walk
+    // empties itself over the first seconds of a zone rather than running over
+    // ten thousand chunks for the rest of the session.
+    //
+    // The descriptor write is deferred to where no command buffer in flight
+    // still names the set - a chunk is drawn every frame, so writing it here
+    // would be writing a descriptor out from under the GPU.
+    for (size_t ci = 0; ci < chunks.size(); ++ci) {
+        TerrainChunkGPU& chunk = chunks[ci];
+        if (!chunk.normalMapsPending) continue;
+        if (!chunkNormalMapsResolved(chunk)) continue;
+
+        int mask = 0;
+        for (int i = 0; i < 4; i++) {
+            if (chunk.normalMapKeys[i].empty()) continue;
+            const auto* ready = normalMapCache_.lookup(chunk.normalMapKeys[i]);
+            if (ready && ready->texture && ready->texture->isValid()) mask |= (1 << i);
+        }
+        chunk.normalMapsPending = false;
+        if (mask == 0) continue;  // nothing to bind; the flat maps stay
+        chunk.normalMapMask = mask;
+        writeChunkNormalMapParams(chunk);
+
+        const VkDescriptorSet set = chunk.materialSet;
+        vkCtx->deferAfterAllFrameFences([this, set, ci]() {
+            // Found again rather than captured: a tile can be removed in the
+            // two frames this waits, and its descriptor sets freed with it.
+            if (ci >= chunks.size()) return;
+            TerrainChunkGPU& c = chunks[ci];
+            if (c.materialSet != set || set == VK_NULL_HANDLE) return;
+            writeMaterialDescriptors(set, c);
+        });
+    }
 }
 
 } // namespace rendering

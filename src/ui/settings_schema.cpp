@@ -196,6 +196,17 @@ constexpr SettingDesc kSchema[] = {
     {"normalmapstrength", "Bump strength", SettingKind::Float, 0, 2, 0.1f, "Detail", "",
      "How pronounced those surface bumps look. 1 is as the textures\n"
      "were made; higher exaggerates them.", "", 0.8f, "normalmapping"},
+    // Which surfaces the two rows above reach. Buildings and characters have
+    // always had normal maps, from the same derivation run over their own
+    // textures; doodads and the ground never had the tangent frame to read one
+    // in, which is what phase 01 gave them. Everything is the default because
+    // it is what the setting is for, and Low is the one preset that says no.
+    {"normalmapscope", "Bumps on", SettingKind::Enum, 0, 1, 1, "Detail", "",
+     "Which surfaces catch the light by their texture. Everything adds\n"
+     "trees, crates, rocks and the ground itself, whose maps are made in\n"
+     "the background - a surface seen for the first time is flat for a\n"
+     "moment and then bumps.",
+     "Buildings and characters|Everything", 1, "normalmapping"},
     {"parallax", "Surface depth (parallax)", SettingKind::Bool, 0, 0, 0, "Detail", "",
      "Gives bricks, cobbles and planks real depth when seen at an\n"
      "angle, so mortar lines sink and stones stand out.", "", 1},
@@ -204,7 +215,17 @@ constexpr SettingDesc kSchema[] = {
      "steps. Higher looks steadier up close and costs more on big walls.",
      "Low|Medium|High", 1, "parallax"},
 
-    {"particledensity", "Particle density", SettingKind::Int, 10, 100, 5, "Detail", "Effects",
+    // The light that comes through a canopy, drawn from a mask of where the sun
+    // is visible and blurred along the lines that leave it. Off on Low: it is
+    // three half-resolution passes and a blit of the frame, which is little but
+    // is not nothing on the preset that exists to give the frame back.
+    {"sunshafts", "Sun shafts", SettingKind::Bool, 0, 0, 0, "Detail", "Effects",
+     "Rays of light spreading from the sun where it shows through trees,\n"
+     "buildings and cloud.", "", 1},
+    {"sunshaftstrength", "Sun shaft strength", SettingKind::Float, 0, 1, 0.05f, "Detail", "",
+     "How bright those rays are. Low is a haze around the sun; high is\n"
+     "the light picked out in beams.", "", 0.5f, "sunshafts"},
+    {"particledensity", "Particle density", SettingKind::Int, 10, 100, 5, "Detail", "",
      "How many particles a spell, fire or waterfall throws, as a\n"
      "percentage of what it asks for. Lower thins every effect at once.", "", 100},
     {"weatherdetail", "Weather", SettingKind::Enum, 0, 3, 1, "Detail", "",

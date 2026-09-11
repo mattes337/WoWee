@@ -66,6 +66,25 @@ public:
     void setEnabled(bool enabled) { this->enabled = enabled; }
     [[nodiscard]] bool isEnabled() const { return enabled; }
 
+    /// Where the sun is on screen this frame, and how much of it there is.
+    ///
+    /// The same arithmetic the flare itself runs, answered rather than only
+    /// used: S4's sun shafts are gated on the flare's own visibility, and two
+    /// effects that disagree about whether the sun is there look like a bug in
+    /// whichever of them the eye notices second.
+    struct SunOnScreen {
+        /// -1..1, x right and y down, as gl_Position leaves it. Far outside
+        /// that range when the sun is behind the camera.
+        glm::vec2 ndc{10.0f, 10.0f};
+        /// 0 when the sun is behind, off screen, below the horizon, or buried
+        /// in fog, cloud or weather; up to 1 looking straight at it on a clear
+        /// noon.
+        float visibility = 0.0f;
+    };
+    [[nodiscard]] SunOnScreen sunOnScreen(const Camera& camera, const glm::vec3& sunPosition,
+                                          float timeOfDay, float fogDensity,
+                                          float cloudDensity, float weatherIntensity) const;
+
     /**
      * @brief Set flare intensity multiplier
      */

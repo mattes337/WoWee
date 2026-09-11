@@ -51,6 +51,14 @@ layout(location = 2) in vec2 aTexCoord;
 layout(location = 3) in vec4 aBoneWeights;
 layout(location = 4) in vec4 aBoneIndicesF;
 layout(location = 5) in vec2 aTexCoord2;
+// The tangent frame the generated normal map is read in, from
+// include/rendering/tangent_frame.hpp over the model's bind pose. w is the
+// handedness, so the bitangent is one cross product rather than a second
+// attribute.
+//
+// RESERVED(phase-13, L7-pbr): this attribute and the sidecar slot beside the
+// material's normal map are what GGX reads anisotropy and roughness through.
+layout(location = 6) in vec4 aTangent;
 
 layout(location = 0) out vec3 FragPos;
 layout(location = 1) out vec3 Normal;
@@ -63,6 +71,8 @@ layout(location = 5) out float vFadeAlpha;
 layout(location = 8) out vec2 TexCoord2;
 layout(location = 6) flat out int vSkyMode;
 layout(location = 7) flat out float vHighlight;
+layout(location = 9) out vec3 Tangent;
+layout(location = 10) out vec3 Bitangent;
 
 void main() {
     // Fetch per-instance data from SSBO
@@ -75,6 +85,7 @@ void main() {
 
     vec4 pos = vec4(aPos, 1.0);
     vec4 norm = vec4(aNormal, 0.0);
+    vec3 tanLocal = aTangent.xyz;
 
     if (uBones != 0) {
         // Clamp to the range this instance actually owns. A model whose bone
@@ -88,6 +99,7 @@ void main() {
                      + bones[bBase + bi.w] * aBoneWeights.w;
         pos = skinMat * pos;
         norm = skinMat * norm;
+        tanLocal = mat3(skinMat) * tanLocal;
     }
 
     // How far up the model this vertex sits, 0 at the base and 1 at the top.
@@ -256,6 +268,22 @@ void main() {
 
     FragPos = worldPos.xyz;
     Normal = mat3(model) * norm.xyz;
+
+    // Gram-Schmidt against the same normal the fragment shader interpolates, so
+    // the frame the map is read in is orthogonal at the vertex rather than only
+    // at the bind pose. A degenerate tangent - a vertex no textured triangle
+    // reached - falls back to something perpendicular to the normal rather than
+    // to zero, because a zero tangent normalizes to NaN and a NaN normal is a
+    // white pixel rather than a subtly wrong one.
+    vec3 nWorld = Normal;
+    vec3 tWorld = mat3(model) * tanLocal;
+    tWorld = tWorld - nWorld * (dot(nWorld, tWorld) / max(dot(nWorld, nWorld), 1e-8));
+    if (dot(tWorld, tWorld) < 1e-8) {
+        tWorld = abs(nWorld.z) < 0.9 ? cross(nWorld, vec3(0.0, 0.0, 1.0))
+                                     : cross(nWorld, vec3(1.0, 0.0, 0.0));
+    }
+    Tangent = tWorld;
+    Bitangent = cross(nWorld, tWorld) * aTangent.w;
 
     TexCoord = (push.texCoordSet == 1 ? aTexCoord2 : aTexCoord) + uvOff;
     TexCoord2 = (push.texCoordSet == 1 ? aTexCoord : aTexCoord2) + uvOff;

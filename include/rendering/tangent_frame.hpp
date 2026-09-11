@@ -128,13 +128,20 @@ TangentFrames computeTangentFrames(const std::vector<glm::vec3>& positions,
 ///
 /// No accumulation and no solve: a terrain vertex's texture coordinates are a
 /// fixed scale of its world position, so the tangent is the world axis the u
-/// coordinate runs along, projected into the surface. `uAxis` is that axis -
-/// for this client's terrain it is world -Y, because terrain.vert derives its
-/// texture coordinates as `(-position.y, -position.x) * scale`.
+/// coordinate runs along, projected into the surface, and the handedness is
+/// whether the bitangent that falls out of it runs with the v axis or against
+/// it. For this client's terrain the two axes are world -Y and world -X,
+/// because terrain_mesh derives the coordinates as
+/// `(-position.y, -position.x) * scale`.
 ///
-/// Handedness is +1 throughout: the grid is not mirrored anywhere, which is the
-/// only thing that would make it -1.
-inline glm::vec4 gridTangent(const glm::vec3& normal, const glm::vec3& uAxis) {
+/// That pair gives -1, not +1: with the tangent along -Y and the normal up,
+/// `cross(normal, tangent)` points along +X while v runs along -X. A frame
+/// stated the other way round reads the map's green channel upside down, which
+/// lights every slope from the wrong vertical direction - the classic way for a
+/// normal map to look "slightly wrong" rather than obviously broken, which is
+/// why the handedness is derived here from the two axes rather than assumed.
+inline glm::vec4 gridTangent(const glm::vec3& normal, const glm::vec3& uAxis,
+                             const glm::vec3& vAxis) {
     const glm::vec3 rejected = uAxis - normal * glm::dot(normal, uAxis);
     const float len2 = glm::dot(rejected, rejected);
     if (len2 < 1e-12f) {
@@ -143,7 +150,9 @@ inline glm::vec4 gridTangent(const glm::vec3& normal, const glm::vec3& uAxis) {
         // skirt vertex copied from an edge could be, and NaN is not an answer.
         return glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
     }
-    return glm::vec4(rejected / std::sqrt(len2), 1.0f);
+    const glm::vec3 t = rejected / std::sqrt(len2);
+    const float w = (glm::dot(glm::cross(normal, t), vAxis) < 0.0f) ? -1.0f : 1.0f;
+    return glm::vec4(t, w);
 }
 
 }  // namespace rendering

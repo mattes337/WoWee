@@ -226,6 +226,36 @@ float LensFlare::calculateSunVisibility(const Camera& camera, const glm::vec3& s
     return angleFactor * edgeFade;
 }
 
+LensFlare::SunOnScreen LensFlare::sunOnScreen(const Camera& camera,
+                                              const glm::vec3& sunPosition, float timeOfDay,
+                                              float fogDensity, float cloudDensity,
+                                              float weatherIntensity) const {
+    SunOnScreen out;
+    if (timeOfDay < 5.0f || timeOfDay > 19.0f) return out;
+
+    glm::vec3 sunDir = sunPosition;
+    const float sunDirLenSq = glm::dot(sunDir, sunDir);
+    if (sunDirLenSq < 1e-8f) return out;
+    sunDir *= glm::inversesqrt(sunDirLenSq);
+
+    // Anchored to the camera along the sun direction, exactly as render() does:
+    // the sun billboard is drawn sky-locked, so a world-space sun position
+    // would drift against it as the camera moves.
+    const glm::vec3 anchored = camera.getPosition() + sunDir * 800.0f;
+    out.ndc = worldToScreen(camera, anchored);
+
+    float visibility = calculateSunVisibility(camera, anchored);
+    if (visibility < 0.01f) return out;
+
+    float atmospheric = glm::smoothstep(-0.05f, 0.25f, sunDir.z);
+    atmospheric *= (1.0f - glm::clamp(fogDensity * 0.8f, 0.0f, 0.9f));
+    atmospheric *= (1.0f - glm::clamp(cloudDensity * 0.6f, 0.0f, 0.7f));
+    atmospheric *= (1.0f - glm::clamp(weatherIntensity * 0.9f, 0.0f, 0.95f));
+
+    out.visibility = visibility * atmospheric;
+    return out;
+}
+
 void LensFlare::render(VkCommandBuffer cmd, const Camera& camera, const glm::vec3& sunPosition,
                        float timeOfDay, float fogDensity, float cloudDensity,
                        float weatherIntensity) {

@@ -38,6 +38,18 @@ layout(constant_id = 1) const bool SPEC_PARALLAX = true;
 /// is what removes the taps rather than wasting them.
 layout(constant_id = 2) const bool SPEC_SHADOWS = true;
 
+/// Whether doodads and the ground read a normal map too, or only the buildings
+/// and characters that always did.
+///
+/// Off by default, and that is the whole point of it: `SPEC_NORMAL_MAP` above
+/// is on by default, because wmo.frag and character.frag have always carried
+/// that branch, so it cannot also be what keeps the branch out of m2.frag and
+/// terrain.frag - which never had one. This constant is what does, and at its
+/// default those two modules are instruction for instruction the ones that
+/// shipped, which is what shader_offpath_identity measures. The
+/// `normalmapscope` setting is what turns it on, and it defaults to on.
+layout(constant_id = 3) const bool SPEC_NORMAL_MAP_EVERYWHERE = false;
+
 // ---- small integers: not bits ----
 
 /// How many cascades the shadow map holds. 1 is the single orthographic map

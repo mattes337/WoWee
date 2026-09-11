@@ -4,12 +4,16 @@ What was measured, what was not, and why.
 
 Phase file: [`../../modern-rendering/01-shadows-fog-distance-surfaces.md`](../../modern-rendering/01-shadows-fog-distance-surfaces.md).
 
-This file was written in two passes. The first shipped the consolidation and
+This file was written in three passes. The first shipped the consolidation and
 height fog and cut everything that could only be checked in a picture, because
 `tools/capture_scene` — which §7.5 of the plan describes as already existing —
-was not in the tree. The second pass, this one, wrote that tool and shipped the
-shadow and terrain work behind it. The parts of the first pass that are still
-true are kept below rather than rewritten.
+was not in the tree. The second wrote that tool and shipped the shadow and
+terrain work behind it, and cut the sun shafts and the normal maps for time.
+The third, this one, shipped those two and set out to re-run the terrain LOD
+measurement at the open-horizon cameras the phase file actually names — and
+rendered nothing at all, because the assets were gone by the time it tried. The
+parts of the earlier passes that are still true are kept below rather than
+rewritten.
 
 ---
 
@@ -71,19 +75,102 @@ a PNG — is true because it was written here, not because it was found.
 | 12 | Lengyel's tangent routine out of `character_renderer.cpp` and into `include/rendering/tangent_frame.hpp`, pure and tested | `test_tangent_frame` |
 | 13 | `shadows`, `shadowcascades`, `shadowfilter`, `shadowlightsize`, `terrainlod` schema rows, preset columns, field bindings, side effects, save and load — the same seven places `fogmodel` went through | `settings_persist_check`, `dead_setting_check`, `settings_without_a_control`, `persisted_but_unread_check` |
 
-## Not shipped
+## Shipped in the third pass
+
+The second pass cut S4 and M3a for time. Both are here now, and this section of
+the file was rewritten rather than left saying they were not.
+
+| Step | What | Verified by |
+|---|---|---|
+| 10 | **S4 sun shafts.** `sunshaft_mask.frag` over a half-resolution blit of the finished frame, two thirty-two-tap radial blurs into an `R8` pair, and `sunshaft_composite.frag` added over the frame in the interface pass. Gated on `LensFlare::sunOnScreen()`, which is the flare's own arithmetic answered rather than only used, so the two effects agree about whether the sun is there | it compiles and it links, and nothing else — see the section below |
+| 12 | **M3a tangent frames.** `vec4 tangent` on the M2 GPU vertex (Lengyel over the model's first UV set, 22 floats a vertex now) and on `pipeline::TerrainVertex` (analytic, from the two world axes the chunk's texture coordinates run along) | `test_tangent_frame`, which now pins the handedness the grid actually has |
+| 12 | **M3a `NormalMapCache`.** Generation on `ThreadPool::frameWorkers`, source capped at 512², strength 3 for a doodad and 2 for a tileset, maps under `kMinVariance` dropped rather than bound, the rest written to `Data/generated/<expansion>/normals/<hash>.rgba` and read back next run, the directory held under 2 GB oldest-first | `test_normal_map_cache` over the hash and the box filter; `howtos/generated-normal-maps.md`. Not by a map: none was ever made — see below |
+| 12 | **M3a in the shaders.** `m2.frag` reads the map on the free set-1 binding, 3, through `parallax.glsl`; `terrain.frag` reads four of them on bindings 8–11, blended by the same alphas the albedo is. Both behind `SPEC_NORMAL_MAP_EVERYWHERE`, whose GLSL default is off | `shader_offpath_identity`: both modules unchanged at 806 and 454 instructions |
+| 13 | `normalmapscope`, `sunshafts` and `sunshaftstrength` schema rows, preset columns, field bindings, side effects, save and load, and the start-up apply | `settings_persist_check`, `dead_setting_check`, `settings_panel_layout` |
+
+## Cut
 
 | Cut | Why |
 |---|---|
-| **S4 sun shafts** (step 10) | Ran out of session. Third in the phase file's own cut order, and nothing else depends on it |
-| **M3a normal maps for doodads and terrain** (step 12), beyond the tangent routine | The `NormalMapCache`, the `vec4 tangent` attribute on the M2 and terrain GPU vertices, the normal/height bindings in `m2.frag` and `terrain.frag`, and the `normalmapscope` row. This is the largest single item in the phase — a vertex-format change that ripples through the M2 GPU culling path and the bone skinning, plus an on-disk cache with a thread pool behind it — and it was not started. The phase file's cut order says to keep M2 and drop terrain; neither was reached |
-| **Geomorph** (step 11's last clause) | First in the cut order, as written. Skirts alone |
+| **Geomorph** (step 11's last clause) | First in the phase file's own cut order. Skirts alone |
+| **Parallax occlusion on the ground** (part of step 12) | Half of the order's last item, taken in preference to the whole of it. The ground has its four normal maps and not the march for relief over them: `parallaxOcclusionMap` reads one sampler by name, and the layer a terrain pixel would march is whichever of four has the highest alpha there, so the cost would have been a per-pixel choice between four inlined copies of a sixty-four-step loop. The bump is the part that shows at standing height; the relief is the part that shows on a wall |
 
 The phase file's cut order is *geomorph → PCSS → sun shafts → terrain normal
-maps (keep M2)*. PCSS shipped and sun shafts did not, so this is not that order
-followed exactly: PCSS is a hundred lines inside a shader that was being
-written anyway, and the shafts are a render-graph node, a half-resolution
-target and two new shaders. What was cut is what was largest, not what was next.
+maps (keep M2)*. Across the two passes what actually went is geomorph, and then
+the march for relief over the terrain's maps rather than the maps themselves —
+which is less than the last item rather than more, and is the only place either
+pass cut something the order does not name in those words. PCSS shipped out of
+order in the second pass because it is a hundred lines inside a shader that was
+being written anyway; the shafts and the terrain maps, which that pass cut, are
+both here.
+
+---
+
+## The third pass has no pictures, and this is why
+
+Every number in the sections that follow was measured with `capture_scene`
+driving the real client over the real assets. The third pass could not do that,
+and the reason is worth stating exactly rather than summarising, because "we did
+not render it" and "nothing on this machine could render anything" are different
+claims.
+
+`D:\wowee-phase01\Data\extracted` is a junction. Its target is
+`G:\WoW Projects\wowee\Data\extracted`, in a checkout this worktree does not
+own and does not write to. At 09:12 that directory became empty. Every ADT,
+every M2, every WMO and every BLP the client reads went with it; what is left is
+`manifest.json`, which still lists them all, so the client asks for each one in
+turn and logs `Manifest entry exists but file unreadable` several hundred times
+and then reports `Online terrain streaming complete: 0 tiles loaded`.
+
+What that leaves is a client that starts, loads FrameXML, draws its minimap over
+a flat grey frame, and exits cleanly. No terrain, no doodads, no sky - the sky
+system needs the zone's own Light.dbc row and the zone never loaded - so the two
+techniques this pass added have nothing to act on: the normal-map cache is never
+asked for a map, because a map is derived from a texture and there are no
+textures, and the sun-shaft mask is never built, because its gate is the lens
+flare's sun visibility and there is no sun on screen.
+
+It cannot be rebuilt here. `asset_extract` reads the MPQ archives - 16.6 GB of
+them are present, at `G:\WoW AzerothCore\Data` - through StormLib, and this
+build's `CMakeCache.txt` says `STORMLIB_LIBRARY-NOTFOUND`, so the target is not
+configured and not built. A search of `G:\WoW Projects`, the whole of `D:`
+and the user profile for one known file, `Azeroth_32_48.adt`, found no copy.
+
+**So what the third pass is verified by is everything that does not need a
+frame**, and the phase file's Verify table says `not measured, blocked` for each
+row that does. What it is *not* verified by is a single rendered pixel, and the
+honest consequence is this: **the M2 and terrain normal-map paths and the three
+sun-shaft passes have never executed.** They compile, their shaders compile,
+their off-path is byte-identical, their unit tests pass and their settings
+round-trip - and no GPU has run them. That is the risk this commit carries, and
+it is the first thing to check when there are assets again:
+
+1. `tools/compare_scenes.py --setting normalmapscope --off 0 --on 1` at
+   `goldshire-lake` and `goldshire-road` - the before must be bit-identical to
+   this branch at `normalmapscope=0`, and the after must be visibly bumped;
+2. the same for `sunshafts` at an Elwynn road camera facing the sun at 06:30,
+   with the frame-time cost against the phase file's 0.3 ms ceiling;
+3. `terrainlod` Off→Balanced at Westfall's Sentinel Hill and the Tanaris dunes,
+   which is the open-horizon test the 0.5 % threshold was written for and which
+   has now been owed by two passes;
+4. a soak with validation on **in a loaded world**, which is the only thing that
+   exercises the deferred descriptor writes in `M2Renderer::bindNormalMap` and
+   `TerrainRenderer::applyReadyNormalMaps` at all.
+
+## What the third pass could measure
+
+| | |
+|---|---|
+| `shader_offpath_check.py` | 0 shaders moved. `m2.frag` 806 and `terrain.frag` 454 instructions, the same counts as before either grew a normal-map path - which is what `SPEC_NORMAL_MAP_EVERYWHERE` is for, and it earned its keep: written as `vec2 finalUV = TexCoord` above the branch rather than inside it, the optimizer folded two later loads of `TexCoord` into that one and the check reported `806 before, 804 now` |
+| `shader_feature_check.py` | 7 constants, 0 disagreements between the GLSL and the C++ |
+| `reserved_code_check.py` | 15 markers, 0 for a phase that has shipped, 0 malformed |
+| `Sun shafts initialized at 640x360` in the log | Not nothing. `SunShafts::initialize` returns true only after the two `R8_UNORM` render targets and their framebuffers are created, the scene-copy image is allocated `TRANSFER_DST | SAMPLED`, all three pipelines build against their render passes with their push-constant ranges, and the three descriptor sets are written. The validation layer was loaded and said nothing about any of it. That is every static fact about S4 that a device can answer; what it cannot answer without a world is whether the picture is right |
+| A 45 s soak, validation on, `normalmapscope=1 sunshafts=1 sunshaftstrength=1` | 36 263 frames, no device loss, clean exit. Worth little beyond the row above: with no world loaded the shaft passes' own gate keeps them from running at all |
+| The one `[ERROR]` that soak does produce | `VK_DYNAMIC_STATE_DEPTH_BIAS state is dynamic, but the command buffer never called vkCmdSetDepthBias`, on `vkCmdDrawIndexed`. **Not this work's**: the same run with `normalmapscope=0 sunshafts=0` produces it identically. It is `character_renderer.cpp:334`, which declares `VK_DYNAMIC_STATE_DEPTH_BIAS` on the character pipeline and never sets it. Left alone, and recorded here so the next reader does not chase it twice |
+| The `vkCreateGraphicsPipelines ... Vertex attribute at location 2/3 not consumed` warnings | Also not this work's, and also pre-existing: the terrain, WMO and M2 shadow pipelines all describe `shadow.vert`'s bone inputs, and the compiled module drops them |
+| Static memory | `sizeof(pipeline::TerrainVertex)` 44 → 60 bytes, so the terrain mega vertex buffer goes 66 MB → 90 MB, which the startup log prints. The M2 vertex goes 72 → 88 bytes. Both are the `vec4` tangent, on every vertex whether or not its material has a map, because the buffer is uploaded once and the map arrives later |
+| `ctest -C Release -j 8` | 197 of 207 pass. The ten failures are the ten this machine already had: five "Not Run" targets that need `vulkan.h` on a test that does not link it, `unicorn_stub_compiles`, `open_formats`, `open_format_emitter`, `cli_paths`, and `sweep_guard`. Nothing new. The three tests this pass touched or added - `tangent_frame`, `normal_map_cache`, `settings_panel_layout` - all pass, and the last of those matters: three new rows went onto the Detail page and its two columns of 384 pixels still hold them, which is the arithmetic that sent the shadow rows to a page of their own in the second pass |
+| `sweep_guard` | The same nine sweeps over their ceiling as before, and the same numbers: `dead_symbol_check` 51 against a ceiling of 2, `duplicate_block_check` 4, `handler_twin_check` 2, `posix_only_check` 1 - which is `local_time.hpp` flagging its own `#else` branch, unchanged from `HEAD` - and five that cannot read their own count. It did catch two of mine: `Renderer::areSunShaftsEnabled` and `getSunShaftStrength` were written for symmetry with the setters and had no caller, so `dead_symbol_check` read 53. They have one now, on the performance overlay beside the lens flare's line, which is where anyone asking whether the shafts are on would look |
 
 ---
 

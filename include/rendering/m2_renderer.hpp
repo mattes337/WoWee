@@ -8,6 +8,7 @@
 #include "pipeline/blp_loader.hpp"
 #include "pipeline/grass_clearing.hpp"
 #include "rendering/m2_model_classifier.hpp"
+#include "rendering/normal_map_cache.hpp"
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 #include <glm/glm.hpp>
@@ -97,6 +98,17 @@ struct M2ModelGPU {
         std::vector<LightBoneAnchor> lightBoneAnchors;
         uint16_t lightSuspensionBone = UINT16_MAX;
         glm::vec3 lightSuspensionPoint{0.0f};
+
+        /// The texture cache key the batch's generated normal map is filed
+        /// under, and whether it has been bound yet. Empty when the batch wants
+        /// no map at all - a sky layer, a glow card, an unlit billboard, none of
+        /// which are surfaces.
+        std::string normalMapKey;
+        bool normalMapBound = false;
+        /// Whether a march for relief is worth it on this batch. False on
+        /// anything alpha-tested: a leaf cutout's height field is the leaf's
+        /// silhouette, and marching it moves the cutout rather than the surface.
+        bool normalMapWantsPOM = false;
     };
 
     ::VkBuffer vertexBuffer = VK_NULL_HANDLE;
@@ -373,6 +385,14 @@ struct M2MaterialUBO {
     /// How a two-layer material combines its layers; 0 for one layer. Matches
     /// combineLayers() in m2.frag.glsl.
     int32_t texCombiner;
+    // ---- M3a: appended, so the block grows once. All zero until the normal
+    // map for this batch's texture has been generated and bound. ----
+    int32_t enableNormalMap;
+    int32_t enablePOM;
+    float pomScale;
+    int32_t pomMaxSamples;
+    float heightMapVariance;
+    float normalMapStrength;
 };
 
 // M2 params UBO - matches M2Params in m2.vert.glsl (set 1, binding 1)
@@ -419,6 +439,21 @@ public:
                                        const glm::vec3& position);
 
     void update(float deltaTime, const glm::vec3& cameraPos, const glm::mat4& viewProjection);
+
+    /// Where the generated normal maps are read from and written to, and
+    /// whether doodads ask for them at all.
+    ///
+    /// Called once at start-up, before any model loads: a cache told about its
+    /// directory later would have generated everything in the first zone again.
+    void initializeNormalMapCache(const std::string& cacheDir);
+    /// `normalmapscope`: 0 = buildings and characters only, which is what the
+    /// client did, 1 = everything. Off means no map is ever asked for, so the
+    /// worker threads and the disk stay out of it entirely.
+    void setNormalMapsEnabled(bool enabled) { normalMapsEnabled_ = enabled; }
+    void setNormalMapStrength(float strength);
+    void setParallaxEnabled(bool enabled) { normalMapPOMEnabled_ = enabled; }
+    void setParallaxQuality(int quality);
+    [[nodiscard]] const NormalMapCache& normalMapCache() const { return normalMapCache_; }
 
     /**
      * Render all visible instances (Vulkan)
@@ -862,7 +897,31 @@ private:
     uint64_t textureLookupSerial_ = 0;
     uint32_t textureBudgetRejectWarnings_ = 0;
     std::unique_ptr<VkTexture> whiteTexture_;
+    /// 128,128,255,128 - the unperturbed surface - bound on binding 3 of every
+    /// material set until that material's own map exists.
+    std::unique_ptr<VkTexture> flatNormalTexture_;
     std::unique_ptr<VkTexture> glowTexture_;
+
+    // ---- M3a: the generated normal maps ----
+    NormalMapCache normalMapCache_;
+    bool normalMapsEnabled_ = false;
+    bool normalMapPOMEnabled_ = false;
+    float normalMapStrength_ = 0.8f;
+    int normalMapPOMSamples_ = 32;
+    /// Which batches are still waiting on which key. Keyed rather than held as
+    /// pointers because a model can be evicted while its map is still being
+    /// made, and a descriptor set freed under a pending write is a lost device.
+    std::unordered_map<std::string, std::vector<std::pair<uint32_t, uint32_t>>>
+        normalMapWaiters_;
+    std::vector<std::string> normalMapReadyScratch_;
+    /// Upload what the workers finished and rewrite the material sets that were
+    /// waiting on it. Once a frame, on the render thread.
+    void applyReadyNormalMaps();
+    /// Point one batch's material set and UBO at a map that now exists.
+    void bindNormalMap(uint32_t modelId, uint32_t batchIndex, M2ModelGPU::BatchGPU& batch,
+                       const NormalMapCache::Ready& ready);
+    /// Rewrite every loaded batch's material UBO after a strength or POM change.
+    void refreshNormalMapMaterials();
     VkDescriptorSet glowTexDescSet_ = VK_NULL_HANDLE;  // cached glow texture descriptor (allocated once)
 
     // Optional query-space culling for collision/raycast hot paths.

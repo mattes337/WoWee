@@ -665,6 +665,12 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
 static const bool kM2NoSkinning = envFlagEnabled("WOWEE_M2_NO_SKINNING");
 
 void M2Renderer::prepareRender(uint32_t frameIndex, const Camera& camera) {
+    // Whatever the normal-map workers finished since the last frame. Here
+    // because this function is the main thread - update() above runs on a
+    // worker, and an upload and a descriptor write are not things a worker may
+    // do - and because it is before anything is recorded.
+    applyReadyNormalMaps();
+
     if (!initialized_ || instances.empty()) return;
     (void)camera;  // reserved for future frustum-based culling
 
@@ -2063,14 +2069,17 @@ bool M2Renderer::initializeShadow(VkRenderPass shadowRenderPass) {
         return false;
     }
 
-    // M2 vertex layout: 18 floats = 72 bytes stride
+    // M2 vertex layout: 22 floats = 88 bytes stride
     // loc0=pos(off0), loc1=normal(off12), loc2=texCoord0(off24), loc5=texCoord1(off32),
-    // loc3=boneWeights(off40), loc4=boneIndices(off56)
+    // loc3=boneWeights(off40), loc4=boneIndices(off56), loc6=tangent(off72)
     // Shadow shader locations: 0=aPos, 1=aTexCoord, 2=aBoneWeights, 3=aBoneIndicesF
-    // useBones=0 so locations 2,3 are never used
+    // useBones=0 so locations 2,3 are never used. The shadow pass declares no
+    // tangent - it does not light anything - but it reads the same buffer, so
+    // the stride here has to move with the one in m2_renderer.cpp or every
+    // caster is drawn from the wrong offsets.
     VkVertexInputBindingDescription vertBind{};
     vertBind.binding = 0;
-    vertBind.stride = 18 * sizeof(float);
+    vertBind.stride = 22 * sizeof(float);
     vertBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
     std::vector<VkVertexInputAttributeDescription> vertAttrs = {
         {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT,    .offset = 0},                     // aPos       -> position

@@ -1027,6 +1027,8 @@ set(WOWEE_SOURCES
     src/rendering/imgui_texture.cpp
     src/rendering/bone_slots.cpp
     src/rendering/normal_map.cpp
+    src/rendering/normal_map_cache.cpp
+    src/rendering/sun_shafts.cpp
     src/rendering/m2_renderer.cpp
     src/rendering/m2_renderer_render.cpp
     src/rendering/m2_renderer_particles.cpp
@@ -2499,6 +2501,7 @@ add_executable(wowee_editor
     src/rendering/imgui_texture.cpp
     src/rendering/bone_slots.cpp
     src/rendering/normal_map.cpp
+    src/rendering/normal_map_cache.cpp
     src/rendering/frustum.cpp
 
     # Core

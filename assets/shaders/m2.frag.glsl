@@ -55,7 +55,24 @@ layout(set = 1, binding = 2) uniform M2Material {
     // the first means its alpha is unused, "NA" on the second means the
     // second's is.
     int texCombiner;
+    // ---- appended for M3a; zero on every material until the cache answers ----
+    /// 1 once the generated normal map for this batch's texture has been
+    /// uploaded and bound. Zero binds the flat 128,128,255 fallback, which is
+    /// the surface as it was, so a material is never half-bumped.
+    int enableNormalMap;
+    int enablePOM;
+    float pomScale;
+    int pomMaxSamples;
+    /// How much height the source texture had, from generateNormalHeightMap.
+    /// POM on a texture with none is a march that finds the same depth at every
+    /// step and costs the whole budget to answer nothing.
+    float heightMapVariance;
+    float normalMapStrength;
 };
+
+// The free binding of the material set: 0 and 1 are the two texture layers and
+// 2 is the block above, so the generated normal/height map is 3.
+layout(set = 1, binding = 3) uniform sampler2D uNormalHeightMap;
 
 layout(set = 0, binding = 1) uniform sampler2DShadow uShadowMap;
 // The cascaded pair. Declared beside the single map rather than
@@ -76,9 +93,12 @@ layout(location = 5) in float vFadeAlpha;
 layout(location = 8) in vec2 TexCoord2;
 layout(location = 6) flat in int vSkyMode;
 layout(location = 7) flat in float vHighlight;
+layout(location = 9) in vec3 Tangent;
+layout(location = 10) in vec3 Bitangent;
 
 layout(location = 0) out vec4 outColor;
 
+#define WOWEE_HAS_NORMAL_HEIGHT_MAP
 #include "lit_common.glsl"
 
 vec3 localLightContribution(vec3 pos, vec3 normal, vec3 albedo) {
@@ -128,7 +148,47 @@ vec4 combineLayers(vec4 t0, vec4 t1, int mode) {
 }
 
 void main() {
-    vec4 texColor = hasTexture != 0 ? texture(uTexture, TexCoord) : vec4(1.0);
+    // The generated normal/height map, on the doodads.
+    //
+    // Everything the map is read for is inside SPEC_NORMAL_MAP_EVERYWHERE,
+    // which is off by default: with it frozen off this module is the one that
+    // shipped, and shader_offpath_identity is what says so. The material's own
+    // enableNormalMap is what turns it on per batch, and it is zero until the
+    // cache has actually produced a map - so a doodad seen for the first time
+    // is flat for a frame or two and then bumps, rather than flickering
+    // between two lightings of the same surface.
+    //
+    // The two awkward shapes below - finalUV left at zero until inside the
+    // branch, and the albedo fetch spelled twice - are both the off-path test.
+    // Written the natural way, `vec2 finalUV = TexCoord` puts a load of
+    // TexCoord above the branch, and with the constant frozen off the optimizer
+    // then folds two later loads into that one: the module is two instructions
+    // shorter than the one that shipped and the test says so. Two instructions
+    // are not a pixel, and the test is worth more than the two lines.
+    vec2 finalUV = vec2(0.0);
+    float lodFactor = 1.0;
+    if (SPEC_NORMAL_MAP_EVERYWHERE) {
+        finalUV = TexCoord;
+        if (enableNormalMap != 0) {
+            lodFactor = computeLodFactor();
+            if (SPEC_PARALLAX && enablePOM != 0 && heightMapVariance > 0.001 &&
+                lodFactor < 0.99) {
+                vec3 nPom = normalize(Normal);
+                vec3 tPom = normalize(Tangent);
+                vec3 bPom = normalize(Bitangent);
+                vec3 viewDirTS = transpose(mat3(tPom, bPom, nPom)) *
+                                 normalize(viewPos.xyz - FragPos);
+                finalUV = parallaxOcclusionMap(TexCoord, viewDirTS, lodFactor);
+            }
+        }
+    }
+
+    vec4 texColor;
+    if (SPEC_NORMAL_MAP_EVERYWHERE) {
+        texColor = hasTexture != 0 ? texture(uTexture, finalUV) : vec4(1.0);
+    } else {
+        texColor = hasTexture != 0 ? texture(uTexture, TexCoord) : vec4(1.0);
+    }
     if (texCombiner != 0)
         texColor = combineLayers(texColor, texture(uTexture2, TexCoord2), texCombiner);
     // The batch's authored colour. A glow card is painted white and coloured
@@ -219,6 +279,20 @@ void main() {
         float nx = sin(TexCoord.x * 12.0 + TexCoord.y * 5.3) * 0.10;
         float ny = sin(TexCoord.y * 14.0 + TexCoord.x * 4.7) * 0.10;
         norm = normalize(norm + vec3(nx, ny, 0.0));
+    }
+
+    // The map itself, in the frame the vertex carried. Blended rather than
+    // replaced: strength is the player's setting and the LOD factor fades the
+    // detail out with distance, which is what keeps a field of bumped doodads
+    // from sparkling at the horizon.
+    if (SPEC_NORMAL_MAP_EVERYWHERE && enableNormalMap != 0 && lodFactor < 0.99 &&
+        normalMapStrength > 0.001) {
+        vec3 T = normalize(Tangent);
+        vec3 B = normalize(Bitangent);
+        vec3 mapNormal = normalize(texture(uNormalHeightMap, finalUV).rgb * 2.0 - 1.0);
+        vec3 worldNormal = normalize(mat3(T, B, norm) * mapNormal);
+        float blend = clamp(normalMapStrength, 0.0, 1.0) * (1.0 - lodFactor);
+        norm = normalize(mix(norm, worldNormal, blend));
     }
 
     vec3 ldir = normalize(-lightDir.xyz);

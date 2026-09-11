@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rendering/normal_map_cache.hpp"
 #include <cmath>
 
 #include "rendering/vk_shader.hpp"
@@ -50,6 +51,17 @@ struct TerrainChunkGPU {
     VkTexture* layerTextures[3] = {nullptr, nullptr, nullptr};
     VkTexture* alphaTextures[3] = {nullptr, nullptr, nullptr};
     int layerCount = 0;
+
+    /// The cache keys of the four blended textures, so the chunk can be told
+    /// which generated normal maps are its own once they exist. Empty for a
+    /// layer the chunk does not have.
+    std::string normalMapKeys[4];
+    /// True until every one of those keys has been answered - with a map or
+    /// with "this texture has no height in it". While it is set the chunk is
+    /// revisited each frame; once clear it is never looked at again.
+    bool normalMapsPending = false;
+    /// One bit per layer whose map is bound, mirroring TerrainParams.
+    int normalMapMask = 0;
 
     // Per-chunk alpha textures (owned by this chunk, destroyed on removal)
     std::vector<std::unique_ptr<VkTexture>> ownedAlphaTextures;
@@ -161,6 +173,19 @@ public:
     /// view distance and the smallest gap between two of them is far wider than
     /// the 47 yards that separate two neighbours' distances at the worst angle.
     void setTerrainLodLevel(int level) { terrainLodLevel_ = std::clamp(level, 0, 3); }
+
+    // ---- M3a: the ground's generated normal maps ----
+    /// Where the sidecars live, and whether the ground asks for maps at all.
+    /// Called once at start-up, before any tile streams in.
+    void initializeNormalMapCache(const std::string& cacheDir);
+    /// `normalmapscope`: off is what the client did, and off means no map is
+    /// ever asked for, so no worker and no disk is touched.
+    void setNormalMapsEnabled(bool enabled) { normalMapsEnabled_ = enabled; }
+    void setNormalMapStrength(float strength);
+    [[nodiscard]] const NormalMapCache& normalMapCache() const { return normalMapCache_; }
+    /// Upload what the workers finished and rewrite the chunks that were
+    /// waiting on it. Main thread, once a frame, before anything is recorded.
+    void applyReadyNormalMaps();
     [[nodiscard]] int getTerrainLodLevel() const { return terrainLodLevel_; }
 
     void setShadowMap(VkDescriptorImageInfo /*depthInfo*/, const glm::mat4& /*lightSpaceMat*/) {}
@@ -186,6 +211,10 @@ private:
     /// caller must drop the chunk: a descriptor set that was allocated and
     /// never written is as undefined to bind as one holding a null view.
     bool writeMaterialDescriptors(VkDescriptorSet set, const TerrainChunkGPU& chunk);
+    /// Whether every one of a chunk's four keys has been answered.
+    [[nodiscard]] bool chunkNormalMapsResolved(const TerrainChunkGPU& chunk) const;
+    /// Refresh a chunk's params UBO from its current normalMapMask.
+    void writeChunkNormalMapParams(TerrainChunkGPU& chunk);
     void destroyChunkGPU(TerrainChunkGPU& chunk);
 
     /// Point a chunk's base, layer and alpha textures at the loaded ones.
@@ -251,6 +280,16 @@ private:
     std::unique_ptr<VkTexture> opaqueAlphaTexture;
 
     // Rendering state
+    // ---- M3a ----
+    NormalMapCache normalMapCache_;
+    bool normalMapsEnabled_ = false;
+    float normalMapStrength_ = 0.8f;
+    /// 128,128,255,128 - the ground unperturbed - on bindings 8 to 11 of every
+    /// chunk until that chunk's own layers have maps.
+    std::unique_ptr<VkTexture> flatNormalTexture;
+    std::vector<std::string> normalMapReadyScratch_;
+    static std::string normalizeTextureKey(const std::string& path);
+
     bool wireframe = false;
     bool frustumCullingEnabled = true;
     bool fogEnabled = true;

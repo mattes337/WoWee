@@ -169,6 +169,15 @@ void SkySystem::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
     // --- Lens flare (attenuated by atmosphere) ---
     if (lensFlare_) {
         glm::vec3 sunPos = getSunPosition(params);
+        // Asked once and kept, because the sun shafts need the same answer and
+        // are drawn in a different pass entirely - after the scene has closed,
+        // where nothing knows where the sun was.
+        const LensFlare::SunOnScreen sun = lensFlare_->sunOnScreen(
+            camera, sunPos, params.timeOfDay, params.fogDensity, params.cloudDensity,
+            params.weatherIntensity);
+        sunState_.ndc = sun.ndc;
+        sunState_.visibility = sun.visibility;
+        sunState_.color = params.sunColor;
         lensFlare_->render(cmd, camera, sunPos, params.timeOfDay,
                            params.fogDensity, params.cloudDensity,
                            params.weatherIntensity);

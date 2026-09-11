@@ -822,6 +822,7 @@ constexpr const char* kGraphicsPresetKeys[] = {
     "groundclutter",
     "grassenabled", "grassdensity", "grassheight", "grassdistance",
     "fogmodel", "shadowcascades", "shadowfilter", "terrainlod",
+    "normalmapscope", "sunshafts",
 };
 
 /// Every graphics setting that has to reach something when it is loaded.
@@ -845,6 +846,7 @@ constexpr const char* kGraphicsApplyKeys[] = {
     "minimapnpcdots", "minimapclock", "minimapcoords", "minimaprotate", "latencymeter",
     "fogskyblend", "fogstrength", "fogmodel", "fogaerial", "sharpstars",
     "shadowcascades", "shadowfilter", "shadowlightsize", "terrainlod",
+    "normalmapscope", "sunshafts", "sunshaftstrength",
     // Moved off the game's own Effects panel, so this list is now what
     // applies them at startup; the cvar store used to do it.
     "groundclutterdistance", "particledensity", "weatherdetail",
@@ -902,6 +904,8 @@ void SettingsPanel::applyGraphicsPreset(GraphicsPreset preset) {
         pendingShadowCascades    = p.shadowCascades;
         pendingShadowFilter      = p.shadowFilter;
         pendingTerrainLod        = p.terrainLod;
+        pendingNormalMapScope    = p.normalMapScope;
+        pendingSunShafts         = p.sunShafts;
         // Each one goes to the thing it affects through the one function that
         // knows where that is, rather than through a second copy of the same
         // renderer calls written out here.
@@ -939,6 +943,10 @@ void SettingsPanel::updateGraphicsPresetFromCurrentSettings() {
             (!p.shadows || (pendingShadowCascades == p.shadowCascades &&
                             pendingShadowFilter == p.shadowFilter)) &&
             pendingTerrainLod == p.terrainLod &&
+            // A preset with normal mapping off says nothing about how far it
+            // would have reached.
+            (!p.normalMapping || pendingNormalMapScope == p.normalMapScope) &&
+            pendingSunShafts == p.sunShafts &&
             // As with shadows: a preset that grows no grass says nothing about
             // how dense, how tall or how far it would have been.
             (!p.grass || (std::abs(pendingGrassDensity - p.grassDensity) <= 5 &&
@@ -1034,6 +1042,9 @@ constexpr FieldBinding kFieldBindings[] = {
     {.key = "fxaa",              .asBool  = &SettingsPanel::pendingFXAA},
     {.key = "normalmapping",     .asBool  = &SettingsPanel::pendingNormalMapping},
     {.key = "normalmapstrength", .asFloat = &SettingsPanel::pendingNormalMapStrength},
+    {.key = "normalmapscope",    .asInt   = &SettingsPanel::pendingNormalMapScope},
+    {.key = "sunshafts",         .asBool  = &SettingsPanel::pendingSunShafts},
+    {.key = "sunshaftstrength",  .asFloat = &SettingsPanel::pendingSunShaftStrength},
     {.key = "lensflare",         .asFloat = &SettingsPanel::pendingLensFlare},
     {.key = "framecap",          .asInt   = &SettingsPanel::pendingFrameCap},
     {.key = "parallax",          .asBool  = &SettingsPanel::pendingPOM},
@@ -1337,17 +1348,36 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
     } else if (key == "normalmapping") {
         if (wmo) wmo->setNormalMappingEnabled(pendingNormalMapping);
         if (chars) chars->setNormalMappingEnabled(pendingNormalMapping);
+        if (renderer) renderer->setNormalMapScope(pendingNormalMapping ? pendingNormalMapScope : 0);
+    } else if (key == "sunshafts") {
+        if (renderer) renderer->setSunShaftsEnabled(pendingSunShafts);
+    } else if (key == "sunshaftstrength") {
+        if (renderer) renderer->setSunShaftStrength(pendingSunShaftStrength);
+    } else if (key == "normalmapscope") {
+        if (renderer) renderer->setNormalMapScope(pendingNormalMapping ? pendingNormalMapScope : 0);
     } else if (key == "normalmapstrength") {
         if (wmo) wmo->setNormalMapStrength(pendingNormalMapStrength);
         if (chars) chars->setNormalMapStrength(pendingNormalMapStrength);
+        if (renderer) {
+            if (auto* m2 = renderer->getM2Renderer())
+                m2->setNormalMapStrength(pendingNormalMapStrength);
+            if (auto* terrain = renderer->getTerrainRenderer())
+                terrain->setNormalMapStrength(pendingNormalMapStrength);
+        }
     } else if (key == "parallax") {
         if (wmo) wmo->setPOMEnabled(pendingPOM);
         if (chars) chars->setPOMEnabled(pendingPOM);
+        if (renderer) {
+            if (auto* m2 = renderer->getM2Renderer()) m2->setParallaxEnabled(pendingPOM);
+        }
     } else if (key == "sharpstars") {
         if (renderer) renderer->setSharpStars(pendingSharpStars);
     } else if (key == "parallaxquality") {
         if (wmo) wmo->setPOMQuality(pendingPOMQuality);
         if (chars) chars->setPOMQuality(pendingPOMQuality);
+        if (renderer) {
+            if (auto* m2 = renderer->getM2Renderer()) m2->setParallaxQuality(pendingPOMQuality);
+        }
     } else if (key == "upscaling") {
         // pendingFSR is the older flag for "FSR 1 is on" and is what the saved
         // settings still carry, so the mode and the flag are set together

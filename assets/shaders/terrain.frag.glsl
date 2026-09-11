@@ -44,7 +44,21 @@ layout(set = 1, binding = 7) uniform TerrainParams {
     int hasLayer1;
     int hasLayer2;
     int hasLayer3;
+    // ---- appended for M3a ----
+    /// One bit per layer, set once that layer's generated normal map has been
+    /// uploaded and bound. Zero means every one of the four bindings below is
+    /// still the flat 128,128,255 fallback, which is the ground as it was.
+    int normalMapMask;
+    float normalMapStrength;
 };
+
+// The four layers' generated normal/height maps, one per texture the chunk
+// blends. Bindings 8 to 11, after the seven the chunk already had and the block
+// above.
+layout(set = 1, binding = 8) uniform sampler2D uNormalMap0;
+layout(set = 1, binding = 9) uniform sampler2D uNormalMap1;
+layout(set = 1, binding = 10) uniform sampler2D uNormalMap2;
+layout(set = 1, binding = 11) uniform sampler2D uNormalMap3;
 
 layout(set = 0, binding = 1) uniform sampler2DShadow uShadowMap;
 // The cascaded pair. Declared beside the single map rather than
@@ -60,6 +74,8 @@ layout(location = 0) in vec3 FragPos;
 layout(location = 1) in vec3 Normal;
 layout(location = 2) in vec2 TexCoord;
 layout(location = 3) in vec2 LayerUV;
+layout(location = 4) in vec3 Tangent;
+layout(location = 5) in vec3 Bitangent;
 
 layout(location = 0) out vec4 outColor;
 
@@ -131,6 +147,42 @@ void main() {
 
     vec3 norm = normalize(Normal);
 
+    // The generated normal maps, blended the same way the albedo above was:
+    // each layer laid over what is under it at its own alpha, so the bumps
+    // follow the same boundaries the texture does.
+    //
+    // Everything here is inside SPEC_NORMAL_MAP_EVERYWHERE, which is off by
+    // default, and at its default this module is the one that shipped -
+    // shader_offpath_identity is what says so. The derivative bump below is
+    // skipped when a real map is in use rather than added to it: the two
+    // measure the same thing, and running both bumps the ground twice.
+    bool groundHasMap = SPEC_NORMAL_MAP_EVERYWHERE && normalMapMask != 0 &&
+                        normalMapStrength > 0.001;
+    if (groundHasMap) {
+        float mapDist = length(viewPos.xyz - FragPos);
+        float mapFade = 1.0 - smoothstep(120.0, 300.0, mapDist);
+        if (mapFade > 0.001) {
+            vec3 tsNormal = vec3(0.0, 0.0, 1.0);
+            if ((normalMapMask & 1) != 0)
+                tsNormal = texture(uNormalMap0, TexCoord).rgb * 2.0 - 1.0;
+            if (hasLayer1 != 0 && (normalMapMask & 2) != 0)
+                tsNormal = mix(tsNormal, texture(uNormalMap1, TexCoord).rgb * 2.0 - 1.0,
+                               sampleAlpha(uLayer1Alpha, LayerUV));
+            if (hasLayer2 != 0 && (normalMapMask & 4) != 0)
+                tsNormal = mix(tsNormal, texture(uNormalMap2, TexCoord).rgb * 2.0 - 1.0,
+                               sampleAlpha(uLayer2Alpha, LayerUV));
+            if (hasLayer3 != 0 && (normalMapMask & 8) != 0)
+                tsNormal = mix(tsNormal, texture(uNormalMap3, TexCoord).rgb * 2.0 - 1.0,
+                               sampleAlpha(uLayer3Alpha, LayerUV));
+
+            vec3 T = normalize(Tangent);
+            vec3 B = normalize(Bitangent);
+            vec3 mapped = normalize(mat3(T, B, norm) * normalize(tsNormal));
+            float blend = clamp(normalMapStrength, 0.0, 1.0) * mapFade;
+            norm = normalize(mix(norm, mapped, blend));
+        }
+    }
+
     // Derivative-based normal mapping: perturb vertex normal using texture detail.
     // Fade out with distance and near chunk edges (dFdx/dFdy are invalid across
     // chunk draw-call boundaries, producing visible seams if not faded).
@@ -138,6 +190,7 @@ void main() {
     float bumpFade = 1.0 - smoothstep(50.0, 125.0, fragDist);
     float edgeDist = min(min(LayerUV.x, 1.0 - LayerUV.x), min(LayerUV.y, 1.0 - LayerUV.y));
     bumpFade *= smoothstep(0.0, 0.06, edgeDist);
+    if (groundHasMap) bumpFade = 0.0;
     if (bumpFade > 0.001) {
         float lum = dot(finalColor.rgb, vec3(0.299, 0.587, 0.114));
         float dLdx = dFdx(lum);

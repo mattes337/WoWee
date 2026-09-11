@@ -60,6 +60,7 @@ class CharacterPreview;
 class AmdFsr3Runtime;
 class SpellVisualSystem;
 class PostProcessPipeline;
+class SunShafts;
 class AnimationController;
 class LevelUpEffect;
 class ChargeEffect;
@@ -440,6 +441,24 @@ public:
     void setFogModel(int model);
     [[nodiscard]] int getFogModel() const { return fogModel_; }
 
+    /// Screen-space sun shafts, and how far they are turned up.
+    void setSunShaftsEnabled(bool enabled);
+    [[nodiscard]] bool areSunShaftsEnabled() const;
+    void setSunShaftStrength(float strength);
+    [[nodiscard]] float getSunShaftStrength() const;
+
+    /// Which surfaces read a generated normal map: 0 = the buildings and
+    /// characters that always did, 1 = doodads and the ground as well.
+    ///
+    /// A specialization constant, like the fog model, so moving it rebuilds the
+    /// four lit renderers' pipelines between frames. It also decides whether
+    /// the doodad and terrain caches ask for maps at all: off, no worker and no
+    /// disk is touched.
+    void setNormalMapScope(int scope);
+    [[nodiscard]] int getNormalMapScope() const { return normalMapScope_; }
+    /// Where the generated maps are kept: `<data>/generated/<expansion>/normals`.
+    [[nodiscard]] std::string normalMapCacheDir() const;
+
     /// How strongly the fog carries the sun's colour when looking toward it.
     /// Live: it is a per-frame value, not a variant.
     void setFogAerialStrength(float strength) {
@@ -455,6 +474,9 @@ private:
     bool shaderFeatureChangePending_ = false;
     int fogModel_ = 0;
     float fogAerialStrength_ = 0.6f;
+    /// Off until something says otherwise: the shader constant's default is
+    /// what the client did before phase 01, and so is this.
+    int normalMapScope_ = 0;
     bool ensureSkyboxModel();
     VkSampleCountFlagBits pendingMsaaSamples_ = VK_SAMPLE_COUNT_1_BIT;
     bool msaaChangePending_ = false;
@@ -492,6 +514,10 @@ private:
 
     // Post-process pipeline - owns all FSR/FXAA/FSR2 state (extracted §4.3)
     std::unique_ptr<PostProcessPipeline> postProcessPipeline_;
+    /// S4. Owned here rather than by PostProcessPipeline because it runs on
+    /// every path, including the one where no post pass exists at all - see the
+    /// header of sun_shafts.hpp.
+    std::unique_ptr<SunShafts> sunShafts_;
 
     bool playerIndoors_ = false;  // Cached WMO inside state for macro conditionals
     bool deferredWorldInitEnabled_ = true;

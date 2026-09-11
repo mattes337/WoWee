@@ -429,6 +429,11 @@ void GameScreen::render(game::GameHandler& gameHandler) {
             renderer->setShadowFilter(settingsPanel_.pendingShadowFilter);
             renderer->setShadowLightSize(settingsPanel_.pendingShadowLightSize);
             renderer->setTerrainLodLevel(settingsPanel_.pendingTerrainLod);
+            renderer->setNormalMapScope(settingsPanel_.pendingNormalMapping
+                                            ? settingsPanel_.pendingNormalMapScope
+                                            : 0);
+            renderer->setSunShaftsEnabled(settingsPanel_.pendingSunShafts);
+            renderer->setSunShaftStrength(settingsPanel_.pendingSunShaftStrength);
             // The latch waits for the pipeline, not just the renderer.
             //
             // Settings are loaded in the constructor, before the renderer is

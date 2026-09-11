@@ -704,6 +704,20 @@ VkTexture* M2Renderer::loadTexture(const std::string& path, uint32_t texFlags) {
     // This was the only thing forcing M2 textures to be decoded.
     const bool hasAlpha = blp.hasTransparency();
 
+    // The generated normal map for this texture, asked for once, here, where
+    // the loaded BLP is in hand. The cache copies what it needs and does the
+    // decode, the downsample and the Sobel on a worker; nothing about this call
+    // blocks, and the map reaches the materials that want it some frames later
+    // through applyReadyNormalMaps().
+    //
+    // Strength 3 for the doodads. The character renderer asks for 5, which
+    // suits skin and cloth; the WMO renderer asks for 2, which suits a stone
+    // wall seen from across a square. A crate, a barrel, a tree trunk is
+    // between the two.
+    if (normalMapsEnabled_) {
+        normalMapCache_.request(key, blp, 3.0f);
+    }
+
     // Create Vulkan texture
     auto tex = std::make_unique<VkTexture>();
     tex->uploadBLP(*vkCtx_, blp);

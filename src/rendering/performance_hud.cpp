@@ -356,6 +356,13 @@ void PerformanceHUD::render(const Renderer* renderer, const Camera* camera) {
                            lensFlare->getIntensity() * 100.0f);
             }
 
+            // Beside the flare, because the two are gated on the same sun
+            // visibility: an overlay that says the flare is on and says nothing
+            // about the shafts leaves the obvious question unanswered.
+            ImGui::Text("Sun Shafts: %s (%.0f%%)",
+                        renderer->areSunShaftsEnabled() ? "ON" : "OFF",
+                        renderer->getSunShaftStrength() * 100.0f);
+
             ImGui::Spacing();
         }
     }

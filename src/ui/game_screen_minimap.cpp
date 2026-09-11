@@ -1816,6 +1816,9 @@ void GameScreen::saveSettings() {
     out << "antialiasing=" << settingsPanel_.pendingAntiAliasing << "\n";
     out << "fxaa=" << (settingsPanel_.pendingFXAA ? 1 : 0) << "\n";
     out << "normal_mapping=" << (settingsPanel_.pendingNormalMapping ? 1 : 0) << "\n";
+    out << "normal_map_scope=" << settingsPanel_.pendingNormalMapScope << "\n";
+    out << "sun_shafts=" << (settingsPanel_.pendingSunShafts ? 1 : 0) << "\n";
+    out << "sun_shaft_strength=" << settingsPanel_.pendingSunShaftStrength << "\n";
     out << "normal_map_strength=" << settingsPanel_.pendingNormalMapStrength << "\n";
     out << "lens_flare=" << settingsPanel_.pendingLensFlare << "\n";
     out << "frame_cap=" << settingsPanel_.pendingFrameCap << "\n";
@@ -2070,11 +2073,15 @@ void GameScreen::loadSettings() {
             // nothing.
             else if (key == "shadow_distance" || key == "shadow_cascades" ||
                      key == "shadow_filter" || key == "shadow_light_size" ||
-                     key == "terrain_lod") {
+                     key == "terrain_lod" || key == "normal_map_scope" ||
+                     key == "sun_shafts" || key == "sun_shaft_strength") {
                 if (key == "shadow_distance") settingsPanel_.pendingShadowDistance = std::clamp(std::stof(val), 40.0f, 500.0f);
                 else if (key == "shadow_cascades") settingsPanel_.pendingShadowCascades = std::clamp(std::stoi(val), 0, 3);
                 else if (key == "shadow_filter") settingsPanel_.pendingShadowFilter = std::clamp(std::stoi(val), 0, 2);
                 else if (key == "shadow_light_size") settingsPanel_.pendingShadowLightSize = std::clamp(std::stof(val), 0.5f, 5.0f);
+                else if (key == "normal_map_scope") settingsPanel_.pendingNormalMapScope = std::clamp(std::stoi(val), 0, 1);
+                else if (key == "sun_shafts") settingsPanel_.pendingSunShafts = (std::stoi(val) != 0);
+                else if (key == "sun_shaft_strength") settingsPanel_.pendingSunShaftStrength = std::clamp(std::stof(val), 0.0f, 1.0f);
                 else settingsPanel_.pendingTerrainLod = std::clamp(std::stoi(val), 0, 3);
             }
             else if (key == "view_distance") settingsPanel_.pendingViewDistance = std::clamp(std::stof(val), 400.0f, 2400.0f);

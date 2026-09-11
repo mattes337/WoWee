@@ -4,6 +4,7 @@
 #include "rendering/m2_renderer.hpp"
 #include "core/env_flag.hpp"
 #include "rendering/m2_renderer_internal.h"
+#include "rendering/tangent_frame.hpp"
 #include "rendering/m2_blend_mode.hpp"
 #include "pipeline/model_bounds.hpp"
 #include "rendering/render_constants.hpp"
@@ -282,12 +283,19 @@ bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
     VkRenderPass mainPass = vkCtx_->getImGuiRenderPass();
 
     // --- Build M2 model pipelines ---
-    // Vertex input: 18 floats = 72 bytes stride
+    // Vertex input: 22 floats = 88 bytes stride
     // loc 0: vec3 pos (0), loc 1: vec3 normal (12), loc 2: vec2 uv0 (24),
-    // loc 5: vec2 uv1 (32), loc 3: vec4 boneWeights (40), loc 4: vec4 boneIndices (56)
+    // loc 5: vec2 uv1 (32), loc 3: vec4 boneWeights (40), loc 4: vec4 boneIndices (56),
+    // loc 6: vec4 tangent (72)
+    //
+    // The tangent is on every M2 vertex whether or not the material has a
+    // normal map, because the buffer is uploaded once and the map arrives
+    // later, from a worker: a model whose vertices had to be rewritten when its
+    // map turned up would be a stall in the middle of walking. Sixteen bytes on
+    // seventy-two is a fifth more doodad vertex memory.
     VkVertexInputBindingDescription m2Binding{};
     m2Binding.binding = 0;
-    m2Binding.stride = 18 * sizeof(float);
+    m2Binding.stride = 22 * sizeof(float);
     m2Binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
     std::vector<VkVertexInputAttributeDescription> m2Attrs = {
@@ -297,6 +305,7 @@ bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
         {.location = 5, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = 8 * sizeof(float)},        // texCoord1
         {.location = 3, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = 10 * sizeof(float)}, // boneWeights
         {.location = 4, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = 14 * sizeof(float)}, // boneIndices (float)
+        {.location = 6, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = 18 * sizeof(float)}, // tangent + handedness
     };
 
     // The variant of the lit shaders this session's settings ask for. Held
@@ -505,7 +514,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
     // Material set layout (set 1): binding 0 = sampler2D, binding 2 = M2Material UBO
     // (M2Params moved to push constants alongside model matrix)
     {
-        VkDescriptorSetLayoutBinding bindings[3] = {};
+        VkDescriptorSetLayoutBinding bindings[4] = {};
         bindings[0].binding = 0;
         bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         bindings[0].descriptorCount = 1;
@@ -521,9 +530,17 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         bindings[1].descriptorCount = 1;
         bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        // binding 3: the generated normal/height map. Always bound, like the
+        // second layer above - the flat 128,128,255 fallback until
+        // NormalMapCache answers, because a descriptor the shader declares and
+        // nothing writes is undefined rather than merely unused.
+        bindings[3].binding = 3;
+        bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        bindings[3].descriptorCount = 1;
+        bindings[3].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
         VkDescriptorSetLayoutCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-        ci.bindingCount = 3;
+        ci.bindingCount = 4;
         ci.pBindings = bindings;
         vkCreateDescriptorSetLayout(device, &ci, nullptr, &materialSetLayout_);
     }
@@ -573,9 +590,9 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
     // --- Descriptor pools ---
     {
         VkDescriptorPoolSize sizes[] = {
-            // Two samplers per material set now: the batch texture and the
-            // material's second layer.
-            {.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_MATERIAL_SETS * 2 + 256},
+            // Three samplers per material set now: the batch texture, the
+            // material's second layer and its generated normal/height map.
+            {.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_MATERIAL_SETS * 3 + 256},
             {.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = MAX_MATERIAL_SETS + 256},
         };
         VkDescriptorPoolCreateInfo ci{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
@@ -1009,6 +1026,18 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         whiteTexture_->createSampler(device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT);
     }
 
+    // --- Flat normal, for every material until its own map arrives ---
+    // 128,128,255 decodes to (0,0,1): the surface's own normal, unperturbed,
+    // and a height of 0.5 which no march reads because enablePOM is zero with
+    // it. The same pixel the WMO renderer binds, for the same reason.
+    {
+        uint8_t flat[] = {128, 128, 255, 128};
+        flatNormalTexture_ = std::make_unique<VkTexture>();
+        flatNormalTexture_->upload(*vkCtx_, flat, 1, 1, VK_FORMAT_R8G8B8A8_UNORM, false);
+        flatNormalTexture_->createSampler(device, VK_FILTER_LINEAR, VK_FILTER_LINEAR,
+                                          VK_SAMPLER_ADDRESS_MODE_REPEAT);
+    }
+
     // --- Generate soft radial gradient glow texture ---
     {
         static constexpr int SZ = 64;
@@ -1111,6 +1140,8 @@ void M2Renderer::shutdown() {
     // The singletons the cache never held. Same reason as above: a
     // unique_ptr<VkTexture> releases nothing on its own.
     if (whiteTexture_) { whiteTexture_->destroy(device, alloc); whiteTexture_.reset(); }
+    if (flatNormalTexture_) { flatNormalTexture_->destroy(device, alloc); flatNormalTexture_.reset(); }
+    normalMapCache_.shutdown();
     if (glowTexture_)  { glowTexture_->destroy(device, alloc);  glowTexture_.reset(); }
     textureCacheBytes_ = 0;
     textureCacheCounter_ = 0;
@@ -1588,11 +1619,28 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
 
     if (hasGeometry) {
         // Create VBO with interleaved vertex data
-        // Format: position (3), normal (3), texcoord0 (2), texcoord1 (2), boneWeights (4), boneIndices (4 as float)
-        const size_t floatsPerVertex = 18;
+        // Format: position (3), normal (3), texcoord0 (2), texcoord1 (2),
+        //         boneWeights (4), boneIndices (4 as float), tangent (4)
+        const size_t floatsPerVertex = 22;
         std::vector<float> vertexData;
         vertexData.reserve(model.vertices.size() * floatsPerVertex);
 
+        // Lengyel over the first UV set, which is the one a normal map is
+        // addressed by - the second is the environment-map coordinate. Derived
+        // here rather than in the shader because it is a property of the mesh
+        // and the same for every instance of it.
+        std::vector<glm::vec3> tfPositions(model.vertices.size());
+        std::vector<glm::vec2> tfUVs(model.vertices.size());
+        std::vector<glm::vec3> tfNormals(model.vertices.size());
+        for (size_t i = 0; i < model.vertices.size(); ++i) {
+            tfPositions[i] = model.vertices[i].position;
+            tfUVs[i] = model.vertices[i].texCoords[0];
+            tfNormals[i] = model.vertices[i].normal;
+        }
+        const TangentFrames tangentFrames =
+            computeTangentFrames(tfPositions, tfUVs, tfNormals, model.indices);
+
+        size_t vertexIndex = 0;
         for (const auto& v : model.vertices) {
             vertexData.push_back(v.position.x);
             vertexData.push_back(v.position.y);
@@ -1616,6 +1664,11 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             vertexData.push_back(static_cast<float>(std::min(v.boneIndices[1], uint8_t(127))));
             vertexData.push_back(static_cast<float>(std::min(v.boneIndices[2], uint8_t(127))));
             vertexData.push_back(static_cast<float>(std::min(v.boneIndices[3], uint8_t(127))));
+            const glm::vec4& tf = tangentFrames.tangents[vertexIndex++];
+            vertexData.push_back(tf.x);
+            vertexData.push_back(tf.y);
+            vertexData.push_back(tf.z);
+            vertexData.push_back(tf.w);
         }
 
         // Upload vertex buffer to GPU
@@ -1899,6 +1952,22 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                 }
             }
             bgpu.texture = tex;
+            // Which batches are surfaces, and so want a normal map at all.
+            //
+            // An unlit batch is not lit, so perturbing its normal changes
+            // nothing; an additive or blended one is a card standing in for
+            // light - a glow, a flame, a nebula - and bumping it lights the
+            // card. What is left is the opaque and alpha-keyed geometry that a
+            // doodad is actually made of, which is what this is for. POM is
+            // narrower still: a cutout's height field is its silhouette, so
+            // marching it moves the cutout rather than the surface.
+            const bool batchIsSurface = !texFailed && !batchTexKeyLower.empty() &&
+                                        (bgpu.materialFlags & 0x01) == 0 &&
+                                        bgpu.blendMode <= 1;
+            if (batchIsSurface) {
+                bgpu.normalMapKey = batchTexKeyLower;
+                bgpu.normalMapWantsPOM = (bgpu.blendMode == 0) && !bgpu.hasAlpha;
+            }
             const auto tcls = classifyBatchTexture(batchTexKeyLower);
             bgpu.starLayer = tcls.starPointLayer;
             const bool modelLanternFamily = gpuModel.isLanternLike;
@@ -2140,6 +2209,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
     vkCtx_->endUploadBatch();
 
     // Allocate Vulkan descriptor sets and UBOs for each batch
+    uint32_t normalMapBatchIndex = 0;
     for (auto& bgpu : gpuModel.batches) {
         // Create combined UBO for M2Params (binding 1) + M2Material (binding 2)
         // We allocate them as separate buffers for clarity
@@ -2170,6 +2240,15 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             mat.interiorDarken = 0.0f;
             mat.specularIntensity = 0.5f;
             mat.emissiveBoost = bgpu.preserveGlowMesh ? 2.4f : 1.0f;
+            // Zero until the cache answers. applyReadyNormalMaps() fills these
+            // in and rewrites binding 3 once a map for this batch's texture
+            // exists.
+            mat.enableNormalMap = 0;
+            mat.enablePOM = 0;
+            mat.pomScale = 0.02f;
+            mat.pomMaxSamples = 32;
+            mat.heightMapVariance = 0.0f;
+            mat.normalMapStrength = normalMapStrength_;
             memcpy(matAllocInfo.pMappedData, &mat, sizeof(mat));
             bgpu.materialUBOMapped = matAllocInfo.pMappedData;
 
@@ -2222,7 +2301,8 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             VkTexture* batchTex2 = (bgpu.texture2 && bgpu.texture2->isValid())
                 ? bgpu.texture2 : whiteTexture_.get();
             VkDescriptorImageInfo imgInfo2 = batchTex2->descriptorInfo();
-            VkWriteDescriptorSet writes[3] = {};
+            VkDescriptorImageInfo imgInfoNH = flatNormalTexture_->descriptorInfo();
+            VkWriteDescriptorSet writes[4] = {};
             // binding 0: texture
             writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writes[0].dstSet = bgpu.materialSet;
@@ -2244,9 +2324,28 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             writes[2].descriptorCount = 1;
             writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             writes[2].pImageInfo = &imgInfo2;
+            // binding 3: the generated normal/height map, flat for now
+            writes[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writes[3].dstSet = bgpu.materialSet;
+            writes[3].dstBinding = 3;
+            writes[3].descriptorCount = 1;
+            writes[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            writes[3].pImageInfo = &imgInfoNH;
 
-            vkUpdateDescriptorSets(vkCtx_->getDevice(), 3, writes, 0, nullptr);
+            vkUpdateDescriptorSets(vkCtx_->getDevice(), 4, writes, 0, nullptr);
+
+            // The map may already exist - a second tree of the same kind, or a
+            // sidecar read back from disk while the first one was loading.
+            if (normalMapsEnabled_ && !bgpu.normalMapKey.empty()) {
+                if (const auto* ready = normalMapCache_.lookup(bgpu.normalMapKey)) {
+                    bindNormalMap(modelId, normalMapBatchIndex, bgpu, *ready);
+                } else {
+                    normalMapWaiters_[bgpu.normalMapKey].emplace_back(modelId,
+                                                                     normalMapBatchIndex);
+                }
+            }
         }
+        ++normalMapBatchIndex;
     }
 
     // Pre-compute available LOD levels to avoid per-instance batch iteration
@@ -2263,6 +2362,133 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
 
 
     return true;
+}
+
+
+// ---------------------------------------------------------------------------
+// M3a: the generated normal maps
+// ---------------------------------------------------------------------------
+
+void M2Renderer::initializeNormalMapCache(const std::string& cacheDir) {
+    normalMapCache_.initialize(vkCtx_, cacheDir);
+}
+
+void M2Renderer::setNormalMapStrength(float strength) {
+    const float wanted = std::clamp(strength, 0.0f, 2.0f);
+    if (std::abs(wanted - normalMapStrength_) < 1e-4f) return;
+    normalMapStrength_ = wanted;
+    refreshNormalMapMaterials();
+}
+
+void M2Renderer::setParallaxQuality(int quality) {
+    // The same three the WMO path offers: 16, 32, 64 steps head-on.
+    const int samples = (quality <= 0) ? 16 : (quality == 1 ? 32 : 64);
+    if (samples == normalMapPOMSamples_) return;
+    normalMapPOMSamples_ = samples;
+    refreshNormalMapMaterials();
+}
+
+void M2Renderer::bindNormalMap(uint32_t modelId, uint32_t batchIndex,
+                               M2ModelGPU::BatchGPU& batch,
+                               const NormalMapCache::Ready& ready) {
+    batch.normalMapBound = true;
+    if (!batch.materialUBOMapped) return;
+
+    auto* mat = static_cast<M2MaterialUBO*>(batch.materialUBOMapped);
+    if (!ready.texture || !ready.texture->isValid()) {
+        // A texture with no height in it. The flat fallback stays bound and the
+        // flags stay zero, so the batch pays nothing for the question having
+        // been asked.
+        mat->enableNormalMap = 0;
+        mat->enablePOM = 0;
+        mat->heightMapVariance = 0.0f;
+        return;
+    }
+
+    mat->enableNormalMap = 1;
+    mat->enablePOM = (normalMapPOMEnabled_ && batch.normalMapWantsPOM) ? 1 : 0;
+    mat->pomScale = 0.02f;
+    mat->pomMaxSamples = normalMapPOMSamples_;
+    mat->heightMapVariance = ready.variance;
+    mat->normalMapStrength = normalMapStrength_;
+
+    if (batch.materialSet == VK_NULL_HANDLE) return;
+
+    // The set is already bound by command buffers still in flight, and a
+    // descriptor written under one of those is undefined - which on this
+    // renderer has meant a lost device rather than a wrong pixel. Deferred
+    // until every frame slot has been fenced, which is the one point where no
+    // recorded command buffer still names it.
+    //
+    // The batch is found again inside rather than captured: the model could be
+    // evicted in the two frames this waits, and its descriptor set freed with
+    // it. The material UBO written above needs no such care - the shader reads
+    // the flat fallback for those two frames and the flat fallback is the
+    // surface unperturbed, so the worst of the interval is what was already on
+    // screen.
+    vkCtx_->deferAfterAllFrameFences([this, modelId, batchIndex]() {
+        auto modelIt = models.find(modelId);
+        if (modelIt == models.end()) return;
+        if (batchIndex >= modelIt->second.batches.size()) return;
+        auto& b = modelIt->second.batches[batchIndex];
+        if (b.materialSet == VK_NULL_HANDLE || !b.materialUBOMapped) return;
+        const auto* ready = normalMapCache_.lookup(b.normalMapKey);
+        if (!ready || !ready->texture || !ready->texture->isValid()) return;
+
+        VkDescriptorImageInfo info = ready->texture->descriptorInfo();
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = b.materialSet;
+        write.dstBinding = 3;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write.pImageInfo = &info;
+        vkUpdateDescriptorSets(vkCtx_->getDevice(), 1, &write, 0, nullptr);
+    });
+}
+
+void M2Renderer::applyReadyNormalMaps() {
+    if (!vkCtx_ || !normalMapsEnabled_) return;
+
+    normalMapReadyScratch_.clear();
+    // Eight a frame. The upload itself is a staging copy and a blit chain, and
+    // a zone's first seconds can finish several hundred of them at once -
+    // draining the whole queue in one frame is a hitch exactly where the frame
+    // is already loading everything else.
+    if (normalMapCache_.pump(&normalMapReadyScratch_, 8) == 0) return;
+
+    for (const std::string& key : normalMapReadyScratch_) {
+        auto waitIt = normalMapWaiters_.find(key);
+        if (waitIt == normalMapWaiters_.end()) continue;
+        const NormalMapCache::Ready* ready = normalMapCache_.lookup(key);
+        if (ready) {
+            for (const auto& [modelId, batchIndex] : waitIt->second) {
+                // The model may have been evicted while its map was being made,
+                // and the descriptor set freed with it. Looked up rather than
+                // held, which is the whole reason this is keyed by id.
+                auto modelIt = models.find(modelId);
+                if (modelIt == models.end()) continue;
+                if (batchIndex >= modelIt->second.batches.size()) continue;
+                bindNormalMap(modelId, batchIndex, modelIt->second.batches[batchIndex],
+                              *ready);
+            }
+        }
+        normalMapWaiters_.erase(waitIt);
+    }
+}
+
+void M2Renderer::refreshNormalMapMaterials() {
+    for (auto& [modelId, model] : models) {
+        (void)modelId;
+        for (auto& batch : model.batches) {
+            if (!batch.normalMapBound || !batch.materialUBOMapped) continue;
+            auto* mat = static_cast<M2MaterialUBO*>(batch.materialUBOMapped);
+            if (mat->enableNormalMap == 0) continue;
+            mat->normalMapStrength = normalMapStrength_;
+            mat->enablePOM = (normalMapPOMEnabled_ && batch.normalMapWantsPOM) ? 1 : 0;
+            mat->pomMaxSamples = normalMapPOMSamples_;
+        }
+    }
 }
 
 } // namespace rendering
