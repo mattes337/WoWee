@@ -1211,6 +1211,14 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
     }
 
     // Read texture lookup
+    // Which UV set each texture unit reads, or 0xFFFF for "compute it": the
+    // login scene's glow cards carry their falloff on set 1 and the frost
+    // wyrm's specular layer is environment-mapped, and both were sampled with
+    // set 1 regardless, which put the wyrm's reflection on the wrong
+    // coordinates entirely.
+    if (header.nTexUnits > 0 && header.ofsTexUnits > 0) {
+        model.textureCoordCombos = readArray<uint16_t>(m2Data, header.ofsTexUnits, header.nTexUnits);
+    }
     if (header.nTexLookup > 0 && header.ofsTexLookup > 0) {
         model.textureLookup = readArray<uint16_t>(m2Data, header.ofsTexLookup, header.nTexLookup);
     }

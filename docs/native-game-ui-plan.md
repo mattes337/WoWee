@@ -499,10 +499,12 @@ would have lost the glow silently on the machine it was written for.
 The backdrop's target is the frame's pixel size rounded up to a multiple of 32,
 so that a window dragged by a few pixels does not rebuild the view. At 1280x720
 that is a 1280x736 image, and it was drawn into the 1280x720 rect whole: 736
-rows resampled onto 720, one row in every forty-six thrown away. In the flat
-sky that is under one level of luminance and invisible. Over the frost wyrm it
-is a set of pale bands forty-five pixels apart, and that - not the glow, and
-not the model - is what "the boxes of light are back" turned out to be.
+rows resampled onto 720, one row in every forty-six thrown away.
+
+It is real and it is measurable - vertical detail relative to horizontal goes
+from 0.943 to 0.975 once the two sizes agree, since the resample only ever
+blurred one axis - but it is not what the boxes of light were. That was the
+scene model, and it is the section below.
 
 The scene, the blur and the glow now draw into the top-left `drawWidth x
 drawHeight` of their targets and the interface samples exactly that much. The
@@ -516,6 +518,61 @@ against a client that is drawing catches two frames in one image; stopping the
 process first (`kill -STOP`, capture, `kill -CONT`) does not, and the seams go
 with it. Nine of ten still captures have no seam at all; the same ten taken
 while it ran have one each.
+
+### What the scene model is told to draw
+
+Three faults, each of which put flat rectangles on the login screen where the
+art asks for a soft glow, and all three found by rendering one skin batch at a
+time and by capturing the original client at the same resolution to compare
+against.
+
+- **An M2Color was never applied to a scene model.** The colour track tints
+  what the texture supplies and the art relies on it - the world's own M2
+  renderer has carried it since the fault where every fire in the world burned
+  white - but `CharacterRenderer`, which is what draws a glue backdrop, read
+  only the alpha. Every glow card the login scene paints white stayed white.
+- **The texture unit's shader id was used as a combiner index.** It is not one.
+  Bit `0x8000` means the low bits already are a combiner, bits `0x70` choose
+  the `Mod_*` family over the `Opaque_*` one, and only the low three bits pick
+  within a family. Resolved properly, `shader=0` on a two-texture unit means
+  `Opaque_Opaque` and `shader=2` means `Opaque_Mod`; taken raw they came out as
+  `Opaque_Mod2x` and `Opaque_Mod2xNA`, and the first of those takes a light
+  shaft's alpha from its own falloff mask a second time, leaving it a fraction
+  of the brightness the art asks for. Measured over the sky above the citadel:
+  (43, 97, 114) to (51, 102, 126). Two combines the shaders never had -
+  `Opaque_AddAlpha` and `Opaque_Mod2xNA_Alpha` - are in both of them now.
+- **The second layer always sampled UV set 1.** Which set a layer reads is in
+  the model's texture-unit table, which was parsed as an index and never as a
+  table. The login scene's glow cards do use set 1; its frost wyrm's specular
+  sheet is `0xFFFF`, which means the coordinates are computed - a sphere map -
+  and two of its flare batches use set 0. A reflection map sampled on authored
+  coordinates is a mirror of the sky pasted on the wrong part of the model.
+
+### What still does not match the original
+
+Against the original 3.3.5a client, captured at 1024x768 with this client run
+at the same size so the camera agrees, the scene is within ten to thirty per
+cent almost everywhere - aurora (41, 113, 121) against (32, 95, 103), the
+citadel (43, 131, 160) against (46, 115, 147).
+
+The exception is the glow above the citadel's spire. In a box around it, the
+fraction of pixels above 240 is 18.3 per cent in the original and 3.1 per cent
+here: a blown-out white core there, a flat wash here.
+
+What it is not, each ruled out by measurement rather than by argument:
+
+- **Not this screen's own glow.** At twenty-five times the figure the markup
+  asks for, the whole-frame mean moves from 74.6 to 75.7. The bright-pass
+  threshold catches almost nothing of a scene this dark.
+- **Not gamma.** No single exponent fits: about 1.3 matches the low percentiles
+  and still falls short at the ninetieth (0.655 against 0.871).
+- **Not the art.** `ICECROWN_GLOW01` peaks at 180 and averages 24 over its own
+  texture. One additive card cannot make that core.
+
+So it is either more layered draws than this client emits for those batches or
+the original client's own full-screen glow, and which of the two is not known
+yet. The same gap covers the blue frost glows on the wyrm's body, which the
+original has and this does not.
 
 ### Recorded and deliberately not applied
 

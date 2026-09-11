@@ -204,6 +204,46 @@ struct M2RibbonEmitter {
     uint16_t textureCols = 1;
 };
 
+/// Which two-layer combine a skin batch's `shader` asks for, as the index the
+/// model shaders implement. Zero means "layer 0 alone".
+///
+/// The field is not a combiner index. It is the client's own shader selector,
+/// and Blizzard resolves it through a table whose shape is nothing like the
+/// raw number: bit 0x8000 means the low bits are already a combiner, bits 0x70
+/// choose the Mod_* family over the Opaque_* one, and only the low three bits
+/// pick within a family. Using the raw id as an index puts the login screen's
+/// light shafts on Opaque_Mod2xNA when they want Opaque_Opaque, which takes
+/// their alpha from the falloff mask a second time and leaves the shaft a
+/// fraction of the brightness the art asks for.
+///
+/// The names read <layer0 op>_<layer1 op>. "Opaque" on the first means layer
+/// 0's alpha is not used; "NA" on the second means layer 1's is not used.
+inline int32_t m2TexCombiner(uint16_t textureCount, uint16_t shaderId) {
+    if (textureCount < 2) return 0;
+    // An explicit combiner in the low bits. Nothing in 3.3.5a's art sets it,
+    // and mapping it would be a guess, so such a batch draws layer 0 alone.
+    if (shaderId & 0x8000) return 0;
+    const uint16_t lower = static_cast<uint16_t>(shaderId & 7);
+    if (shaderId & 0x70) {
+        switch (lower) {
+            case 0:  return 10;  // Mod_Opaque
+            case 3:  return 7;   // Mod_Add
+            case 4:  return 6;   // Mod_Mod2x
+            case 6:  return 8;   // Mod_Mod2xNA
+            case 7:  return 9;   // Mod_AddNA
+            default: return 5;   // Mod_Mod
+        }
+    }
+    switch (lower) {
+        case 0:  return 4;   // Opaque_Opaque
+        case 3:  return 11;  // Opaque_AddAlpha
+        case 4:  return 11;  // Opaque_AddAlpha
+        case 6:  return 12;  // Opaque_Mod2xNA_Alpha
+        case 7:  return 11;  // Opaque_AddAlpha
+        default: return 1;   // Opaque_Mod
+    }
+}
+
 // Complete M2 model structure
 struct M2Model {
     // Model metadata
@@ -240,6 +280,12 @@ struct M2Model {
     // Texture transforms (UV animation)
     std::vector<M2TextureTransform> textureTransforms;
     std::vector<uint16_t> textureTransformLookup;
+
+    /// Which UV set each texture unit of a skin batch reads. A batch's
+    /// `textureUnit` is an index into this, one entry per layer; 0 and 1 are
+    /// the vertex's two sets and 0xFFFF means the coordinates are computed -
+    /// a spherical environment map.
+    std::vector<uint16_t> textureCoordCombos;
 
     // Texture weights (per-batch opacity, from M2Track<fixed16>)
     // Each entry is the "at-rest" opacity value (0=transparent, 1=opaque).

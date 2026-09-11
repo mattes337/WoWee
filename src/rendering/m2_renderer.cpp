@@ -1869,8 +1869,8 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                         if (idx2 < allTextures.size()) bgpu.texture2 = allTextures[idx2];
                     }
                     if (bgpu.texture2 && bgpu.texture2->isValid()) {
-                        bgpu.texCombiner = (batch.shader <= 10)
-                            ? static_cast<int32_t>(batch.shader + 1) : 1;
+                        bgpu.texCombiner =
+                            pipeline::m2TexCombiner(batch.textureCount, batch.shader);
                     }
                 }
             } else if (!allTextures.empty()) {
@@ -1942,9 +1942,13 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                     }
                 }
             }
-            // textureCoordIndex is an index into a texture coord combo table, not directly
-            // a UV set selector. Most batches have index=0 (UV set 0). We always use UV set 0
-            // since we don't have the full combo table - dual-UV effects are rare edge cases.
+            // textureCoordIndex is an index into a texture coord combo table, not
+            // directly a UV set selector. The table is read now - see
+            // M2Model::textureCoordCombos - and the glue backdrop's renderer
+            // uses it, because the login scene's glow cards carry their falloff
+            // on set 1 and its wyrm's specular sheet is environment-mapped.
+            // This renderer stays on set 0 until there is a doodad to check the
+            // change against; a world of them is a wide thing to move blind.
             bgpu.textureUnit = 0;
 
             // Start at full opacity; hide only if texture failed to load.

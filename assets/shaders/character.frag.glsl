@@ -49,8 +49,17 @@ layout(set = 1, binding = 1) uniform CharMaterial {
     // alpha from the wrong layer leaves their quad edges showing.
     //   1 Opaque_Mod   2 Opaque_Mod2x  3 Opaque_Mod2xNA  4 Opaque_Opaque
     //   5 Mod_Mod      6 Mod_Mod2x     7 Mod_Add         8 Mod_Mod2xNA
-    //   9 Mod_AddNA   10 Mod_Opaque
+    //   9 Mod_AddNA   10 Mod_Opaque  11 Opaque_AddAlpha
+    //  12 Opaque_Mod2xNA_Alpha
     int texCombiner;
+    // The batch's authored M2Color. Scalar floats to match the C++ packing, as
+    // above. White when the batch has no colour slot.
+    float tintR;
+    float tintG;
+    float tintB;
+    // Where the second layer's coordinates come from: 0 and 1 are the two UV
+    // sets the vertex carries, 2 is a spherical environment map.
+    int layer2CoordSet;
 };
 
 layout(set = 1, binding = 2) uniform sampler2D uNormalHeightMap;
@@ -146,6 +155,26 @@ ivec2 wrapPreviewTexel(ivec2 texel, ivec2 texSize) {
                  (texel.y % texSize.y + texSize.y) % texSize.y);
 }
 
+/// The second layer's coordinates, as its texture unit asks for them.
+///
+/// A specular sheet is environment-mapped: the client builds its UV from the
+/// view-space normal rather than reading one off the vertex, and sampling a
+/// reflection map with an authored set puts a mirror image of the sky on the
+/// wrong part of the model.
+vec2 layer2Coords() {
+    if (layer2CoordSet == 0) return TexCoord;
+    if (layer2CoordSet != 2) return TexCoord2;
+    // A sphere map off the reflected view vector. Not the client's exact
+    // basis - that one is view-space and this is world-space, so the
+    // reflection turns with the camera by a different amount - but a smooth
+    // reflection either way, which is what the sheet is for.
+    vec3 n = safeNormalize(Normal, vec3(0.0, 0.0, 1.0));
+    vec3 v = safeNormalize(viewPos.xyz - FragPos, vec3(0.0, 0.0, 1.0));
+    vec3 r = reflect(-v, n);
+    float m = 2.0 * sqrt(r.x * r.x + r.y * r.y + (r.z + 1.0) * (r.z + 1.0));
+    return m > 1e-4 ? r.xy / m + 0.5 : vec2(0.5);
+}
+
 vec4 combineLayers(vec4 t0, vec4 t1, int mode) {
     if (mode == 1)  return vec4(t0.rgb * t1.rgb,       t1.a);
     if (mode == 2)  return vec4(t0.rgb * t1.rgb * 2.0, t1.a);
@@ -157,6 +186,10 @@ vec4 combineLayers(vec4 t0, vec4 t1, int mode) {
     if (mode == 8)  return vec4(t0.rgb * t1.rgb * 2.0, t0.a);
     if (mode == 9)  return vec4(t0.rgb + t1.rgb,       t0.a);
     if (mode == 10) return vec4(t0.rgb * t1.rgb,       t0.a);
+    // "Opaque" on the first layer means layer 0's alpha is not used, so these
+    // two leave the alpha to the material - the same as 3 and 4 above.
+    if (mode == 11) return vec4(t0.rgb + t1.rgb * t1.a, 1.0);
+    if (mode == 12) return vec4(t0.rgb * mix(t1.rgb * 2.0, vec3(1.0), t0.a), 1.0);
     return t0;
 }
 
@@ -243,10 +276,13 @@ void main() {
     if (enablePOM == PREVIEW_SIMPLE_TEXTURE_MODE) {
         vec4 texColor = samplePreviewTexture(uTexture, TexCoord);
         if (texCombiner != 0)
-            texColor = combineLayers(texColor, samplePreviewTexture(uTexture2, TexCoord2), texCombiner);
+            texColor = combineLayers(texColor, samplePreviewTexture(uTexture2, layer2Coords()), texCombiner);
         if (isMagentaKeyColor(texColor)) {
             discard;
         }
+        // After the key-colour test: the tint would move a keyed texel off the
+        // exact magenta the test looks for.
+        texColor.rgb *= vec3(tintR, tintG, tintB);
         if (alphaTest != 0 && texColor.a < 0.5) {
             discard;
         }
@@ -301,7 +337,10 @@ void main() {
 
     vec4 texColor = textureGrad(uTexture, finalUV, uvDx, uvDy);
     if (texCombiner != 0)
-        texColor = combineLayers(texColor, texture(uTexture2, TexCoord2), texCombiner);
+        texColor = combineLayers(texColor, texture(uTexture2, layer2Coords()), texCombiner);
+    // The batch's authored colour. The texture is only half of what the artist
+    // painted; an M2Color carries the rest.
+    texColor.rgb *= vec3(tintR, tintG, tintB);
     // Repair dark DXT fringes on alpha-cut character textures such as hair.
     // Transparent edge texels can carry black/garbage RGB even when alpha is
     // valid; pull color from a coarser mip and trust the source more as alpha

@@ -254,6 +254,15 @@ struct CharMaterialUBO {
     /// layer 1, which is what a two-layer material means for the effects that
     /// use it: the second texture carries the falloff.
     int32_t texCombiner;
+    /// The batch's authored M2Color, which tints what the texture supplies.
+    /// Scalar floats rather than a vec3, to match the shader's std140 packing.
+    /// White by default, so every path that fills this block and knows nothing
+    /// about M2Color leaves the texture's own colour alone.
+    float tintR = 1.0f, tintG = 1.0f, tintB = 1.0f;
+    /// Where the second layer's coordinates come from: 0 and 1 are the
+    /// vertex's two UV sets, 2 means a spherical environment map computed from
+    /// the view normal.
+    int32_t layer2CoordSet = 1;
 };
 
 // GPU vertex struct with tangent (expanded from M2Vertex for normal mapping)
@@ -3092,12 +3101,38 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 // <layer0 op>_<layer1 op>; the shader implements the same
                 // numbering. Anything outside it falls back to Opaque_Mod,
                 // which is the common case and what these scenes use.
+                // The batch's authored colour.
+                //
+                // An M2Color tints what the texture supplies, and the art
+                // relies on it: the login screen's frost wyrm is painted on a
+                // bone-coloured sheet and coloured dark blue here, and its
+                // frost glows are painted white and coloured blue. Drawn
+                // without it the wyrm is a pale skeleton and every one of its
+                // additive glow cards is a white rectangle - which is what the
+                // "boxes of light" on that screen were. The world's own M2
+                // renderer has applied this since the same fault was found
+                // there, where it made every fire in the world burn white.
+                if (batch.colorIndex < gpuModel.data.colorRGB.size()) {
+                    const glm::vec3& tint = gpuModel.data.colorRGB[batch.colorIndex];
+                    matData.tintR = tint.r;
+                    matData.tintG = tint.g;
+                    matData.tintB = tint.b;
+                }
+
                 matData.texCombiner = 0;
+                matData.layer2CoordSet = 1;
                 if (layer2Tex && layer2Tex->isValid()) {
-                    const uint16_t shaderId = batch.shader;
-                    matData.texCombiner = (shaderId <= 10)
-                        ? static_cast<int32_t>(shaderId + 1)
-                        : 1;
+                    matData.texCombiner =
+                        pipeline::m2TexCombiner(batch.textureCount, batch.shader);
+                    // And which coordinates to sample it with. The batch's
+                    // texture unit says so; taking set 1 for every second
+                    // layer put the wyrm's environment-mapped specular on
+                    // whatever set 1 happened to hold.
+                    const size_t unit = static_cast<size_t>(batch.textureUnit) + 1;
+                    if (unit < gpuModel.data.textureCoordCombos.size()) {
+                        const uint16_t combo = gpuModel.data.textureCoordCombos[unit];
+                        matData.layer2CoordSet = (combo == 0xFFFF) ? 2 : (combo == 0 ? 0 : 1);
+                    }
                 }
 
                 // Sub-allocate material UBO from ring buffer

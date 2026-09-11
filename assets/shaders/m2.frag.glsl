@@ -120,6 +120,10 @@ vec4 combineLayers(vec4 t0, vec4 t1, int mode) {
     if (mode == 8)  return vec4(t0.rgb * t1.rgb * 2.0, t0.a);
     if (mode == 9)  return vec4(t0.rgb + t1.rgb,       t0.a);
     if (mode == 10) return vec4(t0.rgb * t1.rgb,       t0.a);
+    // "Opaque" on the first layer means layer 0's alpha is not used, so these
+    // two leave the alpha to the material - the same as 3 and 4 above.
+    if (mode == 11) return vec4(t0.rgb + t1.rgb * t1.a, 1.0);
+    if (mode == 12) return vec4(t0.rgb * mix(t1.rgb * 2.0, vec3(1.0), t0.a), 1.0);
     return t0;
 }
 

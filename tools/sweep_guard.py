@@ -1221,7 +1221,16 @@ def missing_input(tool):
     for path, directory in DATA_INPUTS.items():
         # None is an input whose location was never given, which is missing in
         # the same way a directory that is not there is missing.
-        if path in source and (directory is None or not directory.is_dir()):
+        #
+        # So is a directory that is there and empty. Something in the tree
+        # creates Data/interface, Data/extracted and Data/output whether or not
+        # anything was ever extracted into them, and a sweep that skipped on a
+        # checkout with no interface then ran on the empty one instead - nine
+        # of them at once, each reporting a clean zero it had not earned, and
+        # the population rule below turning that into a wall of failures. An
+        # empty directory is the absence this is looking for.
+        if path in source and (directory is None or not directory.is_dir()
+                               or not any(directory.iterdir())):
             return path
     # The headless runner is not part of the default build, so a sweep that
     # drives it has nothing to drive until someone asks for that target. The

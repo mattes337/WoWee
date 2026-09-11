@@ -218,16 +218,30 @@ bool VkRenderTarget::create(VkContext& ctx, uint32_t width, uint32_t height,
         if (withDepth) {
             dependencies[0].dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
             dependencies[0].dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            dependencies[1].srcSubpass = 0;
-            dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-            dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                                            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-            dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-            dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-                                             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            depCount = 2;
         }
+
+        // The outgoing dependency, so that what this pass wrote is available to
+        // whatever samples the image next. It used to be added only for a
+        // target that carried depth, which left every colour-only target - the
+        // post-process ones, which exist to be sampled - with the final layout
+        // transition and nothing ordering the writes behind it.
+        //
+        // A deferred or tiled rasterizer shows that as rectangles: the reader
+        // gets whichever tiles happened to be finished. On the glue backdrop's
+        // glow, read in the same command buffer as the pass that wrote it, it
+        // was a grid of pale blocks over the snow. The MSAA path above has
+        // carried this dependency since the same fault was found there.
+        dependencies[1].srcSubpass = 0;
+        dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+        dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        if (withDepth) {
+            dependencies[1].srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            dependencies[1].srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        }
+        depCount = 2;
 
         VkRenderPassCreateInfo rpInfo{};
         rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
