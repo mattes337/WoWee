@@ -932,12 +932,15 @@ void Renderer::applyMsaaChange() {
         setupWater1xPass();
     }
     if (wmoRenderer) wmoRenderer->recreatePipelines();
-    if (m2Renderer) {
-        // A point sprite's size is in pixels, so the new height matters.
-        m2Renderer->setViewportHeight(
-            static_cast<float>(vkCtx->getSwapchainExtent().height));
-        m2Renderer->recreatePipelines();
+    // A point sprite's size is in pixels, so the new height matters to both
+    // M2 renderers - here as well, since this recreates the swapchain on its
+    // own rather than through the dirty flag the frame loop answers.
+    {
+        const float h = static_cast<float>(vkCtx->getSwapchainExtent().height);
+        if (m2Renderer) m2Renderer->setViewportHeight(h);
+        if (skyboxModelRenderer_) skyboxModelRenderer_->setViewportHeight(h);
     }
+    if (m2Renderer) m2Renderer->recreatePipelines();
     if (skyboxModelRenderer_) skyboxModelRenderer_->recreatePipelines();
     if (characterRenderer) characterRenderer->recreatePipelines();
     if (questMarkerRenderer) questMarkerRenderer->recreatePipelines();
@@ -1043,6 +1046,15 @@ void Renderer::beginFrame() {
         // never rebuilt from the size the desktop places it at.
         if (window->getDrawableWidth() == 0 || window->getDrawableHeight() == 0) return;
         (void)vkCtx->recreateSwapchain(window->getDrawableWidth(), window->getDrawableHeight());
+        // A point sprite's size is in pixels, so both M2 renderers are told
+        // the new height. Here, on every recreation, and not only on the
+        // anti-aliasing change that happens to recreate the swapchain too:
+        // a window resize used to leave every sprite sized for the old one.
+        {
+            const float h = static_cast<float>(vkCtx->getSwapchainExtent().height);
+            if (m2Renderer) m2Renderer->setViewportHeight(h);
+            if (skyboxModelRenderer_) skyboxModelRenderer_->setViewportHeight(h);
+        }
         // Rebuild water resources that reference swapchain extent/views
         if (waterRenderer) {
             waterRenderer->recreatePipelines();
@@ -3183,6 +3195,10 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
     if (!skyboxModelRenderer_) {
         skyboxModelRenderer_ = std::make_unique<M2Renderer>();
         skyboxModelRenderer_->setSkyMode(true);
+        // The same pixel height the world renderer was given above; a sky
+        // model's particles are point sprites too.
+        skyboxModelRenderer_->setViewportHeight(
+            static_cast<float>(vkCtx->getSwapchainExtent().height));
         if (!skyboxModelRenderer_->initialize(vkCtx, perFrameSetLayout, assetManager)) {
             LOG_WARNING("Sky M2 renderer initialization failed");
             skyboxModelRenderer_.reset();

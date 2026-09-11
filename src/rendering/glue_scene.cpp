@@ -135,10 +135,15 @@ struct GlueScene::View {
         return height > 0 ? static_cast<float>(usedHeight()) / static_cast<float>(height) : 1.0f;
     }
 
+    /// The path last handed to loadScene, whether or not it loaded - see the
+    /// note in GlueScene::show.
     std::string loadedPath;
     /// Set when the loaded model was placed by its own camera. A scene that
     /// carries none is left undrawn rather than framed by a guess.
     bool placed = false;
+    /// Seconds the scene has been updated for, written into the per-frame
+    /// block for the vertex shader's time-driven effects.
+    float sceneTime = 0.0f;
     bool everRecorded = false;
     uint32_t instanceId = 0;
 
@@ -211,7 +216,6 @@ bool GlueScene::View::build(int w, int h, Renderer* renderer) {
     // Before initialize, as setSceneMode wants: this is one authored scene,
     // not a field of world doodads, so its particles are not damped.
     models->setSceneMode(true);
-    models->setViewportHeight(static_cast<float>(h));
     if (!models->initialize(ctx, perFrameLayout, assets, target->getRenderPass(),
                             target->getSampleCount())) {
         LOG_WARNING("GlueScene: could not build the model renderer");
@@ -623,6 +627,15 @@ bool GlueScene::View::loadScene(const std::string& rawPath, const GlueSceneState
         return false;
     }
 
+    // The camera is what decides whether this is drawn at all: a scene with
+    // none cannot be placed, and is left out rather than framed by a guess.
+    // Asked before anything is built from the model, so that a refusal
+    // leaves nothing uploaded and no instance behind.
+    if (glueCameraIndex(scene.cameraIndex, static_cast<int>(modelData.cameras.size())) < 0) {
+        LOG_WARNING("GlueScene: ", m2Path, " carries no camera; not drawn");
+        return false;
+    }
+
     if (!models->loadModel(modelData, kSceneModelId)) {
         LOG_WARNING("GlueScene: could not upload ", m2Path);
         return false;
@@ -637,12 +650,7 @@ bool GlueScene::View::loadScene(const std::string& rawPath, const GlueSceneState
                                         glm::vec3(0.0f), appliedScale);
     if (instanceId == 0) {
         LOG_WARNING("GlueScene: could not place ", m2Path);
-        return false;
-    }
-    // The camera is what decides whether this is drawn at all: a scene with
-    // none cannot be placed, and is left out rather than framed by a guess.
-    if (glueCameraIndex(scene.cameraIndex, static_cast<int>(modelData.cameras.size())) < 0) {
-        LOG_WARNING("GlueScene: ", m2Path, " carries no camera; not drawn");
+        models->clear();
         return false;
     }
     placed = true;
@@ -721,34 +729,86 @@ void GlueScene::View::writePerFrame(uint32_t slot, const Camera& camera) {
     // The screen's own lighting for the scene, when it said any: up to four
     // directional lights merged into the one directional light and one
     // ambient colour this per-frame block has room for.
-    if (lighting.authored) {
-        block.lightDir = glm::vec4(lighting.direction[0], lighting.direction[1],
-                                   lighting.direction[2], 0.0f);
-        block.lightColor = glm::vec4(lighting.lightColor[0], lighting.lightColor[1],
-                                     lighting.lightColor[2], 0.0f);
-        block.ambientColor = glm::vec4(lighting.ambientColor[0], lighting.ambientColor[1],
-                                       lighting.ambientColor[2], 0.0f);
-    } else if (placed && !modelData.lights.empty()) {
-        // The model's own light, which is what "ResetLights" means and what a
-        // screen that never adds lights is asking for. The Northrend login
-        // scene carries one: ambient (0.718, 0.831, 0.929) at 1.3 with the
-        // diffuse term at zero - cold, bright and flat. Lit by a warm studio
-        // key instead, its frost wyrm came out khaki against a blue picture.
-        const pipeline::M2Light& light = modelData.lights.front();
-        block.lightDir = glm::vec4(glm::normalize(glm::vec3(0.5f, -0.7f, 0.5f)), 0.0f);
-        block.lightColor = glm::vec4(light.diffuseColor * light.diffuseIntensity, 0.0f);
-        block.ambientColor = glm::vec4(light.ambientColor * light.ambientIntensity, 0.0f);
-    } else {
-        // No lighting from the interface and none in a model: the studio rig
-        // the character screens light a figure with when nothing stands
-        // behind it - a key light from upper-right-front.
-        block.lightDir = glm::vec4(glm::normalize(glm::vec3(0.5f, -0.7f, 0.5f)), 0.0f);
-        block.lightColor = glm::vec4(1.0f, 0.95f, 0.9f, 0.0f);
-        block.ambientColor = glm::vec4(0.35f, 0.35f, 0.4f, 0.0f);
+    //
+    // When it said none, the model's own directional light, which is what
+    // "ResetLights" means and what a screen that never adds lights is asking
+    // for. An M2 light of type 0 is a directional light on the scene - the
+    // Northrend login model carries exactly one, ambient (0.718, 0.831, 0.929)
+    // at 1.3 with the diffuse term authored zero for the whole sequence - and
+    // under it the scene's mountains and ground measure within a fifth of
+    // the original client's. The interface's background default (see
+    // glueSceneDefaultLights) was tried in its place: a 0.15 ambient over a
+    // key light darkened the whole backdrop to a third of the original's,
+    // so it is only the fallback for a model that carries no such light. A
+    // type 1 light is a point light and is not scene lighting; it is left
+    // out here rather than installed as a global.
+    //
+    // Two things the earlier version of this got wrong are fixed: the
+    // direction is the light's own rather than a studio constant, and the
+    // ambient is saturated at 1.0 the way the client saturates its lit
+    // vertex colour, so 1.3 x (0.718, 0.831, 0.929) cannot multiply a texel
+    // past itself. The bone the light is attached to is not applied - the
+    // renderer keeps no bone matrices a caller can read - so the direction is
+    // the rest one, which for a light with no diffuse term changes nothing.
+    static const GlueSceneLighting kDefault = [] {
+        const std::vector<GlueSceneLight> rig = glueSceneDefaultLights();
+        return glueSceneLighting(rig.data(), rig.size());
+    }();
+    GlueSceneLighting fromModel;
+    if (!lighting.authored && placed) {
+        for (const pipeline::M2Light& light : modelData.lights) {
+            if (light.type != 0 || !light.visible) continue;
+            fromModel.authored = true;
+            for (int c = 0; c < 3; ++c) {
+                fromModel.ambientColor[c] = light.ambientColor[c] * light.ambientIntensity;
+                fromModel.lightColor[c] = light.diffuseColor[c] * light.diffuseIntensity;
+            }
+            // The position of a directional light is where it shines from;
+            // the shader takes the way the light travels.
+            const float len = glm::length(light.position);
+            if (std::isfinite(len) && len > 1e-6f) {
+                const glm::vec3 travel = -light.position / len;
+                fromModel.direction[0] = travel.x;
+                fromModel.direction[1] = travel.y;
+                fromModel.direction[2] = travel.z;
+            } else {
+                for (int c = 0; c < 3; ++c) fromModel.direction[c] = kDefault.direction[c];
+            }
+            break;
+        }
     }
+    const GlueSceneLighting& lit =
+        lighting.authored ? lighting : (fromModel.authored ? fromModel : kDefault);
+    {
+        static bool said = false;
+        if (!said) {
+            said = true;
+            LOG_WARNING("GLUE RIG src=",
+                        lighting.authored ? "interface" : (fromModel.authored ? "model" : "default"),
+                        " placed=", placed ? 1 : 0,
+                        " lights=", modelData.lights.size(),
+                        " amb=(", lit.ambientColor[0], ",", lit.ambientColor[1], ",",
+                        lit.ambientColor[2], ") key=(", lit.lightColor[0], ",",
+                        lit.lightColor[1], ",", lit.lightColor[2], ")");
+        }
+    }
+    block.lightDir = glm::vec4(lit.direction[0], lit.direction[1], lit.direction[2], 0.0f);
+    block.lightColor = glm::vec4(lit.lightColor[0], lit.lightColor[1], lit.lightColor[2],
+                                 0.0f);
+    // The ambient is a multiplier on every texel, and the client saturates its
+    // lit colour at 1.0 before the texture. Four rows' ambient can sum past
+    // it, and the login model's 1.3 does; past it a surface is brighter than
+    // its own texture.
+    block.ambientColor = glm::vec4(glm::min(glm::vec3(lit.ambientColor[0], lit.ambientColor[1],
+                                                      lit.ambientColor[2]),
+                                            glm::vec3(1.0f)),
+                                   0.0f);
     block.viewPos = glm::vec4(camera.getPosition(), 0.0f);
     block.fogColor = glm::vec4(fogColor, 0.0f);
-    block.fogParams = glm::vec4(fog.start, fog.end, 0.0f, 0.0f);
+    // The scene's clock in the third slot: the model vertex shader reads its
+    // wind and rustle time from there, and a zero froze every time-driven
+    // vertex effect a glue scene has.
+    block.fogParams = glm::vec4(fog.start, fog.end, sceneTime, 0.0f);
     // No shadow pass here, and sampling the stand-in through the shadow
     // path is not free of surprises on every driver.
     block.shadowParams = glm::vec4(0.0f);
@@ -767,6 +827,10 @@ void GlueScene::View::record(VkCommandBuffer cmd, uint32_t slot, const Camera& c
     // the draw loop reads the slot back out of the context rather than taking
     // the one it was prepared for, so preparing another leaves every frame
     // that lands on the context's with no bone descriptor and nothing drawn.
+    // The height a point sprite's pixel size is measured against is the
+    // height that is drawn, not the allocation's: the two differ by up to
+    // thirty-one rows, and setDrawSize can change the first at any time.
+    models->setViewportHeight(static_cast<float>(usedHeight()));
     if (placed && instanceId != 0) models->prepareRender(ctx->getCurrentFrame(), camera);
     writePerFrame(slot, camera);
 
@@ -794,8 +858,11 @@ void GlueScene::View::record(VkCommandBuffer cmd, uint32_t slot, const Camera& c
     }
     target->endPass(cmd);
     // The glow, from the scene that was just drawn. Same command buffer, so it
-    // reads the target in the layout endPass left it in.
-    renderGlow(cmd);
+    // reads the target in the layout endPass left it in. Only when something
+    // was drawn to glow: a scene whose model never loaded is a cleared
+    // target, and blurring that costs two passes for nothing.
+    if ((placed && instanceId != 0) || figures) renderGlow(cmd);
+    else glowApplied = false;
     everRecorded = true;
 }
 
@@ -926,6 +993,10 @@ bool GlueScene::show(const GlueSceneState& scene) {
         clear();
         return false;
     }
+    // Tried once per path, whether or not it loaded: an install does not
+    // grow a model between frames, and trying again every frame would be a
+    // file search and a warning sixty times a second. `placed` says whether
+    // the try succeeded; nothing else here treats the path as a success.
     if (view_->loadedPath != scene.model) {
         view_->loadedPath = scene.model;
         view_->loadScene(scene.model, scene);
@@ -939,6 +1010,12 @@ void GlueScene::clear() {
     view_->clearScene();
     view_->loadedPath.clear();
     view_->modelData = pipeline::M2Model{};
+    // What the texture currently shows is gone with the scene. Left set,
+    // textureId() would go on handing out the previous scene's picture until
+    // the next pass happened to run.
+    view_->everRecorded = false;
+    view_->glowApplied = false;
+    view_->sceneTime = 0.0f;
     view_->glow = 0.0f;
     view_->lighting = GlueSceneLighting{};
     view_->fog = glueSceneFogRange(false, 0.0f, 0.0f);
@@ -992,6 +1069,7 @@ bool GlueScene::frame(Camera& camera) const {
 
 void GlueScene::update(float deltaTime, const Camera& camera) {
     if (!placed() || !view_->models) return;
+    if (std::isfinite(deltaTime) && deltaTime > 0.0f) view_->sceneTime += deltaTime;
     // The view-projection is what this renderer culls against. A glue scene is
     // one instance and the camera stands inside it, so this is the camera's
     // own.

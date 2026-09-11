@@ -218,3 +218,28 @@ TEST_CASE("a model with no cameras cannot be framed") {
     CHECK(glueCameraIndex(0, 0) < 0);
     CHECK(glueCameraIndex(2, 0) < 0);
 }
+
+TEST_CASE("a screen that added no lights is lit by the interface's background default") {
+    // RaceLights.CHARACTERSELECT: a low grey ambient, a cool key, a warmer rim
+    // at double intensity. What the merge has to keep of it: an ambient that
+    // never multiplies a texel past itself, a directional term that actually
+    // lights something, and a direction that comes from above rather than
+    // below - the sign of z is the one thing the shader's negate-then-use
+    // convention makes easy to get backwards.
+    const auto rig = wowee::rendering::glueSceneDefaultLights();
+    REQUIRE(rig.size() == 3);
+    const auto lit = glueSceneLighting(rig.data(), rig.size());
+    REQUIRE(lit.authored);
+    for (int c = 0; c < 3; ++c) {
+        CHECK(lit.ambientColor[c] > 0.0f);
+        CHECK(lit.ambientColor[c] <= 1.0f);
+        CHECK(lit.lightColor[c] > 0.0f);
+    }
+    CHECK(std::abs(lit.ambientColor[0] - 0.15f) < 1e-5f);
+    CHECK(std::abs(lit.lightColor[0] - (0.44706f + 2.0f * 0.55f)) < 1e-5f);
+    CHECK(lit.direction[2] < 0.0f);
+    const float len = std::sqrt(lit.direction[0] * lit.direction[0] +
+                                lit.direction[1] * lit.direction[1] +
+                                lit.direction[2] * lit.direction[2]);
+    CHECK(std::abs(len - 1.0f) < 1e-4f);
+}

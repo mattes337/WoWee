@@ -708,8 +708,11 @@ bool skipBatchDiag(size_t batchIndex) {
 } // namespace
 
 void M2Renderer::prepareRender(uint32_t frameIndex, const Camera& camera) {
-    // 1/tan(fovY/2), kept for the point-size factor in renderM2Particles.
-    cachedProj11_ = camera.getProjectionMatrix()[1][1];
+    // 1/tan(fovY/2), kept for pointSizePixelsPerUnit. The magnitude, because
+    // the projection carries the Vulkan Y-flip in this element: read signed,
+    // it is negative, the factor's guard never passed, and every sprite
+    // silently kept the old constant while the code said otherwise.
+    cachedProj11_ = std::abs(camera.getProjectionMatrix()[1][1]);
     if (!initialized_ || instances.empty()) return;
     (void)camera;  // reserved for future frustum-based culling
 
@@ -2043,14 +2046,19 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 particlePipelineLayout_, 1, 1, &glowTexDescSet_, 0, nullptr);
 
-        // Push constants for particle: tileCount(vec2) + alphaKey(int)
-        struct { float tileX, tileY; int alphaKey; } particlePush = {.tileX = 1.0f, .tileY = 1.0f, .alphaKey = 0};
+        // Push constants for particle: tileCount(vec2) + alphaKey(int) + edgeMask(int)
+        struct { float tileX, tileY; int alphaKey; int edgeMask; } particlePush = {
+            .tileX = 1.0f, .tileY = 1.0f, .alphaKey = 0, .edgeMask = sceneMode_ ? 0 : 1};
         vkCmdPushConstants(cmd, particlePipelineLayout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(particlePush), &particlePush);
 
         // Write glow vertex data directly to mapped buffer (no temp vector)
         size_t uploadCount = std::min(glowSprites_.size(), MAX_GLOW_SPRITES);
         float* dst = static_cast<float*>(glowVBMapped_);
+        // The size attribute is in pre-multiplied pixels, the same unit the
+        // particle path feeds the same shader; a glow sprite in world units
+        // was drawing at 500 over the factor of its intended size.
+        const float pixelsPerUnit = pointSizePixelsPerUnit();
         for (size_t gi = 0; gi < uploadCount; gi++) {
             const auto& gs = glowSprites_[gi];
             *dst++ = gs.worldPos.x;
@@ -2060,7 +2068,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             *dst++ = gs.color.g;
             *dst++ = gs.color.b;
             *dst++ = gs.color.a;
-            *dst++ = gs.size;
+            *dst++ = gs.size * pixelsPerUnit;
             *dst++ = 0.0f;
         }
 

@@ -585,13 +585,9 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
     // s * height * (1/tan(fovY/2)) / d pixels. This was a constant 500, which
     // is right at no resolution and no field of view - at 1280x720 and sixty
     // degrees the figure is about 1250 - and being two and a half times too
-    // small is why flame fixtures need the floors below at all. The 500 is
-    // kept only as the fallback for a caller that never said how tall its
-    // target is.
-    const float pointSizeFactor =
-        (viewportHeight_ > 0.0f && cachedProj11_ > 0.0f)
-            ? viewportHeight_ * cachedProj11_
-            : 500.0f;
+    // small is why flame fixtures need the floors below at all. See
+    // pointSizePixelsPerUnit for the fallback.
+    const float pointSizeFactor = pointSizePixelsPerUnit();
     // The floors below were tuned against the old constant and are written in
     // world units, so converting the factor without converting them would
     // change what they mean. They are really a statement about pixels - a
@@ -704,7 +700,10 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
             if (gpu.isSpellEffect) {
                 scale = std::max(rawScale * 1.5f, 0.15f * floorScale);
             } else if (!gpu.isFireflyEffect) {
-                scale = std::min(rawScale, 1.5f);
+                // The world's cap, and not a scene's - see setSceneMode: a
+                // set piece's emitters are authored at the size the picture
+                // wants, and the login screen's frost burst runs past it.
+                if (!sceneMode_) scale = std::min(rawScale, 1.5f);
                 // Candle flames are authored at a fraction of a unit, which lands
                 // sub-pixel at any normal viewing distance - the fixture glows
                 // with no visible flame. Small effect-heavy models dodge this by
@@ -806,10 +805,12 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
                                     particlePipelineLayout_, 1, 1, &texSet, 0, nullptr);
         }
 
-        // Push constants: tileCount + alphaKey
-        struct { float tileX, tileY; int alphaKey; } pc = {
+        // Push constants: tileCount + alphaKey + edgeMask. The round-off is
+        // the world's; an authored scene's sprites keep their texture's shape.
+        struct { float tileX, tileY; int alphaKey; int edgeMask; } pc = {
             .tileX = static_cast<float>(group.tilesX), .tileY = static_cast<float>(group.tilesY),
-            .alphaKey = (blendType == 1) ? 1 : 0
+            .alphaKey = (blendType == 1) ? 1 : 0,
+            .edgeMask = sceneMode_ ? 0 : 1
         };
         vkCmdPushConstants(cmd, particlePipelineLayout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(pc), &pc);

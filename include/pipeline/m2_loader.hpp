@@ -271,7 +271,12 @@ inline int32_t m2TexCombiner(uint16_t textureCount, uint16_t shaderId,
         // the second layer has already shaped the colour; a blended one takes
         // the second layer's, where a sheet with no colour slot would
         // otherwise draw as an opaque slab.
-        case 0:  return blendMode >= 3 ? 4 : 1;   // Opaque_Opaque / Opaque_Mod
+        //
+        // Additive is blend mode 3 and 4 - the same two rendering's
+        // m2BlendIsAdditive names. Modes 5 and 6, Modulate and Modulate2x,
+        // sit above them in the enumeration and are not additive; an
+        // open-ended test here was treating them as if they were.
+        case 0:  return (blendMode == 3 || blendMode == 4) ? 4 : 1;   // Opaque_Opaque / Opaque_Mod
         case 3:  return 11;  // Opaque_AddAlpha
         case 4:  return 11;  // Opaque_AddAlpha
         case 6:  return 12;  // Opaque_Mod2xNA_Alpha
@@ -282,11 +287,17 @@ inline int32_t m2TexCombiner(uint16_t textureCount, uint16_t shaderId,
 
 /// A light the model carries.
 ///
+/// A local light: attenuated between two distances, attached to a bone, and
+/// switched on and off by its own visibility track. It is a contribution the
+/// model adds to whatever lights the scene, not the scene's lighting - the
+/// Northrend login scene's one light is ambient-only at 1.3 with the diffuse
+/// term authored zero for the whole sequence, and installed as the scene's
+/// global light it lit the frost wyrm flat and pale.
+///
 /// Only the at-rest values: every one of these is an M2Track and nothing in
-/// 3.3.5a's scene models animates them. The Northrend login scene's single
-/// light is the reason this exists - it is ambient-only, cold blue-white at
-/// 1.3, with the diffuse term at zero, and a glue screen that invents a warm
-/// studio rig instead renders its frost wyrm in khaki.
+/// 3.3.5a's scene models animates them. All seven tracks are read, so the
+/// question "is this light on, and how far does it reach" is answerable from
+/// the model rather than from a default.
 struct M2Light {
     uint16_t type = 0;            // 0 = directional, 1 = point
     int16_t bone = -1;
@@ -295,6 +306,11 @@ struct M2Light {
     float ambientIntensity = 1.0f;
     glm::vec3 diffuseColor{1.0f};
     float diffuseIntensity = 1.0f;
+    float attenuationStart = 0.0f;
+    float attenuationEnd = 0.0f;
+    /// Off when the visibility track's first key is zero. An absent track
+    /// means on, which is the 3.3.5a convention.
+    bool visible = true;
 };
 
 // Complete M2 model structure

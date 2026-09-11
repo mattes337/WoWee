@@ -215,6 +215,47 @@ inline GlueSceneLighting glueSceneLighting(const GlueSceneLight* lights, size_t 
     return out;
 }
 
+/// The lights a scene is lit by when its screen added none.
+///
+/// GlueParent.lua's RaceLights.CHARACTERSELECT, which is the interface's own
+/// background default: the set the character screens fall back to for a race
+/// with no row of its own, and the shape every authored row shares - a low
+/// neutral ambient, a cool key and a warmer rim at double intensity. No row in
+/// any of those tables lights a scene by ambient alone at anything near 1.0,
+/// and every one pairs its ambient with a directional term of intensity one or
+/// two; a rig with the ambient turned up and the key turned off lights a scene
+/// flat, and the login screen's frost wyrm came out pale and shadowless under
+/// exactly that.
+///
+/// A model's own M2 lights are not this. They are local, attenuated,
+/// bone-attached lights the model carries, and installing one as the scene's
+/// global ambient is what the paleness was - see the note in writePerFrame.
+inline std::vector<GlueSceneLight> glueSceneDefaultLights() {
+    auto light = [](float dx, float dy, float dz, float ambI, float ambR, float ambG,
+                    float ambB, float difI, float difR, float difG, float difB) {
+        GlueSceneLight l;
+        l.direction[0] = dx;
+        l.direction[1] = dy;
+        l.direction[2] = dz;
+        l.ambientIntensity = ambI;
+        l.ambientColor[0] = ambR;
+        l.ambientColor[1] = ambG;
+        l.ambientColor[2] = ambB;
+        l.diffuseIntensity = difI;
+        l.diffuseColor[0] = difR;
+        l.diffuseColor[1] = difG;
+        l.diffuseColor[2] = difB;
+        return l;
+    };
+    return {
+        light(0.0f, 0.0f, -1.0f, 1.0f, 0.15f, 0.15f, 0.15f, 1.0f, 0.0f, 0.0f, 0.0f),
+        light(-0.74919f, 0.35208f, -0.56103f, 1.0f, 0.0f, 0.0f, 0.0f,
+              1.0f, 0.44706f, 0.54510f, 0.73725f),
+        light(0.53162f, -0.84340f, 0.07780f, 1.0f, 0.0f, 0.0f, 0.0f,
+              2.0f, 0.55f, 0.338625f, 0.148825f),
+    };
+}
+
 /// The two distances the model shader's fog runs between.
 struct GlueSceneFogRange {
     float start = 0.0f;

@@ -127,15 +127,25 @@ vec3 safeNormalize(vec3 v, vec3 fallback) {
 /// A specular sheet is environment-mapped: its coordinates come from the
 /// reflected view vector rather than off the vertex, and sampling a reflection
 /// map with an authored set pastes a mirror of the sky on the wrong part of
-/// the model. The basis here is world space rather than the client's view
-/// space, so the reflection turns with the camera by a different amount - a
-/// smooth reflection either way, which is what the sheet is for.
-vec2 layer2Coords() {
+/// the model.
+///
+/// In view space, which is the client's basis: it reflects the camera-space
+/// eye vector about the camera-space normal and sphere-maps the result, so
+/// the highlight sits on the surfaces that face the camera and stays there
+/// while the model turns. Done in world space with Z as the pseudo view axis
+/// - which is how this was first written - the highlight anchors to whichever
+/// surfaces face world +X instead and slides over the model as it moves,
+/// which on the login screen's frost wyrm read as shading of the right
+/// strength in the wrong places, that is to say as no shading at all.
+///
+/// `n` is the fragment's normal after the front-facing correction, so a back
+/// face samples the reflection its lit side would rather than a mirror of it.
+vec2 layer2Coords(vec3 n) {
     if (layer2CoordSet == 0) return TexCoord;
     if (layer2CoordSet != 2) return TexCoord2;
-    vec3 n = safeNormalize(Normal, vec3(0.0, 0.0, 1.0));
-    vec3 v = safeNormalize(viewPos.xyz - FragPos, vec3(0.0, 0.0, 1.0));
-    vec3 r = reflect(-v, n);
+    vec3 nv = safeNormalize(mat3(view) * n, vec3(0.0, 0.0, 1.0));
+    vec3 pv = (view * vec4(FragPos, 1.0)).xyz;
+    vec3 r = reflect(safeNormalize(pv, vec3(0.0, 0.0, -1.0)), nv);
     float m = 2.0 * sqrt(r.x * r.x + r.y * r.y + (r.z + 1.0) * (r.z + 1.0));
     return m > 1e-4 ? r.xy / m + 0.5 : vec2(0.5);
 }
@@ -164,9 +174,15 @@ vec4 combineLayers(vec4 t0, vec4 t1, int mode) {
 }
 
 void main() {
+    // The normal, before the texture fetch: the second layer's reflection is
+    // sampled by it, and it has to be the same normal the lighting below uses.
+    vec3 norm = normalize(Normal);
+    bool foliageTwoSided = (alphaTest == 2);
+    if (!foliageTwoSided && !gl_FrontFacing) norm = -norm;
+
     vec4 texColor = hasTexture != 0 ? texture(uTexture, TexCoord) : vec4(1.0);
     if (texCombiner != 0)
-        texColor = combineLayers(texColor, texture(uTexture2, layer2Coords()), texCombiner);
+        texColor = combineLayers(texColor, texture(uTexture2, layer2Coords(norm)), texCombiner);
     // The batch's authored colour. A glow card is painted white and coloured
     // here - Orgrimmar's bonfire carries (1.0, 0.329, 0.0) - so without it
     // every fire in the world burns white.
@@ -245,10 +261,6 @@ void main() {
         float brightness = 0.85 + hash * 0.30;               // 85–115%
         texColor.rgb *= vec3(hueShiftR, 1.0, hueShiftB) * brightness;
     }
-
-    vec3 norm = normalize(Normal);
-    bool foliageTwoSided = (alphaTest == 2);
-    if (!foliageTwoSided && !gl_FrontFacing) norm = -norm;
 
     // Detail normal perturbation (foliage only) - UV-based only so wind doesn't cause flicker
     if (isFoliage) {

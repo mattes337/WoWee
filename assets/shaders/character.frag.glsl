@@ -160,17 +160,15 @@ ivec2 wrapPreviewTexel(ivec2 texel, ivec2 texSize) {
 /// A specular sheet is environment-mapped: the client builds its UV from the
 /// view-space normal rather than reading one off the vertex, and sampling a
 /// reflection map with an authored set puts a mirror image of the sky on the
-/// wrong part of the model.
-vec2 layer2Coords() {
+/// wrong part of the model. Same function as m2.frag.glsl's, and the same
+/// basis - view space, the client's, so the highlight stays on the surfaces
+/// that face the camera. `n` is the front-facing-corrected normal.
+vec2 layer2Coords(vec3 n) {
     if (layer2CoordSet == 0) return TexCoord;
     if (layer2CoordSet != 2) return TexCoord2;
-    // A sphere map off the reflected view vector. Not the client's exact
-    // basis - that one is view-space and this is world-space, so the
-    // reflection turns with the camera by a different amount - but a smooth
-    // reflection either way, which is what the sheet is for.
-    vec3 n = safeNormalize(Normal, vec3(0.0, 0.0, 1.0));
-    vec3 v = safeNormalize(viewPos.xyz - FragPos, vec3(0.0, 0.0, 1.0));
-    vec3 r = reflect(-v, n);
+    vec3 nv = safeNormalize(mat3(view) * n, vec3(0.0, 0.0, 1.0));
+    vec3 pv = (view * vec4(FragPos, 1.0)).xyz;
+    vec3 r = reflect(safeNormalize(pv, vec3(0.0, 0.0, -1.0)), nv);
     float m = 2.0 * sqrt(r.x * r.x + r.y * r.y + (r.z + 1.0) * (r.z + 1.0));
     return m > 1e-4 ? r.xy / m + 0.5 : vec2(0.5);
 }
@@ -280,8 +278,13 @@ vec2 parallaxOcclusionMap(vec2 uv, vec3 viewDirTS, float lodFactor) {
 void main() {
     if (enablePOM == PREVIEW_SIMPLE_TEXTURE_MODE) {
         vec4 texColor = samplePreviewTexture(uTexture, TexCoord);
-        if (texCombiner != 0)
-            texColor = combineLayers(texColor, samplePreviewTexture(uTexture2, layer2Coords()), texCombiner);
+        if (texCombiner != 0) {
+            vec3 previewNormal = safeNormalize(Normal, vec3(0.0, 0.0, 1.0));
+            if (!gl_FrontFacing) previewNormal = -previewNormal;
+            texColor = combineLayers(texColor,
+                                     samplePreviewTexture(uTexture2, layer2Coords(previewNormal)),
+                                     texCombiner);
+        }
         if (isMagentaKeyColor(texColor)) {
             discard;
         }
@@ -342,7 +345,7 @@ void main() {
 
     vec4 texColor = textureGrad(uTexture, finalUV, uvDx, uvDy);
     if (texCombiner != 0)
-        texColor = combineLayers(texColor, texture(uTexture2, layer2Coords()), texCombiner);
+        texColor = combineLayers(texColor, texture(uTexture2, layer2Coords(vertexNormal)), texCombiner);
     // The batch's authored colour. The texture is only half of what the artist
     // painted; an M2Color carries the rest.
     texColor.rgb *= vec3(tintR, tintG, tintB);

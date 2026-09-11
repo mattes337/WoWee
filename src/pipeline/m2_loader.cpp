@@ -1453,10 +1453,10 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
     //
     // An M2Light is 156 bytes: type and bone, a position, then seven
     // M2Tracks - ambient colour and intensity, diffuse colour and intensity,
-    // the two attenuation distances and a visibility flag. Only the first four
-    // are read, and only their first key: nothing in this client animates a
-    // model's own light, and what a glue backdrop needs from one is the colour
-    // its artist lit the scene with.
+    // the two attenuation distances and a visibility flag. Each track's first
+    // key: nothing in this client animates a model's own light. All seven are
+    // read, the last three so a light that is authored off or reaches only
+    // part of the model can be told from one that is on everywhere.
     if (header.nLights > 0 && header.ofsLights > 0) {
         constexpr uint32_t kM2LightStride = 156;
         const uint32_t lightCount = capCount(header.nLights, 64u, "nLights");
@@ -1497,10 +1497,27 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
                 std::memcpy(&out, m2Data.data() + vofs, sizeof(float));
                 return out;
             };
+            // Visibility is a one-byte track. Read as a float, a 0/1 byte
+            // comes out as a denormal and fails every test - the ribbon
+            // loader documents the same trap.
+            auto firstU8 = [&](uint32_t trackOffset, uint8_t fallback) {
+                uint32_t n = 0, ofs = 0;
+                std::memcpy(&n, m2Data.data() + trackOffset + 12, sizeof(uint32_t));
+                std::memcpy(&ofs, m2Data.data() + trackOffset + 16, sizeof(uint32_t));
+                if (n == 0 || ofs == 0 || ofs + 8 > m2Data.size()) return fallback;
+                uint32_t vn = 0, vofs = 0;
+                std::memcpy(&vn, m2Data.data() + ofs, sizeof(uint32_t));
+                std::memcpy(&vofs, m2Data.data() + ofs + 4, sizeof(uint32_t));
+                if (vn == 0 || vofs + sizeof(uint8_t) > m2Data.size()) return fallback;
+                return m2Data[vofs];
+            };
             light.ambientColor = firstVec3(base + 16, glm::vec3(1.0f));
             light.ambientIntensity = firstFloat(base + 36, 1.0f);
             light.diffuseColor = firstVec3(base + 56, glm::vec3(1.0f));
             light.diffuseIntensity = firstFloat(base + 76, 1.0f);
+            light.attenuationStart = firstFloat(base + 96, 0.0f);
+            light.attenuationEnd = firstFloat(base + 116, 0.0f);
+            light.visible = firstU8(base + 136, 1) != 0;
             model.lights.push_back(light);
         }
         LOG_DEBUG("M2 lights: ", model.lights.size());

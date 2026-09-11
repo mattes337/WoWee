@@ -941,13 +941,13 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
     }
 
     // Particle pipeline layout: set 0 = perFrame, set 1 = particleTex
-    // Push constant: vec2 tileCount + int alphaKey (12 bytes)
+    // Push constant: vec2 tileCount + int alphaKey + int edgeMask (16 bytes)
     {
         VkDescriptorSetLayout setLayouts[] = {perFrameLayout, particleTexLayout_};
         VkPushConstantRange pushRange{};
         pushRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
         pushRange.offset = 0;
-        pushRange.size = 12; // vec2 + int
+        pushRange.size = 16; // vec2 + int + int
 
         VkPipelineLayoutCreateInfo ci{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
         ci.setLayoutCount = 2;
@@ -2185,7 +2185,14 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             mat.blendMode = bgpu.blendMode;
             mat.fadeAlpha = 1.0f;
             mat.interiorDarken = 0.0f;
-            mat.specularIntensity = 0.5f;
+            // The Blinn-Phong highlight is this client's own: the 3.3.5a
+            // client shades a model by ambient and diffuse per vertex, and
+            // what shine a model has is painted into its textures and its
+            // environment-mapped sheets. It stays in the world, where it is
+            // an enhancement. An authored scene is matched against the
+            // original picture, so there it is off - the login wyrm's frost
+            // is its specular sheet, not a sheen added over it.
+            mat.specularIntensity = sceneMode_ ? 0.0f : 0.5f;
             mat.emissiveBoost = bgpu.preserveGlowMesh ? 2.4f : 1.0f;
             memcpy(matAllocInfo.pMappedData, &mat, sizeof(mat));
             bgpu.materialUBOMapped = matAllocInfo.pMappedData;

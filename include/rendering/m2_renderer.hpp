@@ -453,6 +453,19 @@ public:
     /// point-size factor in renderM2Particles. Without it the sprites fall
     /// back to a constant that is right at no resolution.
     void setViewportHeight(float pixels) { viewportHeight_ = pixels; }
+
+    /// How many pixels one world unit of a point sprite covers at one unit
+    /// of distance: height * (1/tan(fovY/2)). The sprite shaders divide this
+    /// by the sprite's distance. One function for both producers of that
+    /// vertex attribute - the M2 particles and the glow sprites - so they
+    /// cannot disagree about the unit. 500 is the fallback for a caller that
+    /// never said how tall its target is, or before the first prepareRender;
+    /// it is right at no resolution and no field of view.
+    [[nodiscard]] float pointSizePixelsPerUnit() const {
+        return (viewportHeight_ > 0.0f && cachedProj11_ > 0.0f)
+                   ? viewportHeight_ * cachedProj11_
+                   : 500.0f;
+    }
     void shutdown();
 
     [[nodiscard]] bool hasModel(uint32_t modelId) const;
@@ -1039,8 +1052,10 @@ private:
     /// True when this renderer draws an authored scene - see setSceneMode.
     bool sceneMode_ = false;
     float viewportHeight_ = 0.0f;
-    /// projection[1][1] of the camera this frame, which is 1/tan(fovY/2): the
-    /// other half of turning a sprite's size in world units into pixels.
+    /// |projection[1][1]| of the camera this frame, which is 1/tan(fovY/2):
+    /// the other half of turning a sprite's size in world units into pixels.
+    /// The magnitude: this renderer's projection is Y-flipped for Vulkan, so
+    /// the element itself is negative, and a guard on its sign never passed.
     float cachedProj11_ = 0.0f;
     // What the sky-model clock diagnostic last reported, so it prints on a
     // restart or once a second rather than every frame. See M2Renderer::update.

@@ -58,3 +58,16 @@ TEST_CASE("one-layer batches and offsets past the array are left alone", "[m2]")
     CHECK(m2ShaderFromCombinerCombos(3, 2, combos) == 3);
     CHECK(m2ShaderFromCombinerCombos(4, 2, combos) == 4);
 }
+
+TEST_CASE("Opaque_Opaque takes the material's alpha only for the additive modes", "[m2]") {
+    // A raw zero on a model without the array: alpha from the material when
+    // the batch adds (modes 3 and 4), from the second layer when it blends or
+    // covers. Modulate (5) and Modulate2x (6) sit above the additive pair in
+    // the enumeration and are not additive; an open-ended ">= 3" swept them in.
+    CHECK(m2TexCombiner(2, 0, 3) == 4);    // Opaque_Opaque
+    CHECK(m2TexCombiner(2, 0, 4) == 4);
+    CHECK(m2TexCombiner(2, 0, 0) == 1);    // Opaque_Mod
+    CHECK(m2TexCombiner(2, 0, 2) == 1);
+    CHECK(m2TexCombiner(2, 0, 5) == 1);
+    CHECK(m2TexCombiner(2, 0, 6) == 1);
+}
