@@ -648,7 +648,12 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
         // Distance cull: only update particles within visible range
         glm::vec3 toCam = instance.position - cachedCamPos_;
         float distSq = glm::dot(toCam, toCam);
-        if (distSq > cachedMaxRenderDistSq_) continue;
+        if (distSq > cachedMaxRenderDistSq_) {
+            // A skipped update leaves the emitters' last positions stale; a
+            // follow delta measured across the gap would fling the particles.
+            instance.emitterLastWorldPosValid = false;
+            continue;
+        }
         if (!instance.cachedModel) continue;
         emitParticles(instance, *instance.cachedModel, deltaTime);
         updateParticles(instance, deltaTime);

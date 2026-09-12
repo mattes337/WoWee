@@ -95,8 +95,14 @@ inline glm::vec3 animatedBatchLightWorldCenter(const M2Instance& instance,
 
 // ---- Constants ----
 inline const auto kLavaAnimStart = std::chrono::steady_clock::now();
-inline constexpr uint32_t kParticleFlagRandomized = 0x40;
-inline constexpr uint32_t kParticleFlagTiled = 0x80;
+// M2 particle emitter flags, by the WotLK table. The two this file used to
+// name - 0x40 as "randomized" and 0x80 as "tiled" - are InheritVelocity and
+// ImplosionFilter there; tiling is textureRows x textureCols, and the random
+// cell is a flag of its own.
+inline constexpr uint32_t kParticleFlagHemisphereUp = 0x100;          // sphere emitters send particles up, not outward
+inline constexpr uint32_t kParticleFlagFollowPosition = 0x4000;       // live particles ride with the emitter
+inline constexpr uint32_t kParticleFlagChooseRandomTexture = 0x10000; // each particle picks a random cell
+inline constexpr uint32_t kParticleFlagRandFlipbookStart = 0x200000;  // the cell track starts at a random cell
 inline constexpr float kSmokeEmitInterval = 1.0f / 48.0f;
 
 // ---- Geometry / collision helpers ----

@@ -172,12 +172,25 @@ struct M2ParticleEmitter {
     M2AnimationTrack gravity;
     M2AnimationTrack lifespan;
     M2AnimationTrack emissionRate;
-    M2AnimationTrack emissionAreaLength;
-    M2AnimationTrack emissionAreaWidth;
-    M2AnimationTrack deceleration;
+    M2AnimationTrack emissionAreaLength;  // plane: extent along the bone's X; sphere: inner radius
+    M2AnimationTrack emissionAreaWidth;   // plane: extent along the bone's Y; sphere: outer radius
+    /// When above zero the birth velocity points from (0, 0, zSource) in the
+    /// bone's space to the birth point instead of into the authored cone.
+    M2AnimationTrack zSource;
     M2FBlock particleColor;   // vec3 RGB at 3 timestamps
     M2FBlock particleAlpha;   // float (from uint16/32767) at 3 timestamps
     M2FBlock particleScale;   // float (x component of vec2) at 3 timestamps
+    /// Flipbook cell over the particle's life, for a tiled texture: uint16
+    /// cell numbers carried as floats. Empty when the model authors none.
+    M2FBlock headCellTrack;
+    /// FollowPosition (flag 0x4000): how much of the emitter's travel since the
+    /// last update its live particles are carried by. The fraction is a line
+    /// through (followSpeed1, followScale1) and (followSpeed2, followScale2)
+    /// in emitter speed, clamped at one. Zero when the pair spans no speed.
+    float followSpeed1 = 0.0f;
+    float followScale1 = 0.0f;
+    float followSpeed2 = 0.0f;
+    float followScale2 = 0.0f;
     bool enabled = true;
 };
 

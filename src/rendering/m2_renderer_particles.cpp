@@ -177,40 +177,67 @@ void M2Renderer::emitParticles(M2Instance& inst, const M2ModelGPU& gpu, float dt
             p.maxLife = life;
             p.tileIndex = 0.0f;
 
-            // Position: emitter position transformed by bone matrix
-            glm::vec3 localPos = em.position;
+            // Birth, the way the client's generators do it: a point in the
+            // emitter's bone space and a direction about the bone's +Z, then
+            // both through model x bone - the point with w = 1, the direction
+            // with w = 0, so a scaled bone scales the velocity as well.
+            //
+            // A plane emitter is born on a rectangle of emissionAreaLength by
+            // emissionAreaWidth in the bone's XY and sent into a cone: polar
+            // angle up to verticalRange, azimuth up to horizontalRange, both
+            // drawn uniformly and signed. A sphere emitter is born on a shell
+            // between the two radii and sent outward along its own radius,
+            // or straight up when HemisphereUp says so. zSource, when set,
+            // aims the velocity from (0, 0, zSource) through the birth point.
             glm::mat4 boneXform = glm::mat4(1.0f);
             if (em.bone < inst.boneMatrices.size()) {
                 boneXform = inst.boneMatrices[em.bone];
             }
-            glm::vec3 worldPos = glm::vec3(inst.modelMatrix * boneXform * glm::vec4(localPos, 1.0f));
-            p.position = worldPos;
+            const glm::mat4 emitterXform = inst.modelMatrix * boneXform;
 
-            // Velocity: emission speed in upward direction + random spread
-            float speed = interpFloat(em.emissionSpeed, inst.animTime, inst.globalSequenceTime,
-                                      inst.currentSequenceIndex, gpu.globalSequenceDurations);
-            float vRange = interpFloat(em.verticalRange, inst.animTime, inst.globalSequenceTime,
-                                       inst.currentSequenceIndex, gpu.globalSequenceDurations);
-            float hRange = interpFloat(em.horizontalRange, inst.animTime, inst.globalSequenceTime,
-                                       inst.currentSequenceIndex, gpu.globalSequenceDurations);
+            auto sample = [&](const pipeline::M2AnimationTrack& track) {
+                return interpFloat(track, inst.animTime, inst.globalSequenceTime,
+                                   inst.currentSequenceIndex, gpu.globalSequenceDurations);
+            };
+            float speed = sample(em.emissionSpeed);
+            speed *= 1.0f + sample(em.speedVariation) * distN(particleRng_);
+            const float polar = sample(em.verticalRange) * distN(particleRng_);
+            const float azimuth = sample(em.horizontalRange) * distN(particleRng_);
+            const float areaLength = sample(em.emissionAreaLength);
+            const float areaWidth = sample(em.emissionAreaWidth);
+            const float zSource = sample(em.zSource);
 
-            // Base direction: up in model space, transformed to world
+            glm::vec3 offset(0.0f);
             glm::vec3 dir(0.0f, 0.0f, 1.0f);
-            // Add random spread
-            dir.x += distN(particleRng_) * hRange;
-            dir.y += distN(particleRng_) * hRange;
-            dir.z += distN(particleRng_) * vRange;
-            float lenSq = glm::dot(dir, dir);
-            if (lenSq > 0.001f * 0.001f) dir *= glm::inversesqrt(lenSq);
+            if (em.emitterType == 2) {
+                const glm::vec3 radial(std::cos(polar) * std::cos(azimuth),
+                                       std::cos(polar) * std::sin(azimuth),
+                                       std::sin(polar));
+                offset = radial * (areaLength + (areaWidth - areaLength) * dist01(particleRng_));
+                dir = (em.flags & kParticleFlagHemisphereUp) ? glm::vec3(0.0f, 0.0f, 1.0f) : radial;
+            } else {
+                offset = glm::vec3(distN(particleRng_) * areaLength * 0.5f,
+                                   distN(particleRng_) * areaWidth * 0.5f, 0.0f);
+                dir = glm::vec3(std::cos(azimuth) * std::sin(polar),
+                                std::sin(azimuth) * std::sin(polar),
+                                std::cos(polar));
+            }
+            if (zSource > 0.001f) {
+                const glm::vec3 fromSource = offset - glm::vec3(0.0f, 0.0f, zSource);
+                if (glm::dot(fromSource, fromSource) > 1.0e-8f) dir = glm::normalize(fromSource);
+            }
 
-            // Transform direction by bone + model orientation (rotation only)
-            glm::mat3 rotMat = glm::mat3(inst.modelMatrix * boneXform);
-            p.velocity = rotMat * dir * speed;
+            p.position = glm::vec3(emitterXform * glm::vec4(em.position + offset, 1.0f));
+            const glm::mat3 rotMat = glm::mat3(emitterXform);
+            p.velocity = rotMat * (dir * speed);
 
-            // When emission speed is ~0 and bone animation isn't loaded (.anim files),
-            // particles pile up at the same position. Give them a drift so they
-            // spread outward like a mist/spray effect instead of clustering.
-            if (std::abs(speed) < 0.01f) {
+            // The world's drift, and not a scene's - see setSceneMode. When
+            // emission speed is ~0 and bone animation isn't loaded (.anim
+            // files), particles pile up at the same position. Give them a
+            // drift so they spread outward like a mist/spray effect instead of
+            // clustering. An authored scene's still emitters are still on
+            // purpose: the wyrm's frost is born at speed 0 and rides its bone.
+            if (!sceneMode_ && std::abs(speed) < 0.01f) {
                 if (gpu.isFireflyEffect) {
                     // Fireflies: gentle random drift in all directions
                     p.velocity = rotMat * glm::vec3(
@@ -227,16 +254,17 @@ void M2Renderer::emitParticles(M2Instance& inst, const M2ModelGPU& gpu, float dt
                 }
             }
 
+            // The particle's own cell of a tiled texture: a random one when the
+            // emitter asks for one (ChooseRandomTexture), or the random start
+            // of its cell track (RandFlipbookStart). renderM2Particles decides
+            // which of the two it means.
             const uint32_t tilesX = std::max<uint16_t>(em.textureCols, 1);
             const uint32_t tilesY = std::max<uint16_t>(em.textureRows, 1);
             const uint32_t totalTiles = tilesX * tilesY;
-            if ((em.flags & kParticleFlagTiled) && totalTiles > 1) {
-                if (em.flags & kParticleFlagRandomized) {
-                    distTile = std::uniform_int_distribution<int>(0, static_cast<int>(totalTiles - 1));
-                    p.tileIndex = static_cast<float>(distTile(particleRng_));
-                } else {
-                    p.tileIndex = 0.0f;
-                }
+            if (totalTiles > 1 &&
+                (em.flags & (kParticleFlagChooseRandomTexture | kParticleFlagRandFlipbookStart))) {
+                distTile = std::uniform_int_distribution<int>(0, static_cast<int>(totalTiles - 1));
+                p.tileIndex = static_cast<float>(distTile(particleRng_));
             }
 
             inst.particles.push_back(p);
@@ -260,40 +288,91 @@ void M2Renderer::emitParticles(M2Instance& inst, const M2ModelGPU& gpu, float dt
 void M2Renderer::updateParticles(M2Instance& inst, float dt) {
     if (!inst.cachedModel) return;
     const auto& gpu = *inst.cachedModel;
-
-    // Hoist per-emitter gravity out of the per-particle loop. Gravity (and the
-    // emissionSpeed fallback) depends only on the emitter and animation time -
-    // not on the particle itself - so interpFloat was being re-evaluated for
-    // every particle even when 100s of particles share one emitter.
-    constexpr size_t kMaxStackEmitters = 16;
-    float emitterGravStack[kMaxStackEmitters];
-    std::vector<float> emitterGravHeap;
     const size_t numEm = gpu.particleEmitters.size();
-    float* emitterGrav = nullptr;
-    if (numEm > 0) {
-        if (numEm <= kMaxStackEmitters) {
-            emitterGrav = emitterGravStack;
-        } else {
-            emitterGravHeap.resize(numEm);
-            emitterGrav = emitterGravHeap.data();
-        }
-        for (size_t e = 0; e < numEm; ++e) {
-            const auto& pem = gpu.particleEmitters[e];
-            float grav = interpFloat(pem.gravity,
-                                      inst.animTime, inst.globalSequenceTime,
+    if (numEm == 0) return;
+
+    // Per-emitter work, hoisted out of the per-particle loop: gravity and the
+    // FollowPosition delta depend only on the emitter and the clock, not on
+    // the particle, and hundreds of particles share one emitter.
+    //
+    // Gravity is the authored value. It used to be replaced, when authored
+    // zero, by 1.5 or 4.0 u/s^2 - every emitter of the login model authors
+    // zero, and the citadel's smoke fell twenty units out of the frame under
+    // it. A world tuning that wants weight on a weightless emitter belongs
+    // behind !sceneMode_ and a model classifier, never behind "authored 0".
+    //
+    // FollowPosition (0x4000) carries live particles by the emitter's travel
+    // since the previous update, scaled by the authored follow line and
+    // clamped at one. The wyrm's frost moves with the bone that spawned it
+    // instead of being left along its path - at 8.5 u/s during the swoop an
+    // unfollowed particle was 4-12 u behind the spike it belonged to, inside
+    // or behind the depth-writing skull. Only particles born before this
+    // update take the delta: emitParticles has just run, its births carry
+    // life == 0 and already sit at the emitter's current position. The
+    // client gates on 2*dt < age, which at sixty frames a second is the same
+    // thing to within a frame and at the capture harness's one frame a
+    // second would exempt everything younger than two seconds; the birth
+    // bookkeeping is exact at any rate.
+    struct EmitterStep {
+        float gravity = 0.0f;
+        glm::vec3 worldPos{0.0f};
+        glm::vec3 follow{0.0f};
+        bool follows = false;
+    };
+    constexpr size_t kMaxStackEmitters = 16;
+    EmitterStep stepStack[kMaxStackEmitters];
+    std::vector<EmitterStep> stepHeap;
+    EmitterStep* step = stepStack;
+    if (numEm > kMaxStackEmitters) {
+        stepHeap.resize(numEm);
+        step = stepHeap.data();
+    }
+
+    static const bool kPosDiag = envFlagEnabled("WOWEE_SCENE_DIAG");
+    const bool posDiag = kPosDiag && sceneMode_;
+    bool anyFollow = false;
+    for (size_t e = 0; e < numEm; ++e) {
+        const auto& pem = gpu.particleEmitters[e];
+        step[e] = EmitterStep{};
+        step[e].gravity = interpFloat(pem.gravity, inst.animTime, inst.globalSequenceTime,
                                       inst.currentSequenceIndex, gpu.globalSequenceDurations);
-            if (grav == 0.0f && !gpu.isFireflyEffect) {
-                float emSpeed = interpFloat(pem.emissionSpeed,
-                                             inst.animTime, inst.globalSequenceTime,
-                                             inst.currentSequenceIndex, gpu.globalSequenceDurations);
-                grav = (std::abs(emSpeed) > 0.1f) ? 4.0f : 1.5f;
-            }
-            emitterGrav[e] = grav;
+        step[e].follows = (pem.flags & kParticleFlagFollowPosition) != 0;
+        anyFollow = anyFollow || step[e].follows;
+        if (step[e].follows || posDiag) {
+            glm::mat4 boneXform(1.0f);
+            if (pem.bone < inst.boneMatrices.size()) boneXform = inst.boneMatrices[pem.bone];
+            step[e].worldPos = glm::vec3(inst.modelMatrix * boneXform * glm::vec4(pem.position, 1.0f));
         }
+    }
+
+    if (anyFollow || posDiag) {
+        if (inst.emitterLastWorldPos.size() != numEm) {
+            inst.emitterLastWorldPos.assign(numEm, glm::vec3(0.0f));
+            inst.emitterLastWorldPosValid = false;
+        }
+        if (inst.emitterLastWorldPosValid && dt > 0.0f) {
+            for (size_t e = 0; e < numEm; ++e) {
+                if (!step[e].follows) continue;
+                const auto& pem = gpu.particleEmitters[e];
+                const glm::vec3 travel = step[e].worldPos - inst.emitterLastWorldPos[e];
+                const float speedSpan = pem.followSpeed2 - pem.followSpeed1;
+                float fraction = 0.0f;
+                if (std::abs(speedSpan) > 1.0e-6f) {
+                    const float slope = (pem.followScale2 - pem.followScale1) / speedSpan;
+                    const float speed = glm::length(travel) / dt;
+                    fraction = pem.followScale1 + (speed - pem.followSpeed1) * slope;
+                    fraction = std::clamp(fraction, 0.0f, 1.0f);
+                }
+                step[e].follow = travel * fraction;
+            }
+        }
+        for (size_t e = 0; e < numEm; ++e) inst.emitterLastWorldPos[e] = step[e].worldPos;
+        inst.emitterLastWorldPosValid = true;
     }
 
     for (size_t i = 0; i < inst.particles.size(); ) {
         auto& p = inst.particles[i];
+        const bool bornEarlier = p.life > 0.0f;
         p.life += dt;
         if (p.life >= p.maxLife) {
             // Swap-and-pop removal
@@ -302,10 +381,44 @@ void M2Renderer::updateParticles(M2Instance& inst, float dt) {
             continue;
         }
         if (p.emitterIndex >= 0 && static_cast<size_t>(p.emitterIndex) < numEm) {
-            p.velocity.z -= emitterGrav[p.emitterIndex] * dt;
+            const EmitterStep& s = step[p.emitterIndex];
+            if (bornEarlier) p.position += s.follow;
+            p.velocity.z -= s.gravity * dt;
         }
         p.position += p.velocity * dt;
         i++;
+    }
+
+    // WOWEE_SCENE_DIAG=1: every few frames, where each emitter's particles
+    // sit relative to the emitter - dz in world Z, and the two camera
+    // distances - so a cloud that is drawn behind the surface it belongs to
+    // shows up as a number. scripts alongside the diag runs summarise these.
+    if (posDiag) {
+        static uint32_t diagFrame = 0;
+        if (++diagFrame % 5 == 1) {
+            std::vector<glm::vec3> sum(numEm, glm::vec3(0.0f));
+            std::vector<float> sumDist(numEm, 0.0f);
+            std::vector<int> cnt(numEm, 0);
+            for (const auto& p : inst.particles) {
+                if (p.emitterIndex < 0 || static_cast<size_t>(p.emitterIndex) >= numEm) continue;
+                sum[p.emitterIndex] += p.position;
+                sumDist[p.emitterIndex] += glm::length(p.position - cachedCamPos_);
+                cnt[p.emitterIndex]++;
+            }
+            for (size_t e = 0; e < numEm; ++e) {
+                if (cnt[e] == 0) continue;
+                const glm::vec3 mean = sum[e] / static_cast<float>(cnt[e]);
+                const glm::vec3 emw = step[e].worldPos;
+                LOG_WARNING("PDIAG ", gpu.name, " em#", e, " n=", cnt[e],
+                            " animT=", inst.animTime,
+                            " emitter=(", emw.x, ",", emw.y, ",", emw.z, ")",
+                            " mean=(", mean.x, ",", mean.y, ",", mean.z, ")",
+                            " dz=", mean.z - emw.z,
+                            " camDistEmitter=", glm::length(emw - cachedCamPos_),
+                            " camDistParticles=", sumDist[e] / static_cast<float>(cnt[e]),
+                            " grav=", step[e].gravity);
+            }
+        }
     }
 }
 
@@ -622,12 +735,14 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
         uint16_t cachedBlendType = 0;
         const pipeline::M2ParticleEmitter* cachedEm = nullptr;
         ParticleGroup* cachedGroup = nullptr;
-        // animFrame depends only on inst.animTime + totalTiles, so it's also
-        // emitter-stable within one frame.
-        uint32_t cachedAnimFrame = 0;
+        // How a tiled texture's cell is chosen, per emitter: the authored
+        // cell track over the particle's life, offset by the particle's own
+        // random start when RandFlipbookStart is set; or, with no track, the
+        // particle's random cell when ChooseRandomTexture is set; else cell 0.
         float cachedTilesFloat = 1.0f;
-        bool cachedIsTiled = false;
-        float invAnimMs = 1.0f / 1000.0f;
+        bool cachedHasCellTrack = false;
+        bool cachedRandStart = false;
+        bool cachedRandomCell = false;
 
         for (const auto& p : inst.particles) {
             if (p.emitterIndex < 0 || p.emitterIndex >= static_cast<int>(gpu.particleEmitters.size())) continue;
@@ -656,13 +771,11 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
                     cachedGroup->preAllocSet = gpu.particleTexSets[p.emitterIndex];
                 }
 
-                cachedIsTiled = (cachedEm->flags & kParticleFlagTiled) && cachedTotalTiles > 1;
-                if (cachedIsTiled) {
-                    float animSeconds = inst.animTime * invAnimMs;
-                    cachedAnimFrame = static_cast<uint32_t>(std::floor(animSeconds * cachedTotalTiles))
-                                      % cachedTotalTiles;
-                    cachedTilesFloat = static_cast<float>(cachedTotalTiles);
-                }
+                cachedTilesFloat = static_cast<float>(cachedTotalTiles);
+                cachedHasCellTrack = cachedTotalTiles > 1 && !cachedEm->headCellTrack.floatValues.empty();
+                cachedRandStart = (cachedEm->flags & kParticleFlagRandFlipbookStart) != 0;
+                cachedRandomCell = cachedTotalTiles > 1 &&
+                                   (cachedEm->flags & kParticleFlagChooseRandomTexture) != 0;
             }
 
             const auto& em = *cachedEm;
@@ -728,12 +841,14 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
             vd.push_back(color.b);
             vd.push_back(alpha);
             vd.push_back(scale * pointSizeFactor);
-            float tileIndex = p.tileIndex;
-            if (cachedIsTiled) {
-                tileIndex = p.tileIndex + static_cast<float>(cachedAnimFrame);
-                while (tileIndex >= cachedTilesFloat) {
-                    tileIndex -= cachedTilesFloat;
-                }
+            float tileIndex = 0.0f;
+            if (cachedHasCellTrack) {
+                tileIndex = std::floor(interpFBlockFloat(em.headCellTrack, lifeRatio));
+                if (cachedRandStart) tileIndex += p.tileIndex;
+                tileIndex = std::fmod(tileIndex, cachedTilesFloat);
+                if (tileIndex < 0.0f) tileIndex += cachedTilesFloat;
+            } else if (cachedRandomCell) {
+                tileIndex = p.tileIndex;
             }
             vd.push_back(tileIndex);
             totalParticles++;

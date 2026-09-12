@@ -24,6 +24,7 @@
 #include "core/logger.hpp"
 #include <cstring>
 #include <algorithm>
+#include <cmath>
 
 namespace wowee {
 namespace pipeline {
@@ -790,6 +791,14 @@ void parseFBlock(const std::vector<uint8_t>& data, uint32_t offset,
         for (uint32_t i = 0; i < nKeys; i++) {
             float x = readValue<float>(data, ofsKeys + i * 8);
             fb.floatValues.push_back(x);
+        }
+    } else if (valueType == 3) {
+        // Flipbook cell: uint16 per key, kept as the cell number
+        if (ofsKeys + nKeys * sizeof(uint16_t) > data.size()) return;
+        auto rawCells = readArray<uint16_t>(data, ofsKeys, nKeys);
+        fb.floatValues.reserve(nKeys);
+        for (auto c : rawCells) {
+            fb.floatValues.push_back(static_cast<float>(c));
         }
     }
 }
@@ -1615,7 +1624,7 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
                 parseTrackV(0xDC, em.emissionRate);        // +28 = 0xF8
                 parseTrackV(0xF8, em.emissionAreaLength);  // +28 = 0x114
                 parseTrackV(0x114, em.emissionAreaWidth);  // +28 = 0x130
-                parseTrackV(0x130, em.deceleration);       // +28 = 0x14C
+                parseTrackV(0x130, em.zSource);            // +28 = 0x14C
 
                 // Vanilla: NO FBlocks - color/alpha/scale are static inline values
                 // Layout (empirically confirmed from real vanilla M2 files):
@@ -1678,12 +1687,36 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
                 parseTrack(0xB0, em.emissionRate);
                 parseTrack(0xC8, em.emissionAreaLength);
                 parseTrack(0xDC, em.emissionAreaWidth);
-                parseTrack(0xF0, em.deceleration);
+                parseTrack(0xF0, em.zSource);
 
-                // Parse FBlocks (color, alpha, scale) - FBlocks are 16 bytes each
+                // Parse FBlocks (color, alpha, scale, head cell) - FBlocks are 16 bytes each
                 parseFBlock(m2Data, base + 0x104, em.particleColor, 0);
                 parseFBlock(m2Data, base + 0x114, em.particleAlpha, 1);
                 parseFBlock(m2Data, base + 0x124, em.particleScale, 2);
+                parseFBlock(m2Data, base + 0x13C, em.headCellTrack, 3);
+            }
+
+            // The FollowPosition line: four floats after the wind block, at
+            // 0x1B0 in the WotLK record and 0x1C4 in the vanilla one (the
+            // vanilla tracks are 8 bytes longer each and its lifecycle values
+            // are inline). A value that is not a small finite number is a
+            // record this reader has misjudged, and reads as "no follow".
+            {
+                const uint32_t followOfs = base + (isVanilla ? 0x1C4u : 0x1B0u);
+                if (followOfs + 4 * sizeof(float) <= m2Data.size()) {
+                    float f[4];
+                    bool sane = true;
+                    for (int k = 0; k < 4; k++) {
+                        f[k] = readValue<float>(m2Data, followOfs + k * 4);
+                        if (!std::isfinite(f[k]) || std::abs(f[k]) > 1.0e6f) sane = false;
+                    }
+                    if (sane) {
+                        em.followSpeed1 = f[0];
+                        em.followScale1 = f[1];
+                        em.followSpeed2 = f[2];
+                        em.followScale2 = f[3];
+                    }
+                }
             }
 
             model.particleEmitters.push_back(std::move(em));

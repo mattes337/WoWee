@@ -285,6 +285,11 @@ struct M2Instance {
     // Particle emitter state
     std::vector<float> emitterAccumulators;  // fractional particle counter per emitter
     std::vector<M2Particle> particles;
+    /// Where each emitter was at the previous particle update, so that an
+    /// emitter with FollowPosition can carry its live particles by its travel
+    /// since. Invalid until the first update after creation or a cull.
+    std::vector<glm::vec3> emitterLastWorldPos;
+    bool emitterLastWorldPosValid = false;
 
     // Ribbon emitter state
     struct RibbonEdge {
