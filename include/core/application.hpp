@@ -283,6 +283,20 @@ private:
     float paperdollFacing_ = 0.0f;
     uint32_t paperdollWidgetId_ = 0;
     bool addonsLoaded_ = false;
+    /// Whether there is an interface to send a keystroke to.
+    ///
+    /// Not the same question as addonsLoaded_, which is "has the world's
+    /// interface been built" and is set once at first world entry. The glue
+    /// screens are a widget tree with edit boxes in it that exists long before
+    /// that, and every keyboard path into the tree was gated on
+    /// addonsLoaded_ - so the login screen's account field took focus, drew a
+    /// caret and never received a character. The mouse path was never gated,
+    /// which is why this looked like a broken EditBox rather than a missing
+    /// event.
+    ///
+    /// Only for input. The gates on the game handler's event and command
+    /// bridges stay on addonsLoaded_: those are in-game by definition.
+    [[nodiscard]] bool interfaceUp() const;
     std::unique_ptr<game::ExpansionRegistry> expansionRegistry_;
     // Empty means assets follow the active protocol profile. "legacy" selects
     // the root WOW_DATA_PATH manifest; otherwise this is an expansion id.

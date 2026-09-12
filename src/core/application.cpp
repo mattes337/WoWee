@@ -91,6 +91,7 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
+#include <cstdio>
 #include <cstdlib>
 #include <climits>
 #include <algorithm>
@@ -481,6 +482,11 @@ Application::~Application() {
     instance = nullptr;
 }
 
+bool Application::interfaceUp() const {
+    if (addonManager_ == nullptr) return false;
+    return addonsLoaded_ || addonManager_->glueLoaded();
+}
+
 bool Application::initialize() {
     LOG_INFO("Initializing Wowee Native Client");
 
@@ -492,6 +498,25 @@ bool Application::initialize() {
     windowConfig.title = "Wowee";
     windowConfig.width = 1280;
     windowConfig.height = 720;
+    // WOWEE_WINDOW_SIZE=WxH, for a capture that has to match a screen of a
+    // given size. The window is centred, so a window larger than the screen
+    // hangs off all four sides and the interface looks laid out too wide -
+    // which is what a 1280x720 window on a 1024x768 Xvfb looked like, and it
+    // is not a layout fault. Only sizes a swapchain can be built at: a
+    // dimension outside 320-16384 is ignored rather than argued with.
+    if (const char* size = std::getenv("WOWEE_WINDOW_SIZE"); size != nullptr) {
+        int w = 0;
+        int h = 0;
+        if (std::sscanf(size, "%dx%d", &w, &h) == 2 &&
+            w >= 320 && w <= 16384 && h >= 320 && h <= 16384) {
+            windowConfig.width = w;
+            windowConfig.height = h;
+            LOG_INFO("WOWEE_WINDOW_SIZE: window is ", w, "x", h);
+        } else {
+            LOG_WARNING("WOWEE_WINDOW_SIZE='", size,
+                        "' is not a WxH between 320 and 16384 - ignored");
+        }
+    }
     // Pace rendering to the display by default. The old 240 FPS default kept
     // the main thread near a full core even while the scene was idle.
     windowConfig.vsync = true;
@@ -774,7 +799,7 @@ bool Application::initialize() {
         // and one answer.
         ui::setTypedInputProbe(
             [this]() -> bool {
-                if (!addonManager_ || !addonsLoaded_) return false;
+                if (!interfaceUp()) return false;
                 auto* engine = addonManager_->getLuaEngine();
                 return engine != nullptr && engine->editBoxHasFocus();
             });
@@ -1989,7 +2014,7 @@ void Application::run() {
             // purpose, so the amount could only be reached with the arrows and
             // typing "12" did nothing at all.
             else if (event.type == SDL_TEXTINPUT) {
-                if (addonManager_ && addonsLoaded_) {
+                if (interfaceUp()) {
                     if (auto* engine = addonManager_->getLuaEngine()) {
                         if (engine->editBoxHasFocus()) {
                             // Unless it is the slash that opened this box,
@@ -2011,7 +2036,7 @@ void Application::run() {
                 // click will do - item comparison appears on shift, and an
                 // action button's self-cast indicator on alt. Four frames
                 // listen and none had ever been told.
-                if (addonManager_ && addonsLoaded_) {
+                if (interfaceUp()) {
                     const char* modName = nullptr;
                     switch (event.key.keysym.sym) {
                         case SDLK_LSHIFT: modName = "LSHIFT"; break;
@@ -2051,7 +2076,7 @@ void Application::run() {
                 // An addon's edit box takes the keystroke before anything
                 // else looks at it. Otherwise typing into one would also
                 // walk the character, and backspace would trip a keybind.
-                if (addonManager_ && addonsLoaded_) {
+                if (interfaceUp()) {
                     if (auto* engine = addonManager_->getLuaEngine();
                         engine && engine->editBoxHasFocus()) {
                         // Command counts as control here, because this is the
