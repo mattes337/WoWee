@@ -51,6 +51,7 @@
 // Anything a glue screen calls that is not here answers through the
 // missing-API fallback, which records the name - so the gap stays visible.
 
+#include "addons/glue_selection.hpp"
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_api_registrations.hpp"
 #include "audio/audio_coordinator.hpp"
@@ -72,6 +73,12 @@
 #include <vector>
 
 namespace wowee::addons {
+
+GlueSelection& glueSelection() {
+    static GlueSelection s;
+    return s;
+}
+
 
 namespace {
 
@@ -220,30 +227,10 @@ const char* backgroundModelFor(game::Race race, game::Class cls) {
 // What the glue screens have chosen
 // ---------------------------------------------------------------------------
 
-/// The selection the glue screens are holding.
-///
-/// Their own state rather than the client's: which row of the character list
-/// is highlighted and which race button is pressed are questions only the
-/// screen showing them can answer, and the original screens ask for them back
-/// on every redraw. The character actually being entered with is set on the
-/// world handler as it is chosen, so nothing downstream reads this.
-struct GlueSelection {
-    int characterIndex = 0;     ///< 1-based row of the character list, 0 for none
-    int raceIndex      = 1;     ///< 1-based row of GetAvailableRaces
-    int classIndex     = 1;     ///< 1-based row of GetAvailableClasses
-    game::Gender gender = game::Gender::MALE;
-    uint8_t skin = 0, face = 0, hairStyle = 0, hairColor = 0, facialHair = 0;
-    /// Where the camera is around the model, in degrees. Recorded rather than
-    /// applied: nothing draws into the glue model frames yet, and dropping the
-    /// angle would make the rotate buttons raise on the arithmetic instead.
-    float selectFacing = 0.0f;
-    float createFacing = 0.0f;
-};
-
-GlueSelection& selection() {
-    static GlueSelection s;
-    return s;
-}
+/// The selection the glue screens are holding - see addons/glue_selection.hpp,
+/// where it moved to when the backdrop pass started reading it to know which
+/// figure to stand in the scene.
+GlueSelection& selection() { return glueSelection(); }
 
 /// The races character creation offers, in the order the buttons are laid out.
 ///
@@ -291,7 +278,13 @@ game::Race selectedRace(lua_State* L) {
     if (races.empty()) return game::Race::HUMAN;
     int i = selection().raceIndex - 1;
     if (i < 0 || i >= static_cast<int>(races.size())) i = 0;
-    return races[static_cast<size_t>(i)];
+    // Remembered on the way out. Resolving the row needs this list, the list
+    // needs the expansion profile off the Lua services, and the pass that
+    // draws the figure has neither - so the answer is written where it can
+    // read it rather than computed a second way. Every handler that cares
+    // about the race calls this, so it does not go stale.
+    selection().race = races[static_cast<size_t>(i)];
+    return selection().race;
 }
 
 game::Class selectedClass(lua_State* L) {

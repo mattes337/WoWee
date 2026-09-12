@@ -73,7 +73,9 @@
 #include "ui/touch_controls.hpp"
 #include "ui/ui_services.hpp"
 #include "auth/auth_handler.hpp"
+#include "addons/glue_selection.hpp"
 #include "game/game_handler.hpp"
+#include "rendering/character_preview.hpp"
 #include "game/chat_handler.hpp"
 #include "game/faction_hostility.hpp"
 #include "game/transport_manager.hpp"
@@ -92,6 +94,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 #include <cstdio>
+#include <map>
 #include <cstdlib>
 #include <climits>
 #include <algorithm>
@@ -145,9 +148,67 @@ struct GlueBackdropView {
     bool framed = false;
 };
 
-GlueBackdropView& glueBackdrop() {
-    static GlueBackdropView view;
-    return view;
+/// The scene views, one per model frame a glue screen has declared.
+///
+/// One was enough while only the login screen drew: it has a single model
+/// frame and no second screen is ever up at the same time. Character select
+/// and character create each declare their own, and character create is shown
+/// over a character select that is still built - so the *views* must not be
+/// shared even though only one of them composites in any given frame. A single
+/// view rebuilt its render target on every switch between them.
+std::map<std::string, GlueBackdropView>& glueBackdropViews() {
+    static std::map<std::string, GlueBackdropView> views;
+    return views;
+}
+
+/// A figure standing in a scene, for the one model frame on character select
+/// and the one on character create.
+///
+/// CharacterPreview already draws exactly this - the scene's model behind the
+/// figure, the scene's fog and lights over both, and the scene's authored
+/// camera as the framing - and is what this client's own character screens
+/// use. It is reused rather than GlueScene growing a figure of its own.
+struct GlueCharacterView {
+    std::unique_ptr<rendering::CharacterPreview> preview;
+    /// What the figure was built from, so a frame that says the same thing
+    /// every frame rebuilds nothing. A character composite is not cheap.
+    uint64_t builtAppearance = ~uint64_t{0};
+    uint64_t builtGuid = 0;
+    std::string builtScene;
+    int builtWidth = 0;
+    int builtHeight = 0;
+    /// The turn already applied, so only the change since last frame is made:
+    /// CharacterPreview::rotate takes a delta.
+    float appliedFacing = 0.0f;
+    bool registered = false;
+};
+
+std::map<std::string, GlueCharacterView>& glueCharacterViews() {
+    static std::map<std::string, GlueCharacterView> views;
+    return views;
+}
+
+/// Everything both maps hold, released while the device is still alive.
+void shutdownGlueViews(rendering::Renderer* renderer) {
+    for (auto& [name, view] : glueBackdropViews()) view.scene.shutdown();
+    glueBackdropViews().clear();
+    for (auto& [name, view] : glueCharacterViews()) {
+        if (view.preview) {
+            if (renderer && view.registered) renderer->unregisterPreview(view.preview.get());
+            view.preview->shutdown();
+        }
+    }
+    glueCharacterViews().clear();
+}
+
+/// One remembered string out of the Lua registry - the frame names
+/// SetCharSelectModelFrame and SetCharCustomizeFrame filed there.
+std::string glueRegistryString(lua_State* L, const char* key) {
+    lua_getfield(L, LUA_REGISTRYINDEX, key);
+    const char* v = lua_tostring(L, -1);
+    std::string out = v ? v : "";
+    lua_pop(L, 1);
+    return out;
 }
 
 /// One number out of the scene entry sitting on top of the Lua stack.
@@ -214,8 +275,144 @@ std::vector<rendering::GlueSceneLight> sceneLights(lua_State* L, const char* key
 /// asked here rather than guessed from the client's own state: one glue screen
 /// is up at a time and it is the one whose frame is visible. Nothing here knows
 /// which screen that is: the scene is drawn from what the frame recorded.
+/// One glue model frame that holds a character, drawn through CharacterPreview.
+///
+/// `createScreen` picks which of the two the frame is: character create builds
+/// its figure out of the race, sex and customisation the screen is holding,
+/// and character select out of the character the highlighted row names. Both
+/// stand it in `sceneState` - the racial backdrop the screen declared, with
+/// its fog, its lights and its authored camera.
+///
+/// Nothing is rebuilt unless what it was built from changed: a character is a
+/// texture composite over several source images, far too expensive to redo on
+/// the chance that a customisation arrow was pressed.
+void drawGlueFigure(const std::string& frameName, ui::Widget& frame,
+                    const rendering::GlueSceneState& sceneState, bool createScreen,
+                    int w, int h, pipeline::AssetManager* assets,
+                    rendering::Renderer* renderer, game::GameHandler* gameHandler,
+                    float deltaTime, bool& builtThisFrame) {
+    GlueCharacterView& view = glueCharacterViews()[frameName];
+    const addons::GlueSelection& sel = addons::glueSelection();
+
+    if (!view.preview) {
+        if (builtThisFrame) return;
+        builtThisFrame = true;
+        view.preview = std::make_unique<rendering::CharacterPreview>();
+        // At the frame's own size, like the backdrop views: this is a whole
+        // character pass and the paperdoll's 640x800 default is not what a
+        // character-select frame wants.
+        const int tw = std::clamp((w + 31) / 32 * 32, 128, 2048);
+        const int th = std::clamp((h + 31) / 32 * 32, 128, 2048);
+        if (!view.preview->initialize(assets, tw, th)) {
+            view.preview.reset();
+            frame.externalTexture = 0;
+            return;
+        }
+        view.builtWidth = tw;
+        view.builtHeight = th;
+        if (renderer) {
+            renderer->registerPreview(view.preview.get());
+            view.registered = true;
+        }
+    }
+    rendering::CharacterPreview& preview = *view.preview;
+
+    // Which figure this frame should be showing.
+    bool wantFigure = false;
+    game::Race race = game::Race::HUMAN;
+    game::Gender gender = sel.gender;
+    uint8_t skin = sel.skin, face = sel.face, hairStyle = sel.hairStyle;
+    uint8_t hairColor = sel.hairColor, facialHair = sel.facialHair;
+    uint64_t appearanceKey = 0;
+    uint64_t guid = 0;
+    const game::Character* selected = nullptr;
+
+    if (createScreen) {
+        // The screen's own selection. The race is the one the glue API
+        // resolved the pressed button to - see GlueSelection::race for why it
+        // is remembered rather than worked out again here.
+        race = sel.race;
+        wantFigure = true;
+        appearanceKey = sel.appearanceKey();
+    } else if (gameHandler != nullptr) {
+        const std::vector<game::Character>& characters = gameHandler->getCharacters();
+        const size_t i = sel.characterIndex >= 1 ? static_cast<size_t>(sel.characterIndex - 1) : 0;
+        if (i < characters.size()) {
+            selected = &characters[i];
+            race = selected->race;
+            gender = selected->gender;
+            // The four appearance bytes, unpacked the way the client's own
+            // character screen unpacks them (character_screen.cpp:426-429).
+            skin       = selected->appearanceBytes & 0xFF;
+            face       = (selected->appearanceBytes >> 8) & 0xFF;
+            hairStyle  = (selected->appearanceBytes >> 16) & 0xFF;
+            hairColor  = (selected->appearanceBytes >> 24) & 0xFF;
+            facialHair = selected->facialFeatures;
+            guid = selected->guid;
+            wantFigure = true;
+        }
+    }
+
+    if (!wantFigure) {
+        frame.externalTexture = 0;
+        return;
+    }
+
+    if (!createScreen && selected != nullptr) {
+        // Not the create screen's key: a row's own appearance is what makes it
+        // a different figure, and two rows can share every byte of it.
+        appearanceKey = (static_cast<uint64_t>(selected->appearanceBytes) << 8) |
+                        selected->facialFeatures;
+    }
+
+    if ((view.builtAppearance != appearanceKey || view.builtGuid != guid) &&
+        !builtThisFrame) {
+        builtThisFrame = true;
+        if (preview.loadCharacter(race, gender, skin, face, hairStyle, hairColor,
+                                  facialHair)) {
+            // What the character is wearing, on select only: a character being
+            // created is wearing its starting gear, which the server has not
+            // told anyone about yet.
+            if (selected != nullptr && !selected->equipment.empty()) {
+                preview.applyEquipment(selected->equipment);
+            }
+            view.builtAppearance = appearanceKey;
+            view.builtGuid = guid;
+            // A new figure has to be stood in the scene again.
+            view.builtScene.clear();
+        }
+    }
+
+    if (view.builtScene != sceneState.model && !builtThisFrame) {
+        builtThisFrame = true;
+        preview.setScene(sceneState);
+        view.builtScene = sceneState.model;
+        view.appliedFacing = 0.0f;
+    }
+
+    // The rotate buttons and the click-drag write an angle; CharacterPreview
+    // turns by a delta, so only the change since last frame is applied.
+    const float wantFacing = createScreen ? sel.createFacing : sel.selectFacing;
+    if (std::abs(wantFacing - view.appliedFacing) > 1e-3f) {
+        preview.rotate(wantFacing - view.appliedFacing);
+        view.appliedFacing = wantFacing;
+    }
+
+    preview.update(deltaTime);
+    preview.render();
+    preview.requestComposite();
+
+    frame.externalTexture = reinterpret_cast<uint64_t>(preview.getTextureId());
+    // CharacterPreview's target is the size it was asked for and it draws all
+    // of it, so unlike the backdrop views there is no written-fraction to
+    // sample.
+    frame.externalTextureU1 = 1.0f;
+    frame.externalTextureV1 = 1.0f;
+}
+
 void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* assets,
-                        rendering::Renderer* renderer, float deltaTime) {
+                        rendering::Renderer* renderer, game::GameHandler* gameHandler,
+                        float deltaTime) {
     lua_State* L = engine.getState();
     if (L == nullptr || assets == nullptr || renderer == nullptr) return;
 
@@ -260,45 +457,81 @@ void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* asset
     if (declared.empty()) return;
 
     auto& widgets = engine.widgets();
-    ui::Widget* frame = nullptr;
-    const rendering::GlueSceneState* scene = nullptr;
-    for (const auto& [frameName, sceneState] : declared) {
-        ui::Widget* w = widgets.findByName(frameName);
-        if (w == nullptr || !w->visible || w->rectW <= 0.0f || w->rectH <= 0.0f) continue;
-        frame = w;
-        scene = &sceneState;
-        break;
-    }
-    if (frame == nullptr) return;
 
-    // In pixels, so a larger interface scale gets a larger image rather than a
-    // blurrier one - the same reason the portrait views are sized this way.
-    const float scale = widgets.uiScale();
-    const int w = static_cast<int>(frame->rectW * scale);
-    const int h = static_cast<int>(frame->rectH * scale);
-    GlueBackdropView& view = glueBackdrop();
-    bool drawn = false;
-    if (w > 0 && h > 0) {
+    // Which frames hold a figure rather than a bare backdrop. Character select
+    // and character create name theirs through SetCharSelectModelFrame and
+    // SetCharCustomizeFrame; the login screen names none and gets the
+    // backdrop path.
+    const std::string selectFrameName = glueRegistryString(L, "wowee_charselect_model_frame");
+    const std::string customizeFrameName = glueRegistryString(L, "wowee_charcustomize_model_frame");
+
+    // One construction per frame, across both paths.
+    //
+    // Building a scene is a render target, a model upload and a descriptor
+    // set; building a figure is all of that plus a texture composite. The old
+    // code could only ever do one because it stopped at the first visible
+    // frame. Doing two in one frame - character select declares a backdrop
+    // scene and a figure - crashed inside lavapipe on a worker thread while
+    // the previous frame's command buffers were still in flight, and cost a
+    // 5.7 s frame when it did not. A frame that runs out of budget leaves the
+    // rest for the next one, which at worst shows a frame of black.
+    bool builtThisFrame = false;
+
+    // Every visible one, not the first. The first-visible-wins that was here
+    // is why character select drew its street and no character: the figure is
+    // in a second frame of the same screen.
+    for (const auto& [frameName, sceneState] : declared) {
+        ui::Widget* frame = widgets.findByName(frameName);
+        if (frame == nullptr || !frame->visible || frame->rectW <= 0.0f || frame->rectH <= 0.0f) {
+            continue;
+        }
+
+        // In pixels, so a larger interface scale gets a larger image rather
+        // than a blurrier one - the same reason the portrait views are sized
+        // this way.
+        const float scale = widgets.uiScale();
+        const int w = static_cast<int>(frame->rectW * scale);
+        const int h = static_cast<int>(frame->rectH * scale);
+        if (w <= 0 || h <= 0) {
+            frame->externalTexture = 0;
+            continue;
+        }
+
+        const bool isSelectFigure = !selectFrameName.empty() && frameName == selectFrameName;
+        const bool isCreateFigure = !customizeFrameName.empty() && frameName == customizeFrameName;
+
+        if (isSelectFigure || isCreateFigure) {
+            drawGlueFigure(frameName, *frame, sceneState, isCreateFigure, w, h,
+                           assets, renderer, gameHandler, deltaTime, builtThisFrame);
+            continue;
+        }
+
+        const auto existing = glueBackdropViews().find(frameName);
+        if (existing == glueBackdropViews().end() && builtThisFrame) continue;
+        GlueBackdropView& view = glueBackdropViews()[frameName];
+        bool drawn = false;
         // The target is allocated in multiples of 32 and bounded, so a window
         // dragged larger by a few pixels does not rebuild the whole view; the
         // passes draw and the interface samples exactly the frame's rect.
         const int tw = std::clamp((w + 31) / 32 * 32, 128, 2048);
         const int th = std::clamp((h + 31) / 32 * 32, 128, 2048);
         if (view.scene.build(tw, th, renderer, assets)) {
+            builtThisFrame = true;
             view.scene.setDrawSize(w, h);
             view.scene.setClearColor(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-            if (view.scene.show(*scene)) {
+            if (view.scene.show(sceneState)) {
                 // The model's own camera is the whole of the placement, so
                 // the view is re-aimed only when the model, the camera the
                 // screen asks for or the rect's aspect changes. A camera
                 // that cannot frame anything leaves the scene undrawn: there
                 // is no second way to place one of these, and a guess would
                 // read as a different fault entirely.
-                if (view.framedModel != scene->model || view.framedCamera != scene->cameraIndex ||
+                if (view.framedModel != sceneState.model ||
+                    view.framedCamera != sceneState.cameraIndex ||
                     view.framedWidth != w || view.framedHeight != h) {
                     view.framed = view.scene.frame(view.camera);
-                    view.framedModel = scene->model;
-                    view.framedCamera = scene->cameraIndex;
+                    view.framedModel = sceneState.model;
+                    view.framedCamera = sceneState.cameraIndex;
                     view.framedWidth = w;
                     view.framedHeight = h;
                 }
@@ -309,17 +542,17 @@ void updateGlueBackdrop(addons::LuaEngine& engine, pipeline::AssetManager* asset
                 }
             }
         }
+        // With the screen's glow already in it, where it asked for one - the
+        // glow is a pass over the scene rather than a second image laid on
+        // top, because adding light is not something the interface's draw
+        // list can be asked to do. See GlueScene::textureId.
+        frame->externalTexture = drawn ? view.scene.textureId() : 0;
+        // And only the part of it the passes wrote: the target is allocated
+        // in multiples of 32 and this frame is 1280x720, so a whole-image
+        // draw squashes 736 rows into 720 and bands the picture.
+        frame->externalTextureU1 = drawn ? view.scene.textureU1() : 1.0f;
+        frame->externalTextureV1 = drawn ? view.scene.textureV1() : 1.0f;
     }
-    // With the screen's glow already in it, where it asked for one - the glow
-    // is a pass over the scene rather than a second image laid on top, because
-    // adding light is not something the interface's draw list can be asked to
-    // do. See GlueScene::textureId.
-    frame->externalTexture = drawn ? view.scene.textureId() : 0;
-    // And only the part of it the passes wrote: the target is allocated in
-    // multiples of 32 and this frame is 1280x720, so a whole-image draw
-    // squashes 736 rows into 720 and bands the picture.
-    frame->externalTextureU1 = drawn ? view.scene.textureU1() : 1.0f;
-    frame->externalTextureV1 = drawn ? view.scene.textureV1() : 1.0f;
 }
 
 /// The expansion profile files built into the executable, keyed by their path
@@ -2358,9 +2591,9 @@ void Application::shutdown() {
     companionModel_.shutdown(renderer.get());
     for (auto& p : partyPortraits_) p.shutdown(renderer.get());
     paperdollModel_.shutdown(renderer.get());
-    // Here, while the device is still alive: the backdrop is a static, so its
-    // own destructor runs long after Vulkan has gone.
-    glueBackdrop().scene.shutdown();
+    // Here, while the device is still alive: the backdrop views are statics,
+    // so their own destructors run long after Vulkan has gone.
+    shutdownGlueViews(renderer.get());
 
     // For the same reason, and it was never being done: ImGui's Vulkan backend
     // holds a pipeline, its layout and descriptor set layout, two shader
@@ -4506,12 +4739,12 @@ void Application::render() {
 
             if (glueOnScreen && !core::envFlagEnabled("WOWEE_NO_GLUE_BACKDROP")) {
                 updateGlueBackdrop(*engine, assetManager.get(), renderer.get(),
-                                   io.DeltaTime);
+                                   gameHandler.get(), io.DeltaTime);
             } else if (state == AppState::IN_GAME) {
                 // A render target the size of the window and a model renderer
                 // to fill it, held for a screen that is behind us. Cheap after
                 // the first call, which is why it can sit in the frame loop.
-                glueBackdrop().scene.shutdown();
+                shutdownGlueViews(renderer.get());
                 // And the loop that was playing under it. Nothing else would
                 // stop it: the glue ambience is not a zone's, so the world's
                 // own zone change leaves it running under the world.
