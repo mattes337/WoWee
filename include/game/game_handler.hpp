@@ -760,6 +760,11 @@ public:
 
     // WotLK Calendar
     uint32_t getCalendarPendingInvites() const { return calendarPendingInvites_; }
+    /// What character select asks the server for as it opens. Both are sent
+    /// before the world is entered, so neither tests isInWorld().
+    void requestAccountDataTimes();  ///< CMSG_READY_FOR_ACCOUNT_DATA_TIMES
+    void requestRealmSplitInfo();    ///< CMSG_REALM_SPLIT
+
     void requestCalendar(); ///< Send CMSG_CALENDAR_GET_CALENDAR to the server
     /// The calendar the server last sent, empty until it has answered one.
     const CalendarData& getCalendarData() const { return calendarData_; }

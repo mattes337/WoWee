@@ -479,6 +479,67 @@ int lua_DefaultServerLogin(lua_State* L) {
     return 0;
 }
 
+/// StopAllSFX(fade) - AccountLogin_OnHide and RealmWizard's OnHide.
+///
+/// The glue screens' sound effects, which here are the ambience bed: the login
+/// screen's wind and the racial beds behind character select are what
+/// PlayGlueAmbience started, and this is the screen saying it is done with
+/// them. The music is not an SFX and is left playing - SetGlueScreen starts it
+/// again on the next screen, and stopping it here made the title theme restart
+/// on every screen change.
+///
+/// The fade is accepted and not used: stopGlueAmbience fades by the length the
+/// bed was started with, which is the same number every caller passes.
+int lua_StopAllSFX(lua_State* L) {
+    (void)luaL_optnumber(L, 1, 0.0);
+    auto* svc = getLuaServices(L);
+    if (svc && svc->audioCoordinator) svc->audioCoordinator->stopGlueAmbience();
+    return 0;
+}
+
+/// CancelRealmListQuery() - RealmList's OnHide.
+///
+/// The original client polls the realm list while its dialog is open and stops
+/// when it closes. This client asks once, on the auth handler's own schedule,
+/// so there is no poll to cancel - but the call has to exist and return, or
+/// every close of the dialog goes through the missing-API fallback.
+int lua_CancelRealmListQuery(lua_State* L) {
+    (void)L;
+    return 0;
+}
+
+/// ReadyForAccountDataTimes() and RequestRealmSplitInfo() - both from
+/// CharacterSelect_OnShow. See GameHandler for what each sends.
+int lua_ReadyForAccountDataTimes(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->requestAccountDataTimes();
+    return 0;
+}
+
+int lua_RequestRealmSplitInfo(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->requestRealmSplitInfo();
+    return 0;
+}
+
+/// The engine's "draw the figure now" hooks, from CharacterSelect_OnUpdateModel
+/// and CharacterCreate_OnUpdateModel.
+///
+/// Nothing to do: the backdrop pass composites every frame a model frame is
+/// visible, which is what these amount to. Bound so the screens stop reporting
+/// them, and so there is a place to hang a per-tick hook if one is ever wanted.
+int lua_UpdateCustomizationScene(lua_State* L) {
+    (void)L;
+    return 0;
+}
+
+/// CloseMenus() - GlueDropDownMenu's click-away handler.
+///
+/// The dropdowns close themselves when their own frame hides, which is what
+/// every caller here does on the next line. Bound to stop the report.
+int lua_CloseMenus(lua_State* L) {
+    (void)L;
+    return 0;
+}
+
 int lua_CancelLogin(lua_State* L) {
     auto* svc = getLuaServices(L);
     if (svc && svc->glueCancelLogin) svc->glueCancelLogin();
@@ -1412,6 +1473,13 @@ void registerGlueLuaAPI(lua_State* L) {
         {"IsSystemSupported",       lua_NothingPending},
         {"DefaultServerLogin",      lua_DefaultServerLogin},
         {"CancelLogin",             lua_CancelLogin},
+        {"StopAllSFX",              lua_StopAllSFX},
+        {"CancelRealmListQuery",    lua_CancelRealmListQuery},
+        {"ReadyForAccountDataTimes", lua_ReadyForAccountDataTimes},
+        {"RequestRealmSplitInfo",   lua_RequestRealmSplitInfo},
+        {"UpdateCustomizationScene", lua_UpdateCustomizationScene},
+        {"UpdateSelectionCustomizationScene", lua_UpdateCustomizationScene},
+        {"CloseMenus",              lua_CloseMenus},
         {"StatusDialogClick",       lua_StatusDialogClick},
         {"QuitGame",                lua_QuitGame},
         {"SetCurrentScreen",        lua_SetCurrentScreen},

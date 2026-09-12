@@ -1485,19 +1485,22 @@ bool Application::initialize() {
                 installAddonRoots.push_back((std::filesystem::path(exeDir) / "addons").string());
             }
             addonManager_->scanAddons(addonsDir, installAddonRoots);
-            // The login and character screens, when asked for.
+            // The login and character screens: the installation's own.
             //
-            // Off unless asked, and not because it does not load: it does, out
-            // of the installation's own archives. The screens it builds call a
-            // vocabulary this client only partly answers - the login button
-            // reaches DefaultServerLogin, the cancel reaches CancelLogin, and
-            // neither exists yet - so a glue screen that draws and cannot log
-            // in is worse than the native one it would replace. The flag is
-            // how the work on those bindings is done without shipping a
-            // half-wired login.
+            // On by default. It used to be off, and the reason written here
+            // was that "the login button reaches DefaultServerLogin, the
+            // cancel reaches CancelLogin, and neither exists yet" - both have
+            // been bound for some time, and what actually kept it off was
+            // that no keystroke reached the account field (see interfaceUp).
+            // With that fixed a run reaches the realm list, the world server,
+            // character select and character creation through these screens,
+            // so they are the screens.
+            //
+            // WOWEE_LOAD_GLUEXML=0 falls back to this client's own, which are
+            // still the only login the capture harness can drive reliably.
             addonManager_->setGlueXmlDir(interfaceRoot + "/interface/GlueXML");
             if (const char* wantGlue = std::getenv("WOWEE_LOAD_GLUEXML");
-                wantGlue && std::string(wantGlue) != "0") {
+                wantGlue == nullptr || std::string(wantGlue) != "0") {
                 // Everything a model frame is told answers with a no-op for
                 // every widget in the world's interface, and a glue screen's
                 // scene is said through nothing else: AccountLogin_OnLoad
@@ -1528,6 +1531,15 @@ bool Application::initialize() {
                     }
                 }
                 addonManager_->loadGlueXml(addonManager_->getGlueXmlDir());
+                // GlueParent_OnEvent answers FRAMES_LOADED with
+                // LocalizeFrames(), which is where GlueLocalization's
+                // per-locale nudges are applied. Nothing fired it, so they
+                // never ran. After the load rather than inside it: the
+                // handler reaches frames the later files of the manifest
+                // define.
+                if (auto* engine = addonManager_->getLuaEngine()) {
+                    engine->fireEvent("FRAMES_LOADED", {});
+                }
             }
             // Wire Lua errors to UI error display
             addonManager_->getLuaEngine()->setLuaErrorCallback([gh = gameHandler.get()](const std::string& err) {

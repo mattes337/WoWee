@@ -2909,6 +2909,33 @@ void GameHandler::sendOptOutOfLoot(bool optOut) {
     LOG_INFO("CMSG_OPT_OUT_OF_LOOT: ", optOut ? "opting out" : "opting in");
 }
 
+/// CMSG_READY_FOR_ACCOUNT_DATA_TIMES, which CharacterSelect_OnShow sends.
+///
+/// The original screen asks for the account-data timestamps as it opens, so
+/// the client knows whether its cached macros and per-character settings are
+/// current before anything reads them. Sent from character select, so the
+/// in-world test the other senders make would refuse it.
+void GameHandler::requestAccountDataTimes() {
+    if (!getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_READY_FOR_ACCOUNT_DATA_TIMES));
+    getSocket()->send(packet);
+    LOG_INFO("CMSG_READY_FOR_ACCOUNT_DATA_TIMES");
+}
+
+/// CMSG_REALM_SPLIT, which CharacterSelect_OnShow sends to ask whether this
+/// realm is being split.
+///
+/// The reply is handled already - SMSG_REALM_SPLIT acks straight back - but
+/// nothing asked first. 0xFFFFFFFF is the "just tell me" value the original
+/// client sends; a real split id is only echoed back in the ack.
+void GameHandler::requestRealmSplitInfo() {
+    if (!getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_REALM_SPLIT));
+    packet.writeUInt32(0xFFFFFFFFu);
+    getSocket()->send(packet);
+    LOG_INFO("CMSG_REALM_SPLIT: asking for the split state");
+}
+
 void GameHandler::runInterfaceCommand(const std::string& lua) const {
     if (!interfaceCommand_) {
         // A key reaching here before the interface is up does nothing, and does
